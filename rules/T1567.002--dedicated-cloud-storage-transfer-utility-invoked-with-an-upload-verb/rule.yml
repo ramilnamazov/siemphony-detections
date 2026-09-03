@@ -1,0 +1,55 @@
+title: Dedicated cloud-storage transfer utility invoked with an upload verb
+id: 6c6e72df-71a7-414e-b89a-489a57941ee8
+status: experimental
+description: |
+  AN1571's Windows leg would normally be matched at the dns_query source
+  (`powershell.exe`/`excel.exe` resolving dropbox.com, drive.google.com,
+  onedrive.live.com), but that is the exact shape of the rule already published
+  for the parent T1567 in this corpus, whose domain list already contains those
+  same three cloud-storage hosts alongside its file-sharing and paste-service
+  terms. Repeating it here on the same logsource and field would be the same
+  selection with a narrower list, not a distinct observable. This rule instead
+  matches process creation for a small set of dedicated cloud-storage transfer
+  binaries — rclone, azcopy and MEGAcmd — invoked with a subcommand that moves
+  data outward, which is a different logsource (process_creation, not
+  dns_query) and a different discriminator (the tool's own purpose, not a
+  resolved name). The binary list ports AN1572's Linux `AllowedTools` knob
+  (rclone, gsutil) to their Windows equivalents; gsutil and the AWS CLI are
+  deliberately left out because on Windows both commonly resolve to a script
+  wrapper rather than the named executable, which would make `Image` a dead
+  selector. Neither the destination account nor the data volume is
+  expressible in Sigma, so a hit is evidence a transfer tool ran with an
+  upload-shaped verb, not evidence of what left or where it went.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0570, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1567/002
+  - https://attack.mitre.org/detectionstrategies/DET0570
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.exfiltration
+  - attack.t1567.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith:
+      - '\rclone.exe'
+      - '\azcopy.exe'
+      - '\megacmd.exe'
+      - '\megasync.exe'
+  selection_verb:
+    CommandLine|contains:
+      - 'copy'
+      - 'sync'
+      - 'copyto'
+      - 'moveto'
+      - 'put'
+  condition: selection_tool and selection_verb
+falsepositives:
+  - "Sanctioned backup and disaster-recovery automation. rclone and azcopy are the standard IT-blessed tools for scheduled pushes to an approved OneDrive, SharePoint or Azure Blob target, and in an environment that runs them for that purpose this is the highest-volume match — MITRE's AllowedTools knob is where the approved scheduled-task account and destination remote get carved out rather than dropping the tool from the list."
+  - "Cloud migration projects, where IT staff run rclone or azcopy interactively for a period of days or weeks to move a file share into a SaaS tenant, producing sustained matches from an admin workstation."
+  - "Third-party backup products (Veeam, Duplicati and similar) that bundle rclone or azcopy internally and shell out to it as their transfer engine, so the process and command line look identical to a manual run."
+  - "End users syncing personal MEGA storage with MEGAcmd or MEGAsync, which is common shadow-IT usage in development and creative teams that predates and is unrelated to any incident."
+level: medium

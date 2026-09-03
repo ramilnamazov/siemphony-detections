@@ -1,0 +1,52 @@
+title: PowerShell console history cleared
+id: 8883623d-a23a-4ffc-9cc9-0f59c1d63fbf
+status: experimental
+description: |
+  AN0469 asks for `Clear-History` invocation or removal of the PSReadLine
+  `ConsoleHost_history.txt` file, and script block logging is the only feed in
+  the brief that carries both on one event, so the rule reads the text of the
+  script block itself. Two shapes are matched: the `Clear-History` cmdlet, and
+  any script block naming `ConsoleHost_history.txt`, which is how the
+  `Remove-Item`, `Clear-Content` and redirect-to-null variants all surface,
+  since the literal filename has to appear whichever verb is used.
+  Limits worth knowing before this is deployed: EventID 4104 requires *Turn on
+  PowerShell Script Block Logging*, which is off in a default install and in
+  the MS and CIS baselines, so zero rows here means blind rather than quiet;
+  `Clear-History` empties only the in-session buffer and never the PSReadLine
+  file, so the two selections are not equivalent; the idiomatic
+  `Remove-Item (Get-PSReadLineOption).HistorySavePath` never spells the
+  filename and is therefore not seen; and the same file deleted from Explorer,
+  from `cmd.exe` with `del`, or by any non-PowerShell process produces nothing
+  on this feed — the brief's Sysmon EventID 23 and Security 4663 legs would be
+  needed for that, and they carry different field names (`TargetFilename`,
+  `ObjectName`) that this rule is not written in. Pre-emptively suppressing the
+  history file with `Set-PSReadLineOption -HistorySaveStyle SaveNothing` is
+  deliberately out of scope: that observable belongs to T1690, Prevent Command
+  History Logging, whose own brief claims it, and a match on it under this
+  technique's tag would mislabel the event.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0165, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1070/003
+  - https://attack.mitre.org/detectionstrategies/DET0165
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1070.003
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_eventid:
+    EventID: 4104
+  selection_history:
+    ScriptBlockText|contains:
+      - 'Clear-History'
+      - 'ConsoleHost_history.txt'
+  condition: selection_eventid and selection_history
+falsepositives:
+  - "Shared administrator and jump-host PowerShell profiles that call Clear-History at the end of a session deliberately, so that credentials typed at an interactive prompt are not left in the in-session buffer. Where such a profile is deployed by policy it runs on every session on every host, which makes it the dominant match by a wide margin until the profile path is excluded, and it is what sets the level."
+  - "History-management and shell-customisation script modules and profile snippets that reference the PSReadLine history file by its literal name in order to trim, deduplicate, back up or grep it; importing the module or dot-sourcing the profile logs that source verbatim under 4104 without anything being cleared."
+  - "Workstation cleanup, re-imaging and offboarding scripts — debloat scripts, Sysprep and profile-hygiene tasks — that delete ConsoleHost_history.txt along with the rest of a departing user's roaming profile."
+  - "Courseware, atomic-test harnesses and detection-engineering validation runs, where the string appears in a script block that is being demonstrated or self-tested rather than used to hide an intrusion."
+level: low

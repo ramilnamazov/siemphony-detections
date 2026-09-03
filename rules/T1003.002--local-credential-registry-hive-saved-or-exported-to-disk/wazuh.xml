@@ -1,0 +1,23 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)( save | export )</field>
+    <field name="CommandLine" type="pcre2">(?i)(hklm\\sam|hklm\\system|hklm\\security|hklm:\\sam|hklm:\\system|hklm:\\security|\\registry\\machine\\sam|\\registry\\machine\\security)</field>
+    <description>Local credential registry hive saved or exported to disk (1/2)</description>
+    <mitre>
+      <id>T1003.002</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(\\config\\sam|\\config\\system|\\config\\security|/config/sam|/config/system|/config/security)</field>
+    <description>Local credential registry hive saved or exported to disk (2/2)</description>
+    <mitre>
+      <id>T1003.002</id>
+    </mitre>
+  </rule>
+</group>

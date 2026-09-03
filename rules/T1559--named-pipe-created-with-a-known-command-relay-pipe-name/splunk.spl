@@ -1,0 +1,1 @@
+index=* ((PipeName="\\postex_*" OR PipeName="\\status_*" OR PipeName="\\PSEXESVC*") OR (PipeName="\\msagent_*" OR PipeName="\\MSSE-*"))

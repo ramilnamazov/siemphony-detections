@@ -1,0 +1,49 @@
+title: PowerShell launched with a hidden window style
+id: 445b1c57-564c-427f-a65d-fbff52fad79e
+status: experimental
+description: |
+  This strategy carries three per-platform analytics — AN0360 (Windows),
+  AN0361 (Linux), AN0362 (macOS) — and only the Windows one names a literal,
+  single-event observable: MITRE's own example in the technique description,
+  powershell.exe -WindowStyle Hidden. AN0361 describes X11/Wayland calls and
+  DISPLAY-variable manipulation that leave no trace in the auditd sources the
+  brief lists (EXECVE/SYSCALL argv carries no windowing API), and AN0362 is a
+  plist-modification-plus-correlation pattern spanning multiple events. Both
+  would need invented fields to reach with a single Sigma selection, so only
+  the Windows leg is built here. This rule matches PowerShell or pwsh invoked
+  with -WindowStyle (or the -Win abbreviation PowerShell itself accepts) set
+  to Hidden, using windash so a hyphen- or slash-prefixed switch is caught the
+  same way. MITRE's ParentProcessCorrelation knob — narrowing to unexpected
+  parent processes — is named in the analytic but not applied here, because
+  doing so would mean inventing a parent-process allowlist with no basis in
+  the brief; as written the rule is broader than the technique and flags
+  every hidden PowerShell launch, malicious or administrative alike.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0128, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/003
+  - https://attack.mitre.org/detectionstrategies/DET0128
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1564.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_hidden:
+    CommandLine|contains|windash:
+      - '-windowstyle hidden'
+      - '-windowstyle h'
+      - '-win hidden'
+      - '-win h'
+  condition: selection_tool and selection_hidden
+falsepositives:
+  - "RMM, patch-management and software-deployment tooling — SCCM, Intune, PDQ and most commercial RMM agents — that wraps its payload scripts in powershell.exe -WindowStyle Hidden by convention so an unattended job never flashes a console at a logged-in user; this is an industry-standard pattern and by far the loudest source of matches here."
+  - "Logon and scheduled-task scripts pushed by Group Policy that call PowerShell with a hidden window so a maintenance task does not interrupt the desktop, which is exactly the legitimate administrative use the technique description itself names."
+  - "Developers and power users who default their own automation and build scripts to -WindowStyle Hidden out of habit, independent of any deployment tool."
+level: low

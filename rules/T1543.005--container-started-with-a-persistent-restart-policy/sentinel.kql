@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "/docker" or FolderPath endswith "/podman" or FolderPath endswith "/nerdctl") and (ProcessCommandLine contains "--restart=always" or ProcessCommandLine contains "--restart always" or ProcessCommandLine contains "--restart=unless-stopped" or ProcessCommandLine contains "--restart unless-stopped"))

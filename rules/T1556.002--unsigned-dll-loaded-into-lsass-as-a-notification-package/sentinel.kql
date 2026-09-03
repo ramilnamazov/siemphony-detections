@@ -1,0 +1,2 @@
+DeviceImageLoadEvents
+| where (InitiatingProcessFolderPath endswith "\\lsass.exe" and not (SignatureStatus =~ "Valid"))

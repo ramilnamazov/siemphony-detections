@@ -1,0 +1,70 @@
+title: PowerShell enables reversible encryption for an AD account
+id: 47abc99a-264e-49c9-ac17-187aabc2a1fd
+status: experimental
+description: |
+  AN1621 bundles a Group Policy edit, "suspicious PowerShell commands
+  modifying AD user properties," and the resulting account-property change
+  into one multi-event correlation lib/sigma cannot express. This rule takes
+  the middle piece on its own: PowerShell Script Block Logging (EventID 4104)
+  capturing a call to `Set-ADUser` — the ActiveDirectory module's documented
+  cmdlet for the per-account `AllowReversiblePasswordEncryption` property —
+  together with the literal property name and an explicit `$true` value. That
+  property name is this rule's own choice, not MITRE's `SuspiciousCmdletList`
+  populated with a value, but it is the only PowerShell-native path to the
+  exact property this technique describes: the AD attribute backing
+  `AllowReversiblePasswordEncryption` is a UserAccountControl bit
+  (ENCRYPTED_TEXT_PWD_ALLOWED), and `Set-ADUser` is the documented way to set
+  it without hand-editing UAC bits directly. Requiring `$true` in the same
+  block (rather than the cmdlet and property name alone) is a deliberate
+  narrowing beyond what MITRE's knob asks for: it excludes a script that sets
+  the property to `$false` — reverting or auditing the setting, not enabling
+  it — at the cost of also missing `-AllowReversiblePasswordEncryption:$True`
+  written with a different value token a future script might construct
+  dynamically (a variable holding the boolean rather than the literal).
+  MITRE's other two sources are not attempted. Security 4739 ("Domain Policy
+  was changed") is the closest event for the domain-wide GPO form of this
+  setting, but the specific flag this technique cares about
+  (DOMAIN_PASSWORD_STORE_CLEARTEXT) is one bit inside the combined
+  `PasswordProperties` bitmask on that event, and lib/sigma's allowed
+  modifiers — contains, startswith, endswith, re, all, windash — have no
+  bitwise-AND equivalent, so no honest selector on that field can isolate
+  this flag from the other nine unrelated password/lockout properties the
+  same event reports; matching bare `EventID: 4739` would fire on any domain
+  password-policy edit at all, which is not what this analytic asks for.
+  Sysmon EventID 1 process_creation is not attempted either: a GUI edit
+  through Group Policy Management or Active Directory Users and Computers
+  leaves no command line carrying the property name at all, so the only
+  reliable command-line-visible expression of this technique is the
+  PowerShell cmdlet already covered here.
+  Prerequisite: Script Block Logging is off in a default install and in the
+  MS/CIS baselines; without it the PowerShell channel carries no
+  ScriptBlockText and this rule returns nothing.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0589, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1556/005
+  - https://attack.mitre.org/detectionstrategies/DET0589
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.credential-access
+  - attack.t1556.005
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_event:
+    EventID: 4104
+  selection_cmdlet:
+    ScriptBlockText|contains: 'Set-ADUser'
+  selection_property:
+    ScriptBlockText|contains: 'AllowReversiblePasswordEncryption'
+  selection_enable:
+    ScriptBlockText|contains: '$true'
+  condition: selection_event and selection_cmdlet and selection_property and selection_enable
+falsepositives:
+  - "Legacy application onboarding: administrators deliberately enabling reversible encryption for a specific service account because a RADIUS/CHAP, older Mac OS X client, or digest-authentication integration requires it, exactly the supported legacy-compatibility scenario Microsoft's own documentation describes for this property."
+  - "Identity-governance and account-provisioning automation (an HR-driven joiner/mover/leaver pipeline, an IAM connector script) that sets a wide range of ADUser boolean properties in a single templated script, where a generic property-setting loop or example script includes AllowReversiblePasswordEncryption among many other flags it was never intended to actually flip to true in production."
+  - "Security-assessment and compliance tooling (a PCI/HIPAA account-hardening audit script, a red-team or purple-team engagement script) that intentionally toggles the property to $true and back to $false to verify detective controls or produce evidence of the setting's effect, rather than to establish persistent access."
+level: medium

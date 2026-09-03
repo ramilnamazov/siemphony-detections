@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.command_line) LIKE "*/var/mail/*" OR TO_LOWER(process.command_line) LIKE "*/var/spool/mail/*" OR TO_LOWER(process.command_line) LIKE "*/maildir/*") AND NOT ((TO_LOWER(process.executable) LIKE "*/procmail" OR TO_LOWER(process.executable) LIKE "*/dovecot" OR TO_LOWER(process.executable) LIKE "*/sendmail" OR TO_LOWER(process.executable) LIKE "*/postfix")))

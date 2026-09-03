@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_access,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetImage" type="pcre2">(?i)(\\explorer\.exe$|\\winlogon\.exe$|\\services\.exe$|\\svchost\.exe$|\\dwm\.exe$)</field>
+    <field name="GrantedAccess" type="pcre2">(?i)(^0x1FFFFF$|^0x1F3FFF$|^0x1F2FFF$|^0x1F1FFF$|^0x1F0FFF$|^0x147A$|^0x143A$|^0x47A$|^0x43A$|^0x42A$|^0x2A$)</field>
+    <description>Cross-process write and thread rights on a system process</description>
+    <mitre>
+      <id>T1055.001</id>
+    </mitre>
+  </rule>
+</group>

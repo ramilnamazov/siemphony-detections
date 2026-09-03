@@ -1,0 +1,38 @@
+title: Wireless network association event recorded on a Windows host
+id: a39f5a1b-6602-4179-8a67-d0dd2293581a
+status: experimental
+description: |
+  Matches Microsoft-Windows-WLAN-AutoConfig EventIDs 8001-8003, AN1476's
+  association/authentication-event bucket. MITRE's actual discriminators — an
+  unexpected SSID, a location outside the geofence, or a device that should
+  have no Wi-Fi at all — live in the KnownSSIDList and GeoLocationContext
+  knobs, site-specific baselines with no field in this channel to hold them,
+  so the rule can only confirm an association attempt happened. It is written
+  anyway because dual-homed bridging, the mechanism MITRE names for hopping
+  onto a target's Wi-Fi from a wired host, shows up here as a wireless
+  association on a machine not expected to have one — a fact only the
+  deploying analyst's host inventory can supply.
+  UNVERIFIED — derived from MITRE ATT&CK DET0536 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1669
+  - https://attack.mitre.org/detectionstrategies/DET0536
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.t1669
+logsource:
+  product: windows
+  service: wlan-autoconfig
+detection:
+  selection:
+    EventID:
+      - 8001
+      - 8002
+      - 8003
+  condition: selection
+falsepositives:
+  - "Every laptop's normal wireless behaviour — connecting at the office, roaming to a conference room, a hotel or a home network, or reconnecting after sleep or dock-undock — is this event's dominant volume by a wide margin on any estate where Wi-Fi-capable endpoints are the norm."
+  - "Guest and BYOD onboarding flows that intentionally associate a new device to a guest SSID, generating the same event with no adversarial intent."
+  - "Driver and adapter resets, VPN client reconnects, or Windows' automatic reassociation after a brief signal loss, each of which can produce a fresh 8001/8003 pair without a new physical location."
+level: informational

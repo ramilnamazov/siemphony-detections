@@ -1,0 +1,26 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\jam\.exe$|\\JamPlus\.exe$)</field>
+    <field name="Image" type="pcre2">(?i)\\cmd\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(powershell|pwsh|wscript|cscript|mshta|rundll32|regsvr32|certutil|curl|bitsadmin)</field>
+    <description>JamPlus-spawned shell runs a script interpreter or downloader (1/2)</description>
+    <mitre>
+      <id>T1127.003</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentCommandLine" type="pcre2">(?i)\.jam</field>
+    <field name="Image" type="pcre2">(?i)\\cmd\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(powershell|pwsh|wscript|cscript|mshta|rundll32|regsvr32|certutil|curl|bitsadmin)</field>
+    <description>JamPlus-spawned shell runs a script interpreter or downloader (2/2)</description>
+    <mitre>
+      <id>T1127.003</id>
+    </mitre>
+  </rule>
+</group>

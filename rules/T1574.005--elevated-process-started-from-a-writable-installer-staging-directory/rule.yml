@@ -1,0 +1,58 @@
+title: Elevated process started from a writable installer staging directory
+id: 64f96cc4-1d2f-47fc-8238-e1daf785395c
+status: experimental
+description: |
+  Matches Sysmon Process Creation where a process running at High or System
+  integrity was started out of one of the directories a self-extracting
+  installer unpacks into — the per-user %TEMP% tree, or C:\Windows\Temp. That is
+  the payoff step of this technique: a binary sitting in a directory whose
+  permissions let any standard user overwrite it is then executed by the
+  installer under the installer's own elevated token. The two path values are
+  MITRE's MonitoredDirectories knob. MITRE names %TEMP% there; the second value,
+  C:\Windows\Temp, is added by this rule because that is where %TEMP% resolves
+  for an installer running as SYSTEM, and the technique text names neither it nor
+  any other absolute path. The knob's third suggested value,
+  C:\ProgramData, is deliberately left out, because the vendor updaters that
+  live there and run as SYSTEM would swamp everything else the rule returns.
+  IntegrityLevel is the only field on this event that separates the interesting
+  case from a user running something ordinary out of their own temp directory,
+  so it carries the whole discriminating weight of the rule. Three limits are
+  structural. Nothing on a process-creation event distinguishes a planted binary
+  from the installer's own legitimate payload, so this is a hunting filter, not
+  an alert. The file-overwrite half of AN0108 arrives as a separate Sysmon File
+  Creation event, and joining it to the execution inside MITRE's TimeWindow knob
+  is a correlation lib/sigma has no way to express. And the DLL variant — where
+  the elevated installer loads a replaced library rather than executing a
+  replaced EXE — is invisible from here and would need the Module Load source
+  instead. Requires Sysmon with Process Creation enabled and IntegrityLevel
+  carried through the field mapping; if that field is dropped in normalisation
+  the selection silently never matches, which reads as quiet when it means
+  blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0038, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/005
+  - https://attack.mitre.org/detectionstrategies/DET0038
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.005
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    IntegrityLevel:
+      - 'High'
+      - 'System'
+    Image|contains:
+      - '\AppData\Local\Temp\'
+      - ':\Windows\Temp\'
+  condition: selection
+falsepositives:
+  - "Ordinary software installation. Self-extracting installers built with NSIS, Inno Setup, InstallShield or 7-Zip SFX unpack into a randomly named %TEMP% subdirectory and execute the unpacked setup binary through the elevation prompt, which is precisely the shape this rule matches. On any estate where users install their own software this is the highest-volume match by a wide margin, and it is why the level is low rather than medium."
+  - "Software deployment and patching agents running as SYSTEM. ConfigMgr, Intune, WinGet and Chocolatey stage vendor bundles into C:\\Windows\\Temp and launch them there on every deployment, so each patch window produces a burst of System-integrity matches across the whole fleet."
+  - "Windows Installer custom actions. msiexec extracts embedded executables into a temporary directory and runs them inside the elevated install session, so any MSI carrying a custom action matches once per install and once per repair."
+  - "Vendor firmware, driver and diagnostic utilities — Dell Command Update, HP Image Assistant, Lenovo System Update and similar — which unpack their payload into Windows\\Temp and run it as SYSTEM on a scheduled cadence."
+level: low

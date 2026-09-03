@@ -1,0 +1,75 @@
+title: System DLL loaded from outside the Windows system directories
+id: bce3d878-923d-4cf5-b7fe-1a7c7fe39bd6
+status: experimental
+description: |
+  Matches Sysmon Module Load where the loaded module carries the file name of
+  a library that Windows ships only under its own system directories, yet the
+  path it was loaded from is not System32, SysWOW64 or WinSxS. That name-plus-
+  location mismatch is the shared shape of the three abuses in this technique
+  — a planted copy next to a trusted executable (side-loading), a copy earlier
+  in the search order than the real one (search-order hijacking), and a file
+  created where the loader looked and found nothing (phantom hijacking). The
+  DLL names are authored for this rule, chosen as libraries Windows itself
+  installs only under its system directories — several of them (version.dll,
+  dbgcore.dll) are nonetheless carried privately by legitimate applications,
+  which is the first false positive below. MITRE's AllowedDllPaths and
+  ProcessAllowList knobs are the intended place for an estate to record its own
+  exceptions, and the path filter here is the minimum viable version of the
+  first. That filter is anchored on the drive-root colon (':\Windows\System32\')
+  rather than on the bare directory name, because a bare '\Windows\System32\'
+  substring is cleared by any lookalike directory an adversary can create in a
+  writable location, and the filter is the only discriminator this rule has. This is deliberately
+  not the same test as the T1129 rule already in this corpus, which keys on
+  temp, roaming and UNC paths together with a non-Valid signature: a DLL
+  planted inside a properly signed application folder in Program Files passes
+  that test and fails this one. What this rule cannot see is a hijack that
+  replaces the real file in place under System32, since the path filter clears
+  it, and it says nothing about whether the module was malicious — only about
+  where it came from. Requires Sysmon with Module Load enabled; the event is
+  absent from a default Windows install and is among the first trimmed in
+  shipped Sysmon configurations for volume, so an empty result means blind
+  rather than clean.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0201, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/001
+  - https://attack.mitre.org/detectionstrategies/DET0201
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.001
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection_system_dll:
+    ImageLoaded|endswith:
+      - '\version.dll'
+      - '\wtsapi32.dll'
+      - '\dbgcore.dll'
+      - '\secur32.dll'
+      - '\sspicli.dll'
+      - '\userenv.dll'
+      - '\profapi.dll'
+      - '\cryptsp.dll'
+      - '\dwmapi.dll'
+      - '\uxtheme.dll'
+      - '\propsys.dll'
+      - '\edputil.dll'
+      - '\textinputframework.dll'
+      - '\winhttp.dll'
+      - '\wininet.dll'
+      - '\apphelp.dll'
+  filter_system_paths:
+    ImageLoaded|contains:
+      - ':\Windows\System32\'
+      - ':\Windows\SysWOW64\'
+      - ':\Windows\WinSxS\'
+  condition: selection_system_dll and not filter_system_paths
+falsepositives:
+  - "Applications that ship a private copy of a Windows library next to their own executable under Program Files, which crash-reporting and installer frameworks in particular do with version.dll and dbgcore.dll. The load event looks exactly like a side-load at this level of detail, and on a managed fleet a handful of such products account for most of what this rule returns."
+  - "Self-extracting installers and .NET single-file or self-contained applications, which unpack their whole dependency set into %TEMP% or %LOCALAPPDATA% and load it from there on every launch, then disappear."
+  - "Portable run-from-a-folder tooling — support toolkits, forensic suites and developer utilities executed from a user profile, a removable volume or a file share — that carries its own copies of Windows libraries so it works on older builds."
+  - "Software mid-update, where the new payload runs from a staging or rollback directory for a few seconds before the final files are placed under System32 or serviced into WinSxS."
+level: medium

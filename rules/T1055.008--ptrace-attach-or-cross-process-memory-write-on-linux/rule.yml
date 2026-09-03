@@ -1,0 +1,71 @@
+title: Ptrace attach or cross-process memory write on Linux
+id: a0f849a7-c77f-4da5-a26b-0e7e3a06afa3
+status: experimental
+description: |
+  Matches the two syscalls that carry ptrace-based process injection's actual
+  memory-write primitives: `ptrace`, which covers both the `PTRACE_ATTACH`/
+  `PTRACE_SEIZE` step and the `PTRACE_POKETEXT`/`PTRACE_POKEDATA`/`PTRACE_SETREGS`
+  calls AN0579 names, and `process_vm_writev`, the newer cross-process memory
+  API that debuggers and injection tooling increasingly use instead of
+  poke-based ptrace because it moves more data per call. `mmap`, the third
+  syscall the brief's logsource note lists, is deliberately left out: every
+  process calls it continually as part of ordinary memory allocation and
+  dynamic linking, so gating on it would make the selection effectively
+  always-true rather than a signal.
+  What this cannot express: AN0579's `TargetProcessNameFilter`,
+  `UserContextMismatch` and `ProcessRelationshipConstraint` knobs all require
+  knowing which process was ptraced and comparing its identity, UID or parent
+  relationship to the tracer's — that identity lives in the syscall's `a1`
+  argument (the target PID) and would need a join against a process table to
+  resolve, which a single auditd SYSCALL record cannot supply. The specific
+  ptrace request (`PTRACE_POKEDATA` vs. read-only `PTRACE_PEEKTEXT` vs. plain
+  `PTRACE_ATTACH`) sits in `a0` as a raw integer that this rule does not decode,
+  so a benign `strace -p` attach and an actual poke-based injection produce the
+  same match. MITRE's `TimeWindowBetweenPtraceAndMemoryWrite` knob is a
+  two-event correlation lib/sigma has no timeframe construct for. The brief's
+  other two logsources are not attempted: `linux:osquery` has no standardised
+  Sigma field vocabulary in this corpus (the same reason `macos:unifiedlog` was
+  skipped for T1027.015's AN0784 — inventing field names would render in four
+  backends and match nothing), and the `process_creation` execve logsource
+  would only see the debugger binary being launched, which is a strictly
+  weaker signal than the syscalls it goes on to make.
+  Prerequisite: neither syscall is audited by default on any major
+  distribution. This rule returns zero rows — meaning blind, not quiet — until
+  a rule such as `-a always,exit -F arch=b64 -S ptrace -S process_vm_writev -k
+  ptrace_inject` is loaded.
+  Second prerequisite specific to the `syscall` field: raw, uninterpreted
+  auditd output records `syscall=` as the architecture-dependent kernel
+  syscall number (`ptrace` is 101 and `process_vm_writev` is 311 on x86_64;
+  both differ on arm64), not the name string this selection matches against.
+  Name resolution is not universal — Elastic's Auditbeat resolves it by
+  default, but a plain-text `audit.log` tail, `ausearch` without `-i`, and
+  Wazuh's default auditd field extraction all pass the number through
+  unresolved, so on those collectors this selection never fires until an
+  interpreting layer (`ausearch -i`, `laurel`, or an equivalent enrichment
+  pipeline) sits in front of it.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0203, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1055/008
+  - https://attack.mitre.org/detectionstrategies/DET0203
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1055.008
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_ptrace:
+    type: 'SYSCALL'
+    syscall: 'ptrace'
+  selection_memwrite:
+    type: 'SYSCALL'
+    syscall: 'process_vm_writev'
+  condition: 1 of selection*
+falsepositives:
+  - "Interactive debugging and profiling on development or build hosts: gdb, strace, ltrace and valgrind all attach via ptrace, and modern gdb uses process_vm_writev to poke memory, so a developer debugging a crash produces the same syscalls as the technique."
+  - "Sandboxed and gVisor-style container runtimes (runsc) that intercept every syscall of every process they run via ptrace, meaning one or more matches per contained process on any host using that runtime, not just at injection time."
+  - "Crash and coredump handling: systemd-coredump and similar collectors attach via ptrace to a crashing process to capture its state before it exits, which fires on every application crash on the host."
+level: low

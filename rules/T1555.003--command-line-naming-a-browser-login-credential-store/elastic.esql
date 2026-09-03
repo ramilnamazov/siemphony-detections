@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*\\\\login data*" OR TO_LOWER(process.command_line) LIKE "*logins.json*" OR TO_LOWER(process.command_line) LIKE "*key4.db*")

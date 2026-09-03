@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*/etc/systemd/system/*" OR TO_LOWER(name) LIKE "*/run/systemd/system/*" OR TO_LOWER(name) LIKE "*/lib/systemd/system/*")) OR (TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*/etc/systemd/user/*" OR TO_LOWER(name) LIKE "*/run/systemd/user/*" OR TO_LOWER(name) LIKE "*/lib/systemd/user/*" OR TO_LOWER(name) LIKE "*/.config/systemd/user/*" OR TO_LOWER(name) LIKE "*/.local/share/systemd/user/*")) OR (TO_LOWER(type) == "path" AND TO_LOWER(name) LIKE "*.service") OR TO_LOWER(key) LIKE "*systemd*")

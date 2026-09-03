@@ -1,0 +1,87 @@
+title: Block device accessed or a disk-wiping utility run on Linux
+id: 4d51e001-3cf9-44f1-8ecd-6a5db6bdecdb
+status: experimental
+description: |
+  Covers both halves of AN0883 on one log source: an auditd PATH record naming a
+  raw block device under /dev, which is what a process overwriting disk content
+  through the storage interface has to open, and an auditd SYSCALL record whose
+  `exe` is one of the utilities that overwrite a device in place. The two legs
+  are ORed rather than combined because auditd splits one execution across
+  records — the tool is on the SYSCALL record and its arguments are on a
+  separate EXECVE record — so `dd if=/dev/urandom of=/dev/sda` cannot be matched
+  as a single event, and each leg is therefore individually loose: the path leg
+  matches a read as readily as a write, and the tool leg matches `dd` whatever
+  it was pointed at. They do catch different things, which is the reason for
+  keeping both: the path leg sees a wipe written directly through a language
+  runtime, where `exe` is python3 or perl and no wipe utility ever executes,
+  while the tool leg still fires when the device path was given relatively —
+  auditd records `name=` exactly as it was passed to the syscall, so
+  `cd /dev && dd of=sda` logs `name="sda"` and no prefix here matches it. The
+  device list is MITRE's `TargetDevices` knob, populated here with the common
+  kernel block-device prefixes rather than taken from MITRE, and it is a
+  prefix match, so partitions such as /dev/sda1 are included. Because auditd
+  records the path as it was passed rather than the resolved target, the
+  udev symlink trees /dev/mapper/ and /dev/disk/by-id, by-uuid and by-path are
+  listed alongside the kernel names — an LVM volume or an encrypted mapping is
+  normally addressed by one of those and never by a /dev/dm- name. MITRE's
+  `EntropyThreshold` knob has no expression here at all: auditd records the
+  syscall, never the bytes written, so a pseudorandom overwrite and a zero-fill
+  are the same event. Two arms of DET0316 are not attempted. AN0882 (Windows)
+  names Security 4673 and Sysmon driver_load, and neither carries a field that
+  can hold a `\\.\PhysicalDrive` path or a sector offset, so its stated
+  observable cannot be written against the sources it names; AN0884 (macOS)
+  offers unifiedlog only, which has no standardised Sigma field names. Tools
+  that destroy the partition table rather than the content — wipefs, sgdisk —
+  are deliberately absent, as that is T1561.002. A wipe run from a busybox or
+  toybox image is also missed, because `exe` is then /bin/busybox. Prerequisite:
+  no distribution audits any of this by default, so the rule returns zero rows
+  until both an execve rule such as
+  `-a always,exit -F arch=b64 -S execve -k exec` and device watches such as
+  `-w /dev/sda -p w -k diskwipe` are loaded — and zero rows reads as quiet when
+  it actually means blind. The watch permission also sets the noise floor: `w`
+  records writes only, while including `r` makes every blkid, lsblk and smartctl
+  scan of the disk match.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0316, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1561/001
+  - https://attack.mitre.org/detectionstrategies/DET0316
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1561.001
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_block_device:
+    type: 'PATH'
+    name|startswith:
+      - '/dev/sd'
+      - '/dev/nvme'
+      - '/dev/vd'
+      - '/dev/xvd'
+      - '/dev/hd'
+      - '/dev/mmcblk'
+      - '/dev/md'
+      - '/dev/dm-'
+      - '/dev/mapper/'
+      - '/dev/disk/'
+  selection_wipe_tools:
+    type: 'SYSCALL'
+    exe|endswith:
+      - '/dd'
+      - '/shred'
+      - '/wipe'
+      - '/nwipe'
+      - '/scrub'
+      - '/blkdiscard'
+      - '/badblocks'
+  condition: 1 of selection*
+falsepositives:
+  - "Ordinary administrative use of dd, which is a general-purpose copy tool and is almost never pointed at a disk destructively. Creating a swap or test file from /dev/zero, writing an installer image to a USB stick, taking or restoring a partition image, and measuring throughput in a benchmark all execute the same binary, and on any host where someone works at the shell this is the dominant source of hits — which is why this rule is low rather than medium."
+  - "Host provisioning and storage maintenance opening the device for write with no wipe intended: installer and kickstart partitioning, cloud-init growing a root partition, LVM and mdadm operations, mkfs creating a filesystem, and `cryptsetup luksFormat`, which writes over the start of a device as part of setting up encryption."
+  - "Backup, imaging and forensic agents that read whole block devices on a schedule — Veeam and Bacula agents, Clonezilla, dump, and snapshot jobs — every one of which produces matching PATH records if the device watch was loaded with the `r` permission."
+  - "Sanctioned decommissioning and media-sanitisation workflows, where shred, nwipe, scrub or blkdiscard is run deliberately against a disk being retired or a lab machine being rebuilt; the command is byte-for-byte what a destructive attack looks like and is separated from it only by change record and timing."
+  - "Storage diagnostics: badblocks in its destructive write-mode test, and vendor health scripts that call it, run legitimately when an administrator is qualifying a suspect disk."
+level: low

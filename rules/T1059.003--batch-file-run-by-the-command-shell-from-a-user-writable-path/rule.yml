@@ -1,0 +1,65 @@
+title: Batch file run by the command shell from a user-writable path
+id: 8ce47038-ef50-40e1-ab92-98e0b623982d
+status: experimental
+description: |
+  AN0578 asks for interactive or scripted abuse of cmd.exe and batch files, but
+  the bare observable — the command shell started — happens thousands of times a
+  day on a healthy host, so this rule keeps MITRE's ScriptStoragePath knob and
+  drops the rest: cmd.exe running a .bat or .cmd whose path sits in a staging
+  directory any unprivileged account can write to, populated here with the
+  per-user and Windows temp directories, roaming AppData, the public profile,
+  Downloads, %ProgramData% and the recycle bin. The ParentProcessName knob
+  MITRE names alongside it — cmd.exe spawned by a document viewer or browser —
+  is deliberately not written, because the corpus already carries that lineage
+  under T1204 and T1203 and a third copy would add no coverage; the
+  CommandLinePattern knob is left out because chaining operators and `/c` are as
+  common in vendor install scripts as in an implant. The brief offers Security
+  EventID 4688 for this analytic but maps it onto the Sysmon-shaped
+  `process_creation` category, and the rule is written in that vocabulary
+  (`Image`, `CommandLine`): a 4688 feed needs `NewProcessName` mapped onto
+  `Image` and `ProcessCommandLine` onto `CommandLine` before it can match at
+  all, and 4688 itself requires *Audit Process Creation* plus the separate
+  *Include command line in process creation events* policy, neither of which is
+  on in a default install or in the MS/CIS baselines. AN0578's second log
+  source, the Sysmon EventID 7 module load, is not used here. Two limits of the
+  shape: the script name and the staging directory are independent substrings of
+  the same `CommandLine`, so the rule does not actually assert that the batch
+  file is the thing sitting in the writable path, and a batch file invoked by
+  bare name from a working directory already set to that path puts no directory
+  on the command line at all and is missed — on a Sysmon feed `CurrentDirectory`
+  would close that gap, on a 4688 feed nothing does.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0202, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1059/003
+  - https://attack.mitre.org/detectionstrategies/DET0202
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1059.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_shell:
+    Image|endswith: '\cmd.exe'
+  selection_script:
+    CommandLine|contains:
+      - '.bat'
+      - '.cmd'
+  selection_staging_path:
+    CommandLine|contains:
+      - '\AppData\Local\Temp\'
+      - '\AppData\Roaming\'
+      - '\Windows\Temp\'
+      - '\Users\Public\'
+      - '\Downloads\'
+      - '\ProgramData\'
+      - '\$Recycle.Bin\'
+  condition: selection_shell and selection_script and selection_staging_path
+falsepositives:
+  - "Installers, updaters and self-extracting archives that unpack a .bat or .cmd wrapper into the user or Windows temp directory and hand it to cmd.exe — MSI custom actions and vendor bootstrappers do this by design, and it is likely the largest single source of matches on a typical fleet."
+  - "Endpoint-management and RMM platforms that stage remediation, inventory or detection scripts under %ProgramData% or the Windows temp directory before invoking them, which is the normal deployment path for configuration-management agents."
+  - "Logon, imaging and build automation that keeps its batch files in the public profile so every account on a shared workstation, lab machine or kiosk can reach them."
+  - "IT staff and developers running a downloaded setup or build script straight out of the Downloads folder, which produces the same shell-plus-user-writable-path event as a staged payload."
+level: low

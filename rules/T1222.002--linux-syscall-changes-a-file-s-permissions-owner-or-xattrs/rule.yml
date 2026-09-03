@@ -1,0 +1,75 @@
+title: Linux syscall changes a file's permissions, owner, or xattrs
+id: 502ef5a9-8430-494d-9e05-b0458b22048e
+status: experimental
+description: |
+  AN0998's first log source lists the exact syscall set that changes a Unix
+  file's discretionary access control — chmod/fchmod/fchmodat, chown/fchown/
+  fchownat/lchown, and the setxattr/removexattr family that carries POSIX ACLs
+  and extended attributes — and this rule reproduces that list verbatim as an
+  auditd SYSCALL selection. It is deliberately the only log source implemented.
+  AN0998's second source (PROCTITLE "contains chmod, chown, chgrp, setfacl...
+  with suspicious parameters") and third source (osquery process execution)
+  have no established Sigma field vocabulary anywhere in this corpus, and
+  inventing one — the decoded command-line field a PROCTITLE normalisation
+  pipeline exposes, or an osquery process-events column name — would be
+  guessing at exactly the kind of field AUTHORING.md says not to guess. AN0999,
+  the macOS arm (unifiedlog process execution and OpenBSM BSM audit events),
+  is skipped for the identical reason: neither logsource has a field vocabulary
+  this corpus has ever verified, the same gap T1053.003 already declined its
+  own macOS arm for. That leaves a single, coarse selector: the syscall alone,
+  with no argument, path or actor narrowing. This is a real limitation, not
+  cosmetic — the syscalls fire for both a CLI invocation (chmod 777 file) and a
+  program calling chmod(2)/chown(2) directly from library code (installers,
+  archive extractors, language runtimes), auditd's `a1`/`a2` syscall-argument
+  registers are raw and not reliably decodable into a permission mode without
+  backend-specific parsing this rule does not attempt, and the `name` (target
+  path) MITRE's CriticalSystemPaths knob wants lives only on the separate PATH
+  record auditd emits for the same event, which Sigma cannot join to this
+  SYSCALL selection — the same PATH/SYSCALL split T1053.003 already
+  documented. So this rule answers only "did this syscall happen", not "was it
+  suspicious", "was it on a sensitive path", or "was it followed by anything" —
+  the correlation and threshold knobs (TemporalCorrelationWindow,
+  RecursiveOperationThreshold, ACLComplexityBaseline, FileAccessFrequencyBaseline)
+  are all cross-event or statistical and lib/sigma has no aggregation or
+  timeframe to build any of them. Prerequisite: this needs audit rules actually
+  watching these syscalls (e.g. `-a always,exit -F arch=b64 -S chmod,fchmod,
+  fchmodat,chown,fchown,fchownat,lchown -k perm_mod`), which is not present in
+  any Linux distribution's default auditd.rules — without it the rule returns
+  zero rows and that reads as quiet when it means blind.
+  UNVERIFIED — derived from MITRE ATT&CK DET0351 (AN0998) and never executed
+  against logs.
+references:
+  - https://attack.mitre.org/techniques/T1222/002
+  - https://attack.mitre.org/detectionstrategies/DET0351
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1222.002
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_permission_syscalls:
+    type: 'SYSCALL'
+    syscall:
+      - 'chmod'
+      - 'fchmod'
+      - 'fchmodat'
+      - 'chown'
+      - 'fchown'
+      - 'fchownat'
+      - 'lchown'
+      - 'setxattr'
+      - 'lsetxattr'
+      - 'fsetxattr'
+      - 'removexattr'
+      - 'lremovexattr'
+      - 'fremovexattr'
+  condition: selection_permission_syscalls
+falsepositives:
+  - "Package manager activity. dpkg/apt and rpm/dnf/yum postinst and postrm scripts routinely chmod and chown the files they just installed, on every install, upgrade and removal, under root — on a patched estate this is the highest-volume match by a wide margin and is why this rule is low rather than medium."
+  - "Configuration management convergence. Ansible's file/copy/template modules, Puppet file resources with an owner/group/mode attribute, and Chef/Salt equivalents call chmod/chown on every managed path on every run, whether or not the value actually changed, which on a half-hourly schedule means a match per managed file per run."
+  - "Archive extraction and build tooling preserving permissions: tar -p, cp -p, rsync -a and install(1) all call chmod/chown as part of normal file-copy semantics, so any deploy, backup-restore or CI build step that unpacks an archive generates a burst of matches."
+  - "Container image builds. Dockerfile RUN/COPY --chown steps and entrypoint scripts that fix ownership on a mounted volume at container start call these same syscalls on every build and every container start, under whatever UID the build runs as."
+level: low

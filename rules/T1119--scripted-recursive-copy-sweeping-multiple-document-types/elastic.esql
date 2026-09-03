@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((((TO_LOWER(process.executable) LIKE "*\\\\powershell.exe" OR TO_LOWER(process.executable) LIKE "*\\\\pwsh.exe") AND TO_LOWER(process.command_line) LIKE "*copy-item*") AND TO_LOWER(process.command_line) LIKE "*recurse*") AND (TO_LOWER(process.command_line) LIKE "*.doc*" OR TO_LOWER(process.command_line) LIKE "*.xls*" OR TO_LOWER(process.command_line) LIKE "*.ppt*" OR TO_LOWER(process.command_line) LIKE "*.pdf*" OR TO_LOWER(process.command_line) LIKE "*.csv*" OR TO_LOWER(process.command_line) LIKE "*.txt*"))

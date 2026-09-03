@@ -1,0 +1,1 @@
+index=* ((Image="*\\AzureADConnectAuthenticationAgentService.exe" OR Image="*\\miiserver.exe" OR Image="*\\Microsoft.IdentityServer.ServiceHost.exe") AND Signed="false")

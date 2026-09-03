@@ -1,0 +1,51 @@
+title: Recursive directory listing issued from a Windows shell
+id: efcf797d-092a-45fd-b5e7-0c726c7548b3
+status: experimental
+description: |
+  AN1040's real discriminator is MITRE's TimeWindow knob — more than fifty
+  directory queries inside thirty seconds — which a single Sigma event cannot
+  count, so this rule instead matches the command forms that ask for a whole
+  tree in one call: `dir /s`, `tree /f`, `forfiles /s`, and PowerShell's
+  `Get-ChildItem -Recurse` and its aliases. Each form is matched with a regex
+  that requires the command word at a token boundary with its recursion flag
+  following it, because an unordered substring pair ('dir' plus '/s') also
+  matches unrelated command lines — a robocopy job against a folder named
+  "Source Dir" run with /s, or a silent installer whose /s flag shares a line
+  with any path containing 'dir'. That is a narrower slice of MITRE's
+  CommandLineRegex knob than "any enumeration command", because a single
+  non-recursive `dir` is indistinguishable from routine shell use and would
+  swamp this rule. UserContext is not encoded — the brief calls for scoping
+  standard versus service accounts, which needs an identity join this event does
+  not carry — and a hand-rolled recursion loop or a compiled enumerator that
+  never shells out to these four commands produces no match at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0370, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1083
+  - https://attack.mitre.org/detectionstrategies/DET0370
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1083
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_shell:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_recurse:
+    CommandLine|re:
+      - '(?:^|[\s&|("])dir(?:\s+[^&|;]+)?\s+/s(?:[\s"]|$)'
+      - '(?:^|[\s&|("])tree(?:\.com)?(?:\s+[^&|;]+)?\s+/f(?:[\s"]|$)'
+      - 'forfiles(?:\.exe)?(?:\s+[^&|;]+)?\s+/s(?:[\s"]|$)'
+      - '(?:^|[\s;|({"])(?:get-childitem|gci|ls|dir)(?:\s+[^;|]+)?\s+-(?:r|re|rec|recu|recur|recurs|recurse)(?:[\s"]|$)'
+  condition: selection_shell and selection_recurse
+falsepositives:
+  - "Build, packaging and CI scripts that run `dir /s /b` or `Get-ChildItem -Recurse` to enumerate a source or output tree before archiving it. On any developer or build-agent host this is a routine, repeated event and is the loudest match by a wide margin, which is what the level below reflects."
+  - "Backup, inventory and software-asset-management agents that walk every user profile or shared drive on a fixed schedule with a recursive `dir` or `Get-ChildItem` to build a file or size report."
+  - "Disk-usage and storage-cleanup tooling, including admin one-liners that use `Get-ChildItem -Recurse` or its `dir`/`ls` aliases while sizing a directory tree during routine troubleshooting."
+  - "Log and cache rotation tasks that call `forfiles /s` against an application log directory on a fixed schedule to find and prune old files."
+level: low

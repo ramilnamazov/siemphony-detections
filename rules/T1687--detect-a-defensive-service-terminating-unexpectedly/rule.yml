@@ -1,0 +1,54 @@
+title: Detect a defensive service terminating unexpectedly
+id: c556764b-50cf-4d0b-a281-0e89a08eb6d8
+status: experimental
+description: |
+  AN2038 is about a security product being degraded by something other than its
+  own management interface: "service crashes, unexpected restarts, driver
+  unloads, telemetry gaps". This rule takes the second leg of that directly —
+  the Service Control Manager reporting that a defensive service died without
+  having been asked to stop (System 7031 and 7034). That is the observable that
+  separates T1687 from T1562.001: `sc stop WinDefend`, `net stop wscsvc` and the
+  Stop-Service cmdlet all use the sanctioned control path and produce 7035/7036,
+  never a 7031, so a rule built on the control interface selects for the
+  complement of this technique. Exploiting a parsing bug in the scanner, a
+  malformed IOCTL to a vulnerable minifilter, or a bring-your-own-vulnerable-
+  driver kill of the agent all end the same way: the service is gone and nobody
+  sent it a control. `param1` is the service display name in the SCM message,
+  which is why the terms are display-name fragments rather than short names.
+  Populate it with the site's own agents — that is exactly MITRE's
+  ProtectedServiceList knob, and no corpus rule can guess a fleet's EDR. The
+  driver-unload arm (Sysmon EID 6 on a vendor minifilter) and the telemetry-gap
+  arm both need a different logsource or a timer and are not expressed here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0900, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1687
+  - https://attack.mitre.org/detectionstrategies/DET0900
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1687
+logsource:
+  product: windows
+  service: system
+detection:
+  selection:
+    Provider_Name: 'Service Control Manager'
+    EventID:
+      - 7031
+      - 7034
+    param1|contains:
+      - 'Defender'
+      - 'Firewall'
+      - 'Security Center'
+      - 'Windows Security'
+      - 'System Guard'
+      - 'Sysmon'
+      - 'Windows Event Log'
+  condition: selection
+falsepositives:
+  - "The security agent crashing on its own. A bad definition update, an out-of-memory condition, a driver conflict after a kernel patch, or a botched self-upgrade all produce exactly this event with no adversary present, and across a large fleet they are the majority of matches. MITRE's ProtectedServiceList knob says which services to watch and nothing about why they died, so this rule cannot separate a crash from an induced crash on its own — the CrashCorrelationWindow leg, correlating a preceding suspicious interaction, is what would, and Sigma has no construct for it."
+  - "Abrupt power transitions. Forced shutdowns, hypervisor snapshot restores and non-persistent VDI pool recycles make the SCM record services as terminated unexpectedly, in bursts, at the same times of day."
+  - "An administrator or a management agent killing a hung security service with `taskkill /f` rather than stopping it. That is a forced but sanctioned stop — T1562.001, not exploitation — and it reaches the SCM as the same 7031."
+  - "Any service whose display name merely contains one of the fragments. Matching on `Firewall` or `Windows Security` picks up third-party products with those words in their names, which may or may not be defensive components a site cares about."
+level: high

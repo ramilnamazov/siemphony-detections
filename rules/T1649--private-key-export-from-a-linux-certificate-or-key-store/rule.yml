@@ -1,0 +1,56 @@
+title: Private key export from a Linux certificate or key store
+id: 9ea92a22-9f2d-4b8a-bf23-89a5d8cc9d42
+status: experimental
+description: |
+  Matches the command-execution half of AN0672 — a process invoking OpenSSL,
+  the NSS tools or keytool in a mode that moves private key material out of a
+  key store: PKCS#12 and PKCS#8 handling by openssl, pk12util or certutil
+  pointed at an NSS database under ~/.pki, and keytool's -importkeystore /
+  -exportcert. Each selection pairs the binary with the subcommand rather than
+  alerting on the binary alone, because openssl and certutil are ordinary
+  administrative tools whose other subcommands say nothing about key theft. The
+  other half of AN0672 — auditd open/read on /etc/ssl/, /etc/pki/ and
+  ~/.pki/nssdb — is deliberately not folded in here: it lives on the raw
+  linux:auditd log source with a filesystem watch and its own field vocabulary
+  (type, name, exe, key), which this process_creation rule cannot express, so
+  it needs a separate rule and a loaded `-w` watch. Windows (AN0671, Security
+  4768 and 4657) and macOS (AN0673, Keychain) are not covered by this rule.
+  auditd records no execve without an audit rule such as
+  `-a always,exit -F arch=b64 -S execve`; until one is loaded this rule returns
+  zero rows because nothing is being collected, not because nothing happened.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0240, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1649
+  - https://attack.mitre.org/detectionstrategies/DET0240
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1649
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_openssl:
+    Image|endswith: '/openssl'
+    CommandLine|contains:
+      - 'pkcs12'
+      - 'pkcs8'
+  selection_nss:
+    Image|endswith:
+      - '/pk12util'
+      - '/certutil'
+    CommandLine|contains:
+      - '/nssdb'
+      - '/.pki'
+  selection_keytool:
+    Image|endswith: '/keytool'
+    CommandLine|contains:
+      - '-importkeystore'
+      - '-exportcert'
+  condition: 1 of selection_*
+falsepositives:
+  - "Certificate lifecycle automation on any host that terminates TLS — a cert-manager or Certbot deploy hook, a Puppet or Ansible PKI role, or an internal CA renewal cron that runs openssl pkcs12 -export to rebundle a renewed certificate and key for an application. On a fleet with automated renewal this recurs on a schedule and outweighs every other match, which is why the level is set low until MITRE's PathExclusions knob is populated with those service accounts."
+  - "Java application installs and container entrypoints that call keytool -importkeystore to convert a PKCS#12 bundle into a JKS keystore at deploy or first start, firing once per deployment per host."
+  - "Desktop Linux fleets where an enterprise policy script or an administrator runs certutil -d sql:$HOME/.pki/nssdb to install or refresh the corporate root CA in the Chrome and Firefox trust stores."
+level: low

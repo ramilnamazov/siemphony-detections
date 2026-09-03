@@ -1,0 +1,12 @@
+<group name="sigma,windows,image_load,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ImageLoaded" type="pcre2">(?i)(\\ntdll\.dll$|\\kernel32\.dll$|\\kernelbase\.dll$)</field>
+    <field name="ImageLoaded" negate="yes" type="pcre2">(?i)(^C:\\Windows\\System32\\|^C:\\Windows\\SysWOW64\\|^C:\\Windows\\WinSxS\\|^C:\\Windows\\SyChpe32\\|^C:\\Windows\\SysArm32\\)</field>
+    <description>Native API DLL loaded from outside the system directories</description>
+    <mitre>
+      <id>T1106</id>
+    </mitre>
+  </rule>
+</group>

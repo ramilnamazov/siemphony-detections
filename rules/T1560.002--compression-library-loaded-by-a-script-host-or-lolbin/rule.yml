@@ -1,0 +1,69 @@
+title: Compression library loaded by a script host or LOLBin
+id: e61acb1b-d5b1-46d9-a759-c4d20e1f8d69
+status: experimental
+description: |
+  Takes the module-load leg of MITRE's AN0747 — a compression or archiving
+  library mapped into a script interpreter or a signed LOLBin host — which is
+  what separates archiving via library from archiving via utility, and therefore
+  what separates this rule from the published T1560.001 rule: that one matches
+  process_creation on an archiver binary and a verb, this one never looks at a
+  command line and never matches an archiver at all. The library list is authored
+  here rather than taken from MITRE, whose MonitoredLibraries and LibraryAllowlist
+  knobs name the tuning point but no values, and it includes the Python extension
+  modules on purpose, because CPython compiles zlib into the interpreter's own DLL
+  so the most common Python archiving path — zipfile over zlib — produces no
+  separate module load and is invisible here, while bz2 and lzma still surface as
+  _bz2.pyd and _lzma.pyd. A module load says a library was mapped, not what it
+  was used for, so decompression and archive extraction are indistinguishable from
+  archive creation on this event, and the file-creation leg of the analytic that
+  would settle it is a separate log source. Sysmon EventID 7 is off in the
+  configuration Sysmon ships and is filtered down hard in the common community
+  configurations, so without an explicit include for these DLLs the rule returns
+  zero rows regardless of what ran.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0268, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1560/002
+  - https://attack.mitre.org/detectionstrategies/DET0268
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1560.002
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection_host:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\python.exe'
+      - '\pythonw.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+  selection_library:
+    ImageLoaded|endswith:
+      - '\zlib1.dll'
+      - '\zlibwapi.dll'
+      - '\libzip.dll'
+      - '\libbz2.dll'
+      - '\bz2.dll'
+      - '\7z.dll'
+      - '\7za.dll'
+      - '\Ionic.Zip.dll'
+      - '\SharpCompress.dll'
+      - '\System.IO.Compression.dll'
+      - '\System.IO.Compression.Native.dll'
+      - '\clrcompression.dll'
+      - '\_bz2.pyd'
+      - '\_lzma.pyd'
+  condition: selection_host and selection_library
+falsepositives:
+  - "Compress-Archive and Expand-Archive in software deployment, log collection and backup scripts, which load the compression assemblies on every call. In any estate that automates with PowerShell this is the rule's highest-volume match by a wide margin, and it is why the level is medium rather than high."
+  - "PowerShell package management installing or updating a module, which unpacks a .nupkg through the same assemblies on every install, on every host that pulls modules from a gallery or an internal feed."
+  - "Invoke-WebRequest and Invoke-RestMethod against any endpoint that returns gzip or deflate encoded content, which pulls in the native compression library even though nothing is ever written to disk."
+  - "Python build, packaging and data work on developer and CI hosts — wheel creation, test fixtures, reading a .bz2 or .xz dataset — which loads _bz2.pyd and _lzma.pyd as a matter of routine."
+level: medium

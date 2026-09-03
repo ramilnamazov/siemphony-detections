@@ -1,0 +1,107 @@
+title: Security tooling disabled via registry policy or service keys
+id: 67a5241f-2d9f-4066-9325-8e86f2134bf9
+status: experimental
+description: |
+  AN1369 names three Windows mechanisms — killing AV/EDR processes, stopping
+  their services, and "altering Sysmon registry keys or tampering with exclusion
+  lists" — and asks for them to be correlated inside its `TimeWindow` knob. The
+  correlation is not expressible in lib/sigma, so this rule takes the mechanism
+  that is both single-event and specific: the registry write itself. Four
+  selections cover it. The first is the Defender policy surface, where a single
+  value turns the product off (DisableAntiSpyware, the Real-Time Protection
+  disable values) or blinds it (Spynet reporting and sample submission), plus the
+  exclusion trees, which are the "exclusion lists" the analytic names and which
+  an adversary widens rather than removes. The second is the `Start` value of the
+  services behind the sensors — Defender's WinDefend, WdFilter, WdBoot and
+  WdNisSvc, Defender for Endpoint's Sense, Security Center's wscsvc, Sysmon's
+  driver and service, and the Event Log service itself — since setting one to
+  disabled survives a reboot in a way that killing a process does not. The third
+  is the SysmonDrv parameters key, where the driver's own filtering rules live,
+  and the fourth is the ETW autologger tree, where clearing an autologger stops
+  the telemetry at the source without touching the tool. MITRE's `ServiceNames`
+  knob is what the second selection implements, populated here with the Microsoft
+  and Sysmon service names rather than taken from MITRE; a site running a
+  third-party EDR must add its own service and policy keys, and the same knob is
+  where they go. `ProcessNameExclusions` is not applied — the writing process is
+  in Sysmon's `Image` field, but an allowlist of expected admin tools is
+  site-specific and, on this event, easily satisfied by any adversary who writes
+  the value from a signed binary.
+  Vocabulary, limits and prerequisite. This is written in the Sysmon EventID 13
+  vocabulary the brief maps `registry_set` onto, where `TargetObject` carries key
+  and value name in one string. Every term below spans that join — the value name
+  is the last segment of each — so any schema that keeps key and value name in
+  separate fields needs them concatenated before a single term can match:
+  Security 4657 splits them across `ObjectName` and `ObjectValueName`, and
+  Defender for Endpoint's `DeviceRegistryEvents` splits them across `RegistryKey`
+  and `RegistryValueName`. On those schemas an unmapped translation of this rule
+  renders cleanly and matches nothing. Sysmon does not emit EventID 13 at all under a bare
+  `sysmon -i` with no configuration — RegistryEvent must be enabled, and the
+  configuration must not filter out the very keys this rule watches, or it
+  returns zero rows that read as quiet when they mean blind. `Details` carries
+  the written data as `DWORD (0x00000004)` on current schemas, so gating the
+  service arm on that string would drop most of the re-enable noise, at the cost
+  of breaking wherever the pipeline formats the value differently. Two arms of
+  the analytic are deliberately not attempted: Sysmon EventID 5 records a
+  process ending but not why, so a rule there would match every reboot and every
+  agent upgrade, and System 7045 service creation is the driver-install path,
+  which belongs with vulnerable-driver abuse and which this brief supplies no
+  driver list for. Where Defender tamper protection is on, writes to the
+  non-policy Defender keys are blocked before they happen, so a blocked attempt
+  leaves nothing here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0497, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1685
+  - https://attack.mitre.org/detectionstrategies/DET0497
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1685
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_defender_policy:
+    TargetObject|contains:
+      - '\Windows Defender\DisableAntiSpyware'
+      - '\Windows Defender\DisableAntiVirus'
+      - '\Windows Defender\DisableRoutinelyTakingAction'
+      - '\Windows Defender\Real-Time Protection\DisableRealtimeMonitoring'
+      - '\Windows Defender\Real-Time Protection\DisableBehaviorMonitoring'
+      - '\Windows Defender\Real-Time Protection\DisableOnAccessProtection'
+      - '\Windows Defender\Real-Time Protection\DisableIOAVProtection'
+      - '\Windows Defender\Real-Time Protection\DisableScanOnRealtimeEnable'
+      - '\Windows Defender\Spynet\SpynetReporting'
+      - '\Windows Defender\Spynet\SubmitSamplesConsent'
+      - '\Windows Defender\Reporting\DisableEnhancedNotifications'
+      - '\Windows Defender\Exclusions\Paths\'
+      - '\Windows Defender\Exclusions\Extensions\'
+      - '\Windows Defender\Exclusions\Processes\'
+  selection_sensor_service_start:
+    TargetObject|contains:
+      - '\Services\WinDefend\Start'
+      - '\Services\WdFilter\Start'
+      - '\Services\WdBoot\Start'
+      - '\Services\WdNisSvc\Start'
+      - '\Services\Sense\Start'
+      - '\Services\SecurityHealthService\Start'
+      - '\Services\wscsvc\Start'
+      - '\Services\SysmonDrv\Start'
+      - '\Services\Sysmon\Start'
+      - '\Services\Sysmon64\Start'
+      - '\Services\EventLog\Start'
+  selection_sysmon_driver_config:
+    TargetObject|contains: '\Services\SysmonDrv\Parameters\'
+  selection_etw_autologger:
+    TargetObject|contains:
+      - '\Control\WMI\Autologger\EventLog-'
+      - '\Control\WMI\Autologger\DefenderApiLogger'
+      - '\Control\WMI\Autologger\DefenderAuditLogger'
+      - '\Control\WMI\Autologger\SysmonDrv'
+  condition: 1 of selection*
+falsepositives:
+  - "Group Policy and Intune reapplying a Defender baseline. Registry policy is rewritten on each refresh cycle whether or not the content changed, so any tenant whose baseline sets exclusions, turns off sample submission or disables enhanced notifications produces these writes on every managed host every couple of hours. This is the loudest source here by a wide margin and is why the rule is medium rather than high."
+  - "Installing a third-party antivirus product. Registering a non-Microsoft AV disables Defender's real-time protection by design, writing DisableAntiSpyware or the Real-Time Protection values and setting WinDefend's Start value to disabled, so an AV rollout matches on every endpoint it reaches."
+  - "Adding legitimate scan exclusions. Database, backup, virtualisation and line-of-business installers document exclusion paths for their data directories, and the service desk adds them by hand when scanning interferes with a product; each write lands in the Exclusions tree in exactly the shape an adversary's would."
+  - "Upgrading or reinstalling the monitoring agent itself. A Sysmon version bump or configuration reinstall rewrites the SysmonDrv service, Start and Parameters keys and its autologger entry, so every maintenance push of the sensor trips its own rule."
+level: medium

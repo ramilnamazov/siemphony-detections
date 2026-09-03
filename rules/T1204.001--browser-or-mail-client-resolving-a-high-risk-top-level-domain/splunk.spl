@@ -1,0 +1,1 @@
+index=* ((Image="*\\chrome.exe" OR Image="*\\msedge.exe" OR Image="*\\firefox.exe" OR Image="*\\winword.exe" OR Image="*\\outlook.exe" OR Image="*\\teams.exe") AND (QueryName="*.top" OR QueryName="*.xyz" OR QueryName="*.monster" OR QueryName="*.click" OR QueryName="*.zip" OR QueryName="*.mov"))

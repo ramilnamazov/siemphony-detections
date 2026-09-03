@@ -1,0 +1,1 @@
+index=* (CommandLine="*/var/lib/sss/db/cache*" OR CommandLine="*/var/lib/sss/secrets*" OR CommandLine="*/var/opt/quest/vas/authcache*")

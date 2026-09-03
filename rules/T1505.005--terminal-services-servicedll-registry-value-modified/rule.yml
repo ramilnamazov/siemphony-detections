@@ -1,0 +1,46 @@
+title: Terminal Services ServiceDll registry value modified
+id: 70075706-801a-4898-ac7e-d2ee2d965e48
+status: experimental
+description: |
+  Matches a write to the ServiceDll value under
+  `...\services\TermService\Parameters\`, the registry half of AN0595 and the
+  mechanism the brief describes: TermService is a generic svchost-hosted
+  service, and svchost resolves which DLL to load for it from this single
+  value at start. ServiceDll is a value name inside the Parameters subkey, not
+  a subkey itself, so the match anchors on the full tail
+  `\TermService\Parameters\ServiceDll` rather than stopping at Parameters —
+  stopping short would match every service that keeps a Parameters key, which
+  is most of them. Unlike the AppInit_DLLs value used in the sibling T1546.010
+  rule, this key lives under HKLM\SYSTEM rather than HKLM\SOFTWARE, so there is
+  no Wow6432Node twin to also cover. The brief maps this from Security EventID
+  4657 onto Sigma's registry_set category, which is Sysmon-shaped
+  (TargetObject); that is the vocabulary this rule is written in, and a
+  deployment that only has 4657 (which itself needs Audit Registry auditing
+  plus a SACL on this key, off by default) would need ObjectName/
+  ObjectValueName mapped onto TargetObject before this rule can run against it.
+  AN0595's DLL-replacement, module-load and svchost-restart legs need a
+  correlation across separate Sysmon channels that Sigma cannot express, so
+  only the registry write is attempted. Sysmon registry monitoring is an
+  allowlist of paths; confirm this key is included before reading silence as a
+  clean result.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0212, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1505/005
+  - https://attack.mitre.org/detectionstrategies/DET0212
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1505.005
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|endswith: '\services\TermService\Parameters\ServiceDll'
+  condition: selection
+falsepositives:
+  - "Operating-system servicing repairing this value back to its default: an in-place upgrade, a DISM /RestoreHealth or SFC repair pass, or a cumulative update reinstalling the Terminal Services component all rewrite ServiceDll, but only during a patch or repair window, not during ordinary operation."
+  - "Remote Desktop Services role installation, removal or reconfiguration through Server Manager or DISM on a session-host or RD Connection Broker deployment, which legitimately touches this exact value each time the role configuration changes."
+  - "Configuration-management or hardening tooling (SCCM baselines, GPO drift remediation) that periodically rewrites service parameters to a known-good value as part of a compliance pass; the writing process in these cases is the management agent, not svchost.exe or termsrv.exe."
+level: high

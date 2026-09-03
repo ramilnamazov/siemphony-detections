@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (InitiatingProcessFolderPath endswith "\\explorer.exe" and (FolderPath startswith "D:\\" or FolderPath startswith "E:\\" or FolderPath startswith "F:\\" or FolderPath startswith "G:\\" or FolderPath startswith "H:\\"))

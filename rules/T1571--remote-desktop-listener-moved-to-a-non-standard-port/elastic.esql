@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*rdp-tcp*" AND TO_LOWER(process.command_line) LIKE "*portnumber*")

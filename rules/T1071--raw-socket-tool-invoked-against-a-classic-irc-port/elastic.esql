@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*/nc" OR TO_LOWER(process.executable) LIKE "*/nc.openbsd" OR TO_LOWER(process.executable) LIKE "*/nc.traditional" OR TO_LOWER(process.executable) LIKE "*/ncat" OR TO_LOWER(process.executable) LIKE "*/socat" OR TO_LOWER(process.executable) LIKE "*/telnet") AND (TO_LOWER(process.command_line) LIKE "*6667*" OR TO_LOWER(process.command_line) LIKE "*6668*" OR TO_LOWER(process.command_line) LIKE "*6669*" OR TO_LOWER(process.command_line) LIKE "*6697*"))

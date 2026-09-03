@@ -1,0 +1,77 @@
+title: Persistence artefact removed via service, task or account deletion
+id: a7435f8e-1f74-4498-8f9e-8410019b13c0
+status: experimental
+description: |
+  Matches process creation where the command line removes one of the artefacts an
+  operator would have had to leave behind to persist: `sc delete` for a service,
+  `schtasks /delete` for a scheduled task, `reg delete` aimed at a Run key, an
+  Image File Execution Options debugger value or a CurrentControlSet\Services
+  key, `net user /delete` for a local account, and the PowerShell cmdlet forms
+  when the cmdlet name is on the command line rather than inside a script file.
+  The service, task, registry and account selections each pair the binary on
+  `Image` with the verb on `CommandLine`, because the verbs alone are far too
+  common to stand on their own; the cmdlet selection has no `Image` gate, since
+  the cmdlet name is distinctive on its own. The registry arm additionally
+  requires a persistence key path — Run/RunOnce and Image File Execution Options
+  are the examples MITRE gives under its `TargetRegistryPathRegex` knob, and the
+  `CurrentControlSet\Services` path is added here — so that `reg delete` of
+  arbitrary configuration does not match. Because that arm is gated on
+  `reg.exe`, the PowerShell registry-provider route (`Remove-ItemProperty -Path
+  'HKLM:\...\CurrentVersion\Run'`) is not covered. The rule is
+  written in the Sysmon EventID 1 vocabulary the brief names — `Image` and
+  `CommandLine`; a Security 4688 feed carries the same behaviour under
+  `NewProcessName` and needs both Audit Process Creation and the separate
+  Include command line in process creation events policy before `CommandLine`
+  is populated at all, so 4688 cannot be substituted without a field mapping
+  first. The brief's remaining legs are separate feeds with their own field names
+  and are not combined here: 4726 account deletion, 4657 registry value
+  modification, and TaskScheduler 106. Deletion performed through an API — a
+  service control call, `Unregister-ScheduledTask` inside a script block, a
+  registry delete from compiled code — never reaches a command line and is
+  invisible to this rule.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0040, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1070/009
+  - https://attack.mitre.org/detectionstrategies/DET0040
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1070.009
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_service:
+    Image|endswith: '\sc.exe'
+    CommandLine|contains: ' delete '
+  selection_task:
+    Image|endswith: '\schtasks.exe'
+    CommandLine|contains|windash: '/delete'
+  selection_reg_verb:
+    Image|endswith: '\reg.exe'
+    CommandLine|contains: ' delete '
+  selection_reg_key:
+    CommandLine|contains:
+      - '\CurrentVersion\Run'
+      - '\Image File Execution Options\'
+      - '\CurrentControlSet\Services\'
+  selection_account:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+    CommandLine|contains|all:
+      - ' user '
+      - '/delete'
+  selection_cmdlet:
+    CommandLine|contains:
+      - 'Unregister-ScheduledTask'
+      - 'Remove-LocalUser'
+      - 'Remove-Service'
+  condition: selection_service or selection_task or (selection_reg_verb and selection_reg_key) or selection_account or selection_cmdlet
+falsepositives:
+  - "Application and driver uninstallers, which call `sc delete` to drop their own service and `schtasks /delete` to drop their updater task on every uninstall and on many major-version upgrades. On a fleet with normal software churn this is the single largest source of matches in the rule, and nothing on the command line separates it from an operator cleaning up."
+  - "Software deployment and configuration-management agents — Configuration Manager task sequences, Intune remediation scripts, Chocolatey and MSI custom actions — that remove stale services, tasks and Run values as SYSTEM during maintenance windows. MITRE's `DeletedScheduledTaskName` knob, populated with the recurring task names a given estate produces, is where these belong."
+  - "Helpdesk and re-imaging scripts running `net user <name> /delete` to remove a temporary, contractor or shared local account when a machine is re-issued. MITRE's `DeletedAccountGroupScope` knob is there to narrow this to privileged or recently created accounts."
+  - "Endpoint security, backup and printer vendor repair utilities that delete their own `CurrentControlSet\\Services` entry or an Image File Execution Options debugger value as part of a self-heal, uninstall-reinstall or driver rollback."
+level: low

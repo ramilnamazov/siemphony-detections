@@ -1,0 +1,2 @@
+SecurityEvent
+| where ((EventID == 4768 and PreAuthType =~ "0" and Status =~ "0x0") and not (TargetUserName endswith "$"))

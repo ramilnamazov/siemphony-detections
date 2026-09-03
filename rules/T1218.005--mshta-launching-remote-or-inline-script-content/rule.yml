@@ -1,0 +1,76 @@
+title: Mshta launching remote or inline script content
+id: 0c5fdea0-050b-49f2-ac6e-a69476df4ed1
+status: experimental
+description: |
+  Matches the process-creation leg of AN1397: a `mshta.exe` start whose command
+  line carries the two things that distinguish proxied execution from opening a
+  local application — content fetched from off the host, or script handed to the
+  HTA engine inline rather than as a file — plus a third arm for the parent
+  processes MITRE's `SuspiciousParentProcesses` knob names, populated here with
+  the Office applications and the WSH interpreters. A bare `mshta.exe` gate is
+  deliberately not used on its own: mshta is a shipped Windows binary and an
+  in-house `.hta` opened from a desktop shortcut produces the same image name, so
+  every arm is a second gate applied on top of it. Three limits are worth stating
+  plainly. The analytic's Sysmon EventID 3 and 22 legs describe the network
+  fetch, and its EventID 11 leg the file the payload drops, but each is a
+  separate event that MITRE's `TimeWindow` knob correlates with this one — a
+  cross-event join lib/sigma cannot express — so this rule stops at the
+  invocation. An HTA already staged on disk by an earlier stage and run as
+  `mshta.exe C:\Users\Public\x.hta` matches no arm here unless its parent is one
+  of the listed ones. And `AllowedHTASources` is a knob for an allowlist a site
+  has to build, not something a shipped rule can populate. Vocabulary and
+  prerequisite: this is written in the Sysmon-shaped `process_creation`
+  vocabulary the brief specifies, and the brief feeds it from Security EventID
+  4688, where `Image` maps to `NewProcessName` and `ParentImage` to
+  `ParentProcessName`. That feed needs *Audit Process Creation*, and two of the
+  three arms read `CommandLine`, which needs the separate *Include command line
+  in process creation events* policy — without it those arms return zero rows,
+  and zero rows reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0506, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/005
+  - https://attack.mitre.org/detectionstrategies/DET0506
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.005
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith: '\mshta.exe'
+  context_remote_content:
+    CommandLine|contains:
+      - 'http://'
+      - 'https://'
+      - 'ftp://'
+      - '\\\\'
+  context_inline_script:
+    CommandLine|contains:
+      - 'vbscript:'
+      - 'javascript:'
+      - 'jscript:'
+      - 'about:'
+      - 'GetObject('
+      - 'RunHTMLApplication'
+  context_suspicious_parent:
+    ParentImage|endswith:
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\powerpnt.exe'
+      - '\outlook.exe'
+      - '\msaccess.exe'
+      - '\onenote.exe'
+      - '\visio.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\eqnedt32.exe'
+  condition: selection_tool and 1 of context_*
+falsepositives:
+  - "Line-of-business HTA applications published from a file share or an intranet site, which are launched as `mshta.exe \\fileserver\\apps\\tool.hta` or `mshta.exe http://intranet/tool.hta` and match the remote-content arm on every open. In an estate that still ships HTA front-ends this is the highest-volume match by a wide margin, and it is why this rule is medium rather than high."
+  - "Vendor installers, uninstall stubs and OEM support tools that display a dialog or a progress window through a bundled `.hta` staged on a share, and legacy setup wrappers that call `mshta.exe vbscript:Close(...)` to close their own window — the documented idiom, and identical on the command line to the inline-script arm this rule targets."
+  - "Help-desk and packaging scripts driven from `wscript.exe` or `cscript.exe` that hand a local `.hta` to mshta for a prompt, which matches the parent arm regardless of what the HTA does."
+  - "Office documents belonging to internal tooling that legitimately shell out to an HTA form — a macro-enabled workbook opening its own front-end — which produces a winword.exe or excel.exe parent for a benign mshta child."
+level: medium

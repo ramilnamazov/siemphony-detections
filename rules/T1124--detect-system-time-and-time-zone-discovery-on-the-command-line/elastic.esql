@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*w32tm /tz*" OR TO_LOWER(process.command_line) LIKE "*w32tm -tz*" OR TO_LOWER(process.command_line) LIKE "*w32tm /query /status*" OR TO_LOWER(process.command_line) LIKE "*net time \\\\*" OR TO_LOWER(process.command_line) LIKE "*tzutil /g*" OR TO_LOWER(process.command_line) LIKE "*tzutil -g*" OR TO_LOWER(process.command_line) LIKE "*get-timezone*" OR TO_LOWER(process.command_line) LIKE "*[system.timezoneinfo]*" OR TO_LOWER(process.command_line) LIKE "*get-date -format*")

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\wevtutil.exe" and ProcessCommandLine contains "/e:false") or (FolderPath endswith "\\auditpol.exe" and (ProcessCommandLine contains "/success:disable" or ProcessCommandLine contains "/failure:disable")) or ((FolderPath endswith "\\sc.exe" or FolderPath endswith "\\net.exe" or FolderPath endswith "\\net1.exe") and ProcessCommandLine contains "eventlog"))

@@ -1,0 +1,13 @@
+<group name="sigma,linux,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^PATH$</field>
+    <field name="name" type="pcre2">(?i)\.so(\.[0-9]+)*$</field>
+    <field name="name" type="pcre2">(?i)(/tmp/|/var/tmp/|/dev/shm/|/home/)</field>
+    <description>Shared object written into a non-standard directory Linux dynamic linker would trust</description>
+    <mitre>
+      <id>T1574.006</id>
+    </mitre>
+  </rule>
+</group>

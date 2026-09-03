@@ -1,0 +1,13 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)^HKU\\</field>
+    <field name="TargetObject" type="pcre2">(?i)\\Software\\Classes\\CLSID\\</field>
+    <field name="TargetObject" type="pcre2">(?i)(\\InprocServer32\\\(Default\)$|\\LocalServer32\\\(Default\)$)</field>
+    <description>Per-user CLSID registered with a payload under InprocServer32 or LocalServer32</description>
+    <mitre>
+      <id>T1546.015</id>
+    </mitre>
+  </rule>
+</group>

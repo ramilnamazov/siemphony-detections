@@ -1,0 +1,43 @@
+title: Detect net view used to enumerate hosts and shares on the network
+id: 1a1af100-7265-4c78-8554-7fc2c4574321
+status: experimental
+description: |
+  Matches Sysmon process creation where the executing image is net.exe or its
+  net1.exe helper and the argument string carries the view verb, which is the
+  one single-event form of remote system discovery in AN1583 that means only
+  enumeration. The analytic is really about bursts — enumeration utilities run
+  in short succession, MITRE's TimeWindow knob suggesting under thirty seconds —
+  and Sigma expresses neither succession nor count, so this rule fires on one
+  invocation and cannot tell a burst from a single command. ping.exe and
+  tracert.exe are deliberately left out for the same reason: outside a
+  correlation window a single ping carries no discovery signal and would swamp
+  the rule. The verb is anchored to the image on purpose; matching the string
+  net view against a bare command line collides with any path or argument that
+  happens to contain it. Detection needs Sysmon EventID 1 installed with a
+  config that does not exclude net.exe, which volume-trimmed configs often do.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0574, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1018
+  - https://attack.mitre.org/detectionstrategies/DET0574
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1018
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+  selection_verb:
+    CommandLine|contains: ' view'
+  condition: selection_image and selection_verb
+falsepositives:
+  - "Routine administration. Helpdesk and infrastructure staff run net view to find a host or check which shares a server is publishing, and it is a standard first move when diagnosing a mapped-drive complaint. This is the rule's dominant source of hits in any environment with hands-on admins, and it is why the level is set low rather than high."
+  - "Logon scripts, drive-mapping batch files and legacy scripted installers that probe for a file server before mapping it, which produce one hit per user per logon from every workstation and can be the single largest contributor to volume."
+  - "Inventory, backup and software-distribution agents that shell out to net view to enumerate shares on a target, appearing on a fixed schedule from a small set of service accounts. MITRE's CommandLinePattern knob is where such tooling is excluded; MITRE names SCCM and PsExec as the examples."
+  - "The rule cannot distinguish a lone administrative net view from the same command issued as part of an enumeration burst, because the analytic's TimeWindow element has no Sigma equivalent. Treat a hit as a lead to pivot on the host and account, not as a finding on its own."
+level: low

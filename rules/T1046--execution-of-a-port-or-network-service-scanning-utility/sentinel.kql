@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\nmap.exe" or FolderPath endswith "\\ncat.exe" or FolderPath endswith "\\masscan.exe" or FolderPath endswith "\\rustscan.exe" or FolderPath endswith "\\naabu.exe" or FolderPath endswith "\\fscan.exe" or FolderPath endswith "\\netscan.exe" or FolderPath endswith "\\nbtscan.exe" or FolderPath endswith "\\advanced_ip_scanner.exe" or FolderPath endswith "\\advanced_port_scanner.exe" or FolderPath endswith "\\portqry.exe")

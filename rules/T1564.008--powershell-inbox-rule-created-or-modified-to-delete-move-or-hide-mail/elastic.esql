@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((event.code == 4104 AND (TO_LOWER(powershell.file.script_block_text) LIKE "*new-inboxrule*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*set-inboxrule*")) AND (TO_LOWER(powershell.file.script_block_text) LIKE "*-deletemessage*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*-softdeletemessage*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*-movetofolder*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*-stopprocessingrules*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*-markasread*"))

@@ -1,0 +1,69 @@
+title: Script host resolving a web service used for two-way C2
+id: 8f7d2596-cddf-4d66-855c-b4e87be57890
+status: experimental
+description: |
+  Matches a Sysmon DNS query where a scripting engine or signed-binary proxy —
+  never a browser or a mail client — resolves a web service whose API supports
+  both fetching an instruction and posting a result, which is AN0100's "suspicious
+  process contacting common web service domains" leg. dns_query is chosen over the
+  network-connection source the same analytic offers because every one of these
+  services is fronted by shared CDN address space, so the destination IP identifies
+  nothing, and because Sysmon EventID 22 attributes the query to the process that
+  called the resolver while EventID 3 would only name whichever process owns the
+  socket. The domain list is MITRE's DomainPattern knob populated here with
+  bidirectional APIs only: read-only dead-drop endpoints such as pastebin and
+  raw.githubusercontent are left out because a channel with no return path is a
+  different sub-technique, and graph.microsoft.com is left out because the Graph
+  PowerShell module makes it ordinary traffic for the very processes selected here.
+  Two limits worth stating — the rule sees a name and nothing else, so it cannot
+  tell a C2 poll from a legitimate API call, and it goes blind entirely against
+  direct-to-IP callbacks, DNS-over-HTTPS, or a name already in the host resolver
+  cache; Sysmon EventID 22 also needs DNS query logging switched on in the running
+  configuration, which the common community configs filter hard.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0035, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1102/002
+  - https://attack.mitre.org/detectionstrategies/DET0035
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1102.002
+logsource:
+  category: dns_query
+  product: windows
+detection:
+  selection_process:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+      - '\curl.exe'
+      - '\python.exe'
+  selection_webservice:
+    QueryName|endswith:
+      - 'api.telegram.org'
+      - 'discord.com'
+      - 'discordapp.com'
+      - 'api.github.com'
+      - 'gist.github.com'
+      - 'slack.com'
+      - 'api.trello.com'
+      - 'api.dropboxapi.com'
+      - 'content.dropboxapi.com'
+      - 'api.notion.com'
+      - 'api.imgur.com'
+      - 'firebaseio.com'
+      - 'api.twitter.com'
+  condition: selection_process and selection_webservice
+falsepositives:
+  - "Developer and administrator PowerShell reaching api.github.com — module installs, release-asset downloads, gist reads and writes, and anything wrapping the GitHub REST API. On engineering estates this is the single largest source of hits and it is why the level is not higher; the practical suppression is the account and the host role, not the domain, since removing GitHub takes out one of the most-used bidirectional channels there is."
+  - "Chat and ticketing notifications sent from scheduled scripts. A backup job posting its result to a Slack or Discord incoming webhook, or a monitoring script messaging a Telegram bot, produces a script host resolving exactly these names on a fixed schedule."
+  - "Python-based line-of-business tooling and vendor agents that bundle their own interpreter and synchronise with Dropbox, Trello or Notion through the same public APIs, appearing as python.exe against a small set of servers."
+  - "curl.exe is shipped in Windows and is the default way a build or provisioning script talks to any REST API, so a CI step publishing an artefact to a GitHub release or a Dropbox folder matches without anything unusual happening."
+level: medium

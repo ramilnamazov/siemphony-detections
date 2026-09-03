@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (((TO_LOWER(registry.path) LIKE "*\\\\microsoft\\\\windows nt\\\\currentversion\\\\winlogon\\\\userinit*" OR TO_LOWER(registry.path) LIKE "*\\\\microsoft\\\\windows nt\\\\currentversion\\\\winlogon\\\\shell*" OR TO_LOWER(registry.path) LIKE "*\\\\microsoft\\\\windows nt\\\\currentversion\\\\winlogon\\\\notify\\\\*") AND NOT ((TO_LOWER(registry.data.strings) == "c:\\windows\\system32\\userinit.exe," OR TO_LOWER(registry.data.strings) == "explorer.exe"))) OR TO_LOWER(registry.path) LIKE "*\\\\control\\\\session manager\\\\safedllsearchmode")

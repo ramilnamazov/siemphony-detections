@@ -1,0 +1,75 @@
+title: Utility executing under a name its own PE metadata contradicts
+id: 6afbf203-c5bc-4360-8a69-27856084c118
+status: experimental
+description: |
+  Matches the first half of AN0012 inside a single Sysmon EventID 1 record: the
+  PE version resource still names the utility the compiler built
+  (`OriginalFileName`), while the file on disk has been given some other name —
+  which is exactly what renaming rundll32.exe, or shipping a copy of PsExec as
+  something else, produces. Both halves are needed, because the metadata on its
+  own is just the tool running normally and the file name on its own says
+  nothing, so the selection lists original names and a filter drops every event
+  whose `Image` still ends in one of the matching real names. That list is
+  MITRE's `PEInternalNameMismatch` knob, populated here with the system binaries
+  and LOLBAS the analytic names plus the closely related script hosts; the two
+  values that look wrong are not — PsExec's version resource carries `psexec.c`
+  and rundll32's carries `RUNDLL.EXE`, so those are what a renamed copy reports.
+  Three limits are structural. The filter is not paired name-for-name, so a
+  utility renamed to another entry's real name (rundll32.exe copied to cmd.exe)
+  is filtered out rather than matched. An adversary who strips or forges the
+  version resource before use removes the only field this rule reads. And
+  `OriginalFileName` is a Sysmon field: this rule is written in the Sysmon
+  process-creation vocabulary, and on a Security 4688 feed mapped onto the same
+  Sigma category that field does not exist at all, so no audit policy makes the
+  rule work there — it needs Sysmon EventID 1 with a configuration that does not
+  exclude these images. The analytic's Sysmon EventID 11 leg is not attempted,
+  and neither are its macOS (AN0013) or Linux (AN0014) siblings; the
+  copied-to-a-non-standard-directory case MITRE describes alongside renaming is
+  a path observable rather than a metadata one and is authored under T1036.005.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0005, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1036/003
+  - https://attack.mitre.org/detectionstrategies/DET0005
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1036.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_metadata:
+    OriginalFileName:
+      - 'PowerShell.EXE'
+      - 'Cmd.Exe'
+      - 'RUNDLL.EXE'
+      - 'REGSVR32.EXE'
+      - 'MSHTA.EXE'
+      - 'CertUtil.exe'
+      - 'wscript.exe'
+      - 'cscript.exe'
+      - 'wmic.exe'
+      - 'bitsadmin.exe'
+      - 'psexec.c'
+  filter_matching_name:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\cmd.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\mshta.exe'
+      - '\certutil.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\wmic.exe'
+      - '\bitsadmin.exe'
+      - '\psexec.exe'
+      - '\psexec64.exe'
+  condition: selection_metadata and not filter_matching_name
+falsepositives:
+  - "Sysinternals PsExec redistributed under a different file name. Remote-support suites, software-deployment tools and in-house admin toolkits routinely ship it as psexec_x64.exe, a product-named runner or a randomised service binary, and the version resource still reads psexec.c. In most enterprises this is the loudest entry on the list by a wide margin, and it is why the level is medium rather than high."
+  - "Portable toolkits and self-contained build or field-service environments that carry their own copy of a Microsoft utility under a suite-specific name so they do not depend on the system copy. PortableApps launchers, vendor USB support kits and some CI agent bundles do this with cmd.exe, cscript.exe and wscript.exe."
+  - "Installers and updaters that extract a private copy of certutil.exe, wmic.exe or bitsadmin.exe into a temporary directory under a randomised or bundle-specific file name during setup; the extracted file keeps the original version resource, so the mismatch is real and benign."
+  - "Detection-engineering and application-compatibility tooling that copies a system binary to a working directory under a test name and runs it there, including EDR self-tests, atomic-test harnesses and sandbox agents on analyst workstations."
+level: medium

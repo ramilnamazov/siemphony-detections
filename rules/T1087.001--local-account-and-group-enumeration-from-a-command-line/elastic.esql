@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (((((TO_LOWER(process.executable) LIKE "*\\\\net.exe" OR TO_LOWER(process.executable) LIKE "*\\\\net1.exe") AND (TO_LOWER(process.command_line) LIKE "* user*" OR TO_LOWER(process.command_line) LIKE "* localgroup*")) AND NOT ((TO_LOWER(process.command_line) LIKE "* /do*" OR TO_LOWER(process.command_line) LIKE "* -do*"))) OR (TO_LOWER(process.command_line) LIKE "*get-localuser*" OR TO_LOWER(process.command_line) LIKE "*get-localgroup*")) OR (TO_LOWER(process.executable) LIKE "*\\\\wmic.exe" AND TO_LOWER(process.command_line) LIKE "*useraccount*"))

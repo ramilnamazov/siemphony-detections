@@ -1,0 +1,48 @@
+title: Outbound RDP initiated by a process that is not an RDP client
+id: 9a5c9d9a-4c06-4f1e-a244-2d84bd10030c
+status: experimental
+description: |
+  Matches a host opening an outbound connection to the Remote Desktop port when
+  the process making it is not one of the shipped Remote Desktop clients. AN0931
+  lists the logon record and the network connection side by side; the logon
+  record describes the destination host and says only that someone signed in,
+  which on its own is a report of RDP usage rather than a detection. The network
+  event is the source side of the same session, and it names the process, which
+  is the part an adversary cannot avoid: credential-reuse tooling, a SOCKS or
+  port-forward proxy, and a script driving RDP all reach 3389 from something
+  that is not mstsc.exe or msrdc.exe. `Initiated` is pinned to true so the rule
+  stays on the connecting host and does not re-report every inbound session on
+  the terminal server. The post-access half of the analytic — unusual process
+  execution inside a time window after the logon — is a correlation Sigma cannot
+  express and is not attempted. Two limits worth stating: Sysmon network
+  connection logging is not enabled by a default install and is filtered down
+  hard in the widely used configurations, so an empty result means the feed is
+  off rather than the estate is quiet; and the port is the literal default, so
+  RDP moved to another port is invisible here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0327, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1021/001
+  - https://attack.mitre.org/detectionstrategies/DET0327
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1021.001
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection:
+    DestinationPort: 3389
+    Initiated: 'true'
+  filter_rdp_clients:
+    Image|endswith:
+      - '\mstsc.exe'
+      - '\msrdc.exe'
+  condition: selection and not filter_rdp_clients
+falsepositives:
+  - "Third-party session managers and connection brokers — RDCMan, mRemoteNG, Remote Desktop Manager, Royal TS and similar — which host the RDP control themselves and therefore open 3389 under their own image name. These are the rule's top talkers on any administrator workstation and are deliberately left out of the filter, because the same shape is what a custom client looks like; allowlist the ones your estate actually deploys, by image and by user."
+  - "Vulnerability scanners, asset-discovery and network-inventory tooling sweeping 3389 across the estate. One scanner host produces a connection per target and will dominate the volume, so scope by source host rather than by process name."
+  - "Administrative port-forwarding and tunnelling — ssh.exe, plink.exe or a VPN client relaying a desktop session — which is indistinguishable from an adversary tunnelling RDP and separated only by who ran it. MITRE's UserContext and HostAccessPatterns knobs are aimed at this, the second by keeping only first-time source-to-destination pairs, which needs baselining outside the rule."
+  - "Remote-support, patching and monitoring agents that broker or health-check a Remote Desktop listener on a schedule, appearing as a service process connecting to 3389 at a fixed interval."
+level: medium

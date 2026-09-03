@@ -1,0 +1,32 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 3 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i)(-enc|/enc|–enc|—enc|―enc|-EncodedCommand|/EncodedCommand|–EncodedCommand|—EncodedCommand|―EncodedCommand)</field>
+    <description>Obfuscated command line via caret escaping or string splicing (1/3)</description>
+    <mitre>
+      <id>T1027.010</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(\^[A-Za-z]){5,}</field>
+    <description>Obfuscated command line via caret escaping or string splicing (2/3)</description>
+    <mitre>
+      <id>T1027.010</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)&quot;[^&quot;]{1,40}&quot;\s*\+\s*&quot;[^&quot;]{1,40}&quot;</field>
+    <description>Obfuscated command line via caret escaping or string splicing (3/3)</description>
+    <mitre>
+      <id>T1027.010</id>
+    </mitre>
+  </rule>
+</group>

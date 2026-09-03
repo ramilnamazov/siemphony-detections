@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "path" AND TO_LOWER(name) LIKE "*/var/spool/cron/*") OR (TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*/etc/cron.d/*" OR TO_LOWER(name) LIKE "*/etc/cron.hourly/*" OR TO_LOWER(name) LIKE "*/etc/cron.daily/*" OR TO_LOWER(name) LIKE "*/etc/cron.weekly/*" OR TO_LOWER(name) LIKE "*/etc/cron.monthly/*")) OR (TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*/etc/crontab" OR TO_LOWER(name) LIKE "*/etc/anacrontab")) OR TO_LOWER(key) == "cron")

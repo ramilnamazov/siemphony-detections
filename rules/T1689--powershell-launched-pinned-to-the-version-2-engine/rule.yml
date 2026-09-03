@@ -1,0 +1,56 @@
+title: PowerShell launched pinned to the version 2 engine
+id: 062c1eb8-13f5-4875-aa2d-9f6f97ebb0e5
+status: experimental
+description: |
+  AN0995 names PowerShell version downgrade as its own example, and the
+  version-2 engine is the cleanest single-event observable the strategy
+  offers: it exists specifically to run without Script Block Logging,
+  transcription or AMSI, so a process-creation command line that requests it
+  is unambiguous rather than merely suspicious. PowerShell resolves partial
+  parameter names, so the selection covers every abbreviation of `-Version 2`
+  down to `-ve 2`, alongside `powershell_ise.exe` since the ISE takes the same
+  switch. The single-letter form `-v 2` is deliberately excluded: `-v` is a
+  near-universal short flag for other tools' verbose output, and `-v 2>&1` —
+  verbose plus the extremely common stderr-to-stdout redirect — contains the
+  same substring, so keeping it would have turned this into a rule that fires
+  on redirected verbose output inside almost any `-Command` invocation rather
+  than on a version pin. The registry leg of the same analytic
+  (Defender/HVCI keys via Security 4657) is not authored here: 4657 splits a
+  key and its value across `ObjectName`/`ObjectValueName` rather than the
+  single `TargetObject` the `registry_set` category expects, so it needs a
+  field-mapping decision this rule does not make. The Linux (AN0996) and
+  macOS (AN0997) legs of DET0350 cover a different technique's shape entirely
+  — legacy interpreters and TLS fallback — and are out of scope for a single
+  Windows-only rule. Requires Sysmon to be installed, since process creation
+  is not logged at all without it.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0350, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1689
+  - https://attack.mitre.org/detectionstrategies/DET0350
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1689
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\powershell_ise.exe'
+  selection_flag:
+    CommandLine|contains:
+      - '-version 2'
+      - '-versio 2'
+      - '-versi 2'
+      - '-vers 2'
+      - '-ver 2'
+      - '-ve 2'
+  condition: selection_image and selection_flag
+falsepositives:
+  - "In-house or ISV install and configuration scripts written years ago against PowerShell 2.0 cmdlet behaviour and never updated, still invoked with an explicit -Version 2 pin on hosts that kept the legacy engine feature installed for exactly that reason."
+  - "Security-tooling validation and detection-engineering exercises that deliberately invoke the downgrade to confirm this class of rule fires, indistinguishable at the command-line level from the real technique."
+  - "Documentation and training material copy-pasted verbatim, including the -Version 2 example CrowdStrike's and Google Cloud's own write-ups of this exact technique use, run once by an analyst reproducing it in a lab."
+level: high

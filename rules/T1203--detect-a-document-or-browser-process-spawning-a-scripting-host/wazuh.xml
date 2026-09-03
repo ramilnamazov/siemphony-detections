@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\winword\.exe$|\\excel\.exe$|\\powerpnt\.exe$|\\outlook\.exe$|\\msaccess\.exe$|\\visio\.exe$|\\onenote\.exe$|\\eqnedt32\.exe$|\\acrord32\.exe$|\\acrobat\.exe$|\\foxitreader\.exe$|\\chrome\.exe$|\\msedge\.exe$|\\firefox\.exe$|\\iexplore\.exe$)</field>
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$|\\cmd\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\rundll32\.exe$|\\regsvr32\.exe$|\\msiexec\.exe$|\\certutil\.exe$|\\bitsadmin\.exe$|\\curl\.exe$|\\schtasks\.exe$)</field>
+    <description>Detect a document or browser process spawning a scripting host</description>
+    <mitre>
+      <id>T1203</id>
+    </mitre>
+  </rule>
+</group>

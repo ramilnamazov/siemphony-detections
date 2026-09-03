@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath contains "memfd:" and not (FolderPath contains "runc_cloned:/proc/self/exe"))

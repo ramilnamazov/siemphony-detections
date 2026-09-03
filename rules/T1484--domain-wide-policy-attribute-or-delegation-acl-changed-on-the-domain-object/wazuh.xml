@@ -1,0 +1,13 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^5136$</field>
+    <field name="ObjectClass" type="pcre2">(?i)(^domainDNS$|^msDS-PasswordSettings$)</field>
+    <field name="AttributeLDAPDisplayName" type="pcre2">(?i)(^gPLink$|^gPOptions$|^lockoutDuration$|^lockoutThreshold$|^lockoutObservationWindow$|^maxPwdAge$|^minPwdAge$|^minPwdLength$|^pwdHistoryLength$|^pwdProperties$|^ms-DS-MachineAccountQuota$|^nTSecurityDescriptor$|^msDS-PasswordSettingsPrecedence$|^msDS-LockoutDuration$|^msDS-LockoutObservationWindow$|^msDS-LockoutThreshold$|^msDS-MinimumPasswordLength$|^msDS-PasswordHistoryLength$)</field>
+    <description>Domain-wide policy attribute or delegation ACL changed on the domain object</description>
+    <mitre>
+      <id>T1484</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "execve" AND TO_LOWER(a0) LIKE "*losetup") OR ((TO_LOWER(type) == "execve" AND (TO_LOWER(a0) == "mount" OR TO_LOWER(a0) == "/bin/mount" OR TO_LOWER(a0) == "/usr/bin/mount")) AND (TO_LOWER(a1) LIKE "*loop*" OR TO_LOWER(a2) LIKE "*loop*" OR TO_LOWER(a3) LIKE "*loop*" OR TO_LOWER(a4) LIKE "*loop*" OR TO_LOWER(a5) LIKE "*loop*")))

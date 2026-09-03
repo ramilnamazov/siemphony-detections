@@ -1,0 +1,65 @@
+title: Shell one-liner encodes data and pipes it to a network transfer tool
+id: ae1169e5-82cb-4aef-b6c6-e1aaaff773f1
+status: experimental
+description: |
+  Matches AN0303's Linux observable: a single shell invocation that both names a
+  binary-to-text or compression encoder and a network transfer tool, which is how
+  a piped one-liner (`... | base64 | curl -d @- http://...`) actually surfaces on
+  the process_creation category — auditd's own type=EXECVE record carries only
+  one program's argv, so this rule matches the interpreter's own record, written
+  when a caller passes the whole pipeline as a single string to `sh -c`/`bash -c`,
+  as cron, a downloader stage, a configuration-management task or a webshell all
+  commonly do. It cannot see the equivalent typed interactively at a live shell,
+  or run from a script file invoked by path, where the encoder and the transfer
+  tool are separate child processes with no shared field to join across.
+  Prerequisite: auditd ships no execve rule by default, so without an explicit
+  -a always,exit -F arch=b64 -S execve there is no process_creation telemetry on
+  the host at all and this rule returns zero rows regardless of what ran — the
+  silence means the syscall is not being recorded, not that the host is quiet.
+  This is deliberately distinct from the technique's Windows sub-techniques
+  T1132.001 and T1132.002, both scoped to PowerShell Script Block Logging and
+  4104 events that do not exist on Linux, and from T1048.001's openssl/gpg
+  selectors, which match encryption keywords rather than encoding-and-transfer in
+  one line. Of AN0303's two knobs, UserContext is the usable one here — scoping
+  out build and orchestration service accounts is the tuning that removes most of
+  the noise below — while TimeWindow assumes the encode and the transfer arrive
+  as two correlatable events, which is exactly what this rule collapses into a
+  single record and therefore cannot apply.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0108, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1132
+  - https://attack.mitre.org/detectionstrategies/DET0108
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1132
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_shell:
+    Image|endswith:
+      - '/bash'
+      - '/sh'
+      - '/dash'
+  selection_encode:
+    CommandLine|contains:
+      - 'base64'
+      - 'gzip'
+      - 'xxd'
+      - 'uuencode'
+      - 'b64encode'
+  selection_transfer:
+    CommandLine|contains:
+      - 'curl'
+      - 'wget'
+      - 'netcat'
+      - ' nc '
+  condition: selection_shell and selection_encode and selection_transfer
+falsepositives:
+  - "CI/CD build and deployment one-liners that base64- or gzip-encode an artifact and curl it to an internal registry or API — this is a routine pattern in container build scripts and deploy hooks and is the single largest source of noise in build infrastructure."
+  - "Configuration-management and orchestration tooling — Ansible, SaltStack, Chef — which runs provisioning tasks as sh -c \"<whole line>\" as its normal mechanism, the exact invocation shape this rule keys on. Any task that both encodes something and curls or wgets it matches identically to a build one-liner."
+  - "Shell installer scripts that fetch a payload with curl or wget and pipe it through base64 --decode before unpacking it, when the whole pipeline is passed as one sh -c or bash -c argument (a Dockerfile RUN step, a cron line, a CM shell task). The direction is inbound, not exfiltration, but the vocabulary is identical."
+  - "Diagnostic and support-bundle scripts that gzip a log collection and upload it with curl or wget to a vendor endpoint, again only where the collection and upload share one sh -c line rather than living in a script file the agent invokes by path."
+level: medium

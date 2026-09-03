@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((ProcessCommandLine contains "del " and ProcessCommandLine contains "/s" and ProcessCommandLine contains "/q") or (ProcessCommandLine contains "rmdir " and ProcessCommandLine contains "/s" and ProcessCommandLine contains "/q") or (ProcessCommandLine contains "cipher" and ProcessCommandLine contains "/w") or (ProcessCommandLine contains "sdelete.exe" or ProcessCommandLine contains "sdelete64.exe") or (ProcessCommandLine contains "Remove-Item" and ProcessCommandLine contains "-Recurse" and ProcessCommandLine contains "-Force"))

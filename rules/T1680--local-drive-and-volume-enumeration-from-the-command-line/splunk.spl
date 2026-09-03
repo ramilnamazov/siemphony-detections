@@ -1,0 +1,1 @@
+index=* (CommandLine="*logicaldisk*" OR CommandLine="*Win32_Volume*" OR CommandLine="*Win32_DiskDrive*" OR CommandLine="*Get-PSDrive*" OR CommandLine="*Get-Volume*" OR CommandLine="*fsutil fsinfo drives*" OR CommandLine="*fsutil volume diskfree*")

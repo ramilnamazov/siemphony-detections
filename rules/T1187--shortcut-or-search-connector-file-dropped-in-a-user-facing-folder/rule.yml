@@ -1,0 +1,58 @@
+title: Shortcut or search-connector file dropped in a user-facing folder
+id: 4f248e09-b311-4f6b-a239-24a79116b0b3
+status: experimental
+description: |
+  AN0065 is a four-step chain — a lure is staged, a user or the shell renders it,
+  the host authenticates outbound over SMB or WebDAV, and the attempts repeat —
+  and only the first step has a log source in this brief, so this rule takes the
+  staging leg and nothing else. It matches file types Explorer parses on sight
+  rather than on open, which is what makes them useful as forced-authentication
+  lures: a UNC reference inside the file is resolved while the folder is merely
+  being listed, and the credential leak happens before the user has clicked
+  anything. That also bounds what a match means. The outbound NTLM leg, and the
+  untrusted-destination test that would make it interesting, need network
+  telemetry the brief does not list, so a hit here is a file worth reading, not
+  evidence that a hash left the host. The extension set is MITRE's LureExtensions
+  knob and the path set its UserLocations knob, both populated here with authored
+  values: .scf is the historical form of this lure and .url, .library-ms and
+  .searchConnector-ms the ones seen more recently. Written in the Sysmon
+  EventID 11 vocabulary, so the field is TargetFilename; the brief also maps
+  Security EventID 4663 onto this same file_event category, but 4663 carries
+  ObjectName and ProcessName instead, so pointing this rule at a SACL-audited
+  4663 feed needs a field mapping first and enabling Audit File System on its
+  own will not make it match. EventID 11 must also not be filtered for these
+  paths, which stock Sysmon configurations frequently do.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0022, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1187
+  - https://attack.mitre.org/detectionstrategies/DET0022
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1187
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_lure:
+    TargetFilename|endswith:
+      - '.scf'
+      - '.url'
+      - '.library-ms'
+      - '.searchConnector-ms'
+  selection_location:
+    TargetFilename|contains:
+      - '\Desktop\'
+      - '\Downloads\'
+      - '\Users\Public\'
+      - '\Start Menu\'
+      - '\Templates\'
+      - '\AppData\Local\Temp\'
+  condition: selection_lure and selection_location
+falsepositives:
+  - "Users dragging a hyperlink onto the Desktop or saving a link from a browser, which writes a .url file into exactly these folders under the user's own account and is the highest-volume benign match of the four extensions by a wide margin."
+  - "Application installers and update packages dropping a support or product .url shortcut into the Start Menu program folder or onto the Desktop, which recurs across every host in a software deployment wave."
+  - "Federated search and library rollouts, where a sanctioned intranet, SharePoint or file-server connector registers a .searchConnector-ms or .library-ms file under each user's profile — one legitimate change produces one match per user."
+  - "Archive handling, since extracting or previewing a downloaded .zip through Explorer materialises its members under AppData\\Local\\Temp and a shortcut inside an ordinary archive lands there with no user intent behind it."
+level: low

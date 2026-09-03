@@ -1,0 +1,1 @@
+index=* (TargetObject="*\\CurrentControlSet\\Services\\*" AND (TargetObject="*\\ImagePath" OR TargetObject="*\\FailureCommand" OR TargetObject="*\\Parameters\\ServiceDll"))

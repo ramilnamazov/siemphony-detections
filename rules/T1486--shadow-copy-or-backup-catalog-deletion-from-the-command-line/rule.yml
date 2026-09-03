@@ -1,0 +1,60 @@
+title: Shadow copy or backup catalog deletion from the command line
+id: 31d883ab-4939-434d-b14c-de54513f2fd9
+status: experimental
+description: |
+  Detects the recovery-destruction commands that precede or accompany ransomware
+  encryption on Windows — shadow copy deletion and resizing, backup catalog
+  removal, and the boot configuration edits that suppress automatic repair. This
+  rule does not detect encryption. The encryption itself appears in telemetry
+  only as a burst of writes and renames whose volume is the signal, and MITRE's
+  FileExtension, TargetFolder and TimeWindow knobs all describe counting across
+  that burst, which Sigma cannot express; the CommandLine knob of AN0602 is the
+  one element of the analytic that lands in a single event, so that is what is
+  written here. Every selection matches on CommandLine alone, so the rule is a
+  single-field OR that all backends render. The same commands are the core
+  observable for Inhibit System Recovery (T1490), and a hit should be triaged as
+  either.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0215, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1486
+  - https://attack.mitre.org/detectionstrategies/DET0215
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1486
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_vss_delete:
+    CommandLine|contains|all:
+      - 'vssadmin'
+      - 'delete shadows'
+  selection_vss_resize:
+    CommandLine|contains|all:
+      - 'vssadmin'
+      - 'resize shadowstorage'
+  selection_shadowcopy_wmi:
+    CommandLine|contains|all:
+      - 'shadowcopy'
+      - 'delete'
+  selection_wbadmin:
+    CommandLine|contains|all:
+      - 'wbadmin'
+      - 'delete'
+  selection_bcdedit_recovery:
+    CommandLine|contains|all:
+      - 'bcdedit'
+      - 'recoveryenabled'
+  selection_bcdedit_failures:
+    CommandLine|contains|all:
+      - 'bcdedit'
+      - 'ignoreallfailures'
+  condition: 1 of selection*
+falsepositives:
+  - "Backup and imaging agents pruning their own restore points. Several commercial products call vssadmin to resize shadow storage or to delete a snapshot they created, and one of them running on a schedule will match here every cycle. Scope by the parent process and the installation path of the agent rather than by dropping the resize selection, since resizing storage to a few megabytes is a documented way to purge every snapshot at once."
+  - "Administrative recovery work. Freeing disk space with vssadmin, retiring an old system state backup with wbadmin, or disabling the automatic repair loop with bcdedit while troubleshooting a boot problem are all genuine tasks that produce exactly these command lines. Operator identity and a change record are what separate them, and neither is in this event."
+  - "Build, lab and imaging pipelines that reset a golden image, which routinely clear shadow copies and boot recovery settings as part of sysprep-adjacent cleanup."
+  - "Software installers and servicing routines that remove a restore point they took before a major upgrade."
+level: high

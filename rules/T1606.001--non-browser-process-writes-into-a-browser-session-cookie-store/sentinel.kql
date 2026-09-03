@@ -1,0 +1,2 @@
+DeviceFileEvents
+| where ((FolderPath contains "\\Network\\Cookies" or FolderPath contains "\\User Data\\Default\\Cookies" or FolderPath contains "cookies.sqlite") and not ((InitiatingProcessFolderPath endswith "\\chrome.exe" or InitiatingProcessFolderPath endswith "\\msedge.exe" or InitiatingProcessFolderPath endswith "\\firefox.exe" or InitiatingProcessFolderPath endswith "\\brave.exe" or InitiatingProcessFolderPath endswith "\\opera.exe" or InitiatingProcessFolderPath endswith "\\vivaldi.exe" or InitiatingProcessFolderPath endswith "\\chromium.exe")))

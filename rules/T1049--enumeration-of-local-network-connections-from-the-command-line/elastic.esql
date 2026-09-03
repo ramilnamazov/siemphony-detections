@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*netstat*" OR TO_LOWER(process.command_line) LIKE "*get-nettcpconnection*" OR TO_LOWER(process.command_line) LIKE "*get-netudpendpoint*" OR TO_LOWER(process.command_line) LIKE "*net session*")

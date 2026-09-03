@@ -1,0 +1,1 @@
+index=* ((ParentImage="*/firefox" OR ParentImage="*/firefox-bin" OR ParentImage="*/chrome" OR ParentImage="*/google-chrome" OR ParentImage="*/chromium" OR ParentImage="*/chromium-browser") AND (Image="*/bash" OR Image="*/sh" OR Image="*/dash" OR Image="*/zsh" OR Image="*/python3" OR Image="*/python" OR Image="*/perl"))

@@ -1,0 +1,57 @@
+title: Outlook folder home page or Outlook Today URL set in the registry
+id: f12d9869-e8c9-4a79-a212-e4ca13661042
+status: experimental
+description: |
+  Detects a write to the Outlook registry values that hold a folder home page
+  — the URL Outlook fetches and renders inside its own process whenever the
+  folder is opened after startup, executing whatever script the page carries
+  without any macro setting being involved. This is the registry-side artefact
+  of the Outlook Home Page sub-technique T1137.004, observed here through the
+  parent strategy's analytic AN1116 because AN0502, the analytic under .004
+  itself, offers only process_creation, image_load and PowerShell log sources
+  and no registry feed at all. It says nothing about the other Office startup
+  mechanisms: T1137.001 covers the Word and Excel template values, T1137.002 the
+  Office test key and T1137.006 the add-in startup folders, none of which touch
+  these keys. MITRE's RegistryPath knob names Outlook Today; the WebView folder
+  URLs and the EnableRoamingFolderHomepages value, which an operator has to set
+  back on to defeat the update that disabled folder home pages, are added here
+  rather than taken from MITRE. The version number between the product name and
+  the Outlook subkey is why nothing left of `\Outlook\` is anchored.
+  The registry is only one of two delivery paths, and the narrower one: Ruler,
+  the tool the technique's own citation names, sets the folder home page as a
+  MAPI property on the mailbox over RPC/HTTP, so the WebView values never appear
+  in HKCU on the victim and this arm sees nothing. Against that path
+  EnableRoamingFolderHomepages is the sole local artefact, and only on a host
+  that took the 2017 update. Sysmon registry monitoring is an explicit allowlist
+  of paths, so confirm the Office subtree is inside the running configuration
+  before reading an empty result as an absence. The level answers to the first
+  false positive rather than to the severity of a true positive — high is
+  appropriate only once an estate has confirmed it carries no legacy folder
+  home pages and has baselined Outlook's own WebView writes away.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0398, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1137
+  - https://attack.mitre.org/detectionstrategies/DET0398
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1137
+  - attack.t1137.004
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains:
+      - '\Outlook\WebView\'
+      - '\Outlook\Today\UserDefinedUrl'
+      - '\Outlook\Security\EnableRoamingFolderHomepages'
+  condition: selection
+falsepositives:
+  - "Outlook itself populating its own WebView subkeys during profile creation, mailbox re-cache and shared or delegate mailbox opens. This is a product-generated write with no deployment and no user action behind it, it lands on every new profile, and it is the highest-volume benign source this rule has."
+  - "Legacy line-of-business deployments that genuinely use folder home pages. Older CRM and workflow add-ins pointed an Outlook folder at an internal page, and an estate still running one pushes the same values to every mailbox by Group Policy or logon script on every refresh."
+  - "An administrator deliberately re-enabling folder home pages after the Outlook update switched them off. Microsoft documents EnableRoamingFolderHomepages for exactly that compatibility case, so the write arrives from a support process with no adversary behind it."
+  - "A user customising the Outlook Today pane through its own Customize dialog, which writes UserDefinedUrl. It is uncommon but entirely supported, so a single hit is a question to ask rather than an incident on its own."
+  - "Profile roaming, migration and backup-restore tooling replaying an HKCU hive that already contained one of these values, which reproduces the original write on a new host without any new action having taken place."
+level: medium

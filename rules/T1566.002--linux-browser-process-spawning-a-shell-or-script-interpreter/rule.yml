@@ -1,0 +1,58 @@
+title: Linux browser process spawning a shell or script interpreter
+id: fcc6ac09-df27-4d2f-8d4d-fecaa55764e2
+status: experimental
+description: |
+  Matches the execution leg of AN0299 on Linux — a shell or scripting
+  interpreter spawned directly by a browser process, the step MITRE describes
+  as "shell or interpreter launched from browser process" after a spearphishing
+  link is followed. This is deliberately not the Windows shape: T1204.001
+  already owns the DNS-resolution leg of the equivalent Windows analytic
+  (browser resolving a high-risk TLD) and T1567.001 already owns DNS lookups to
+  code-repository domains, and the Windows process_creation leg — a browser or
+  document app spawning a LOLBIN child — is already published at the parent
+  technique T1204 with the same process lists this rule would otherwise repeat.
+  auditd's process_creation carries the real executable in `exe=`, so a Firefox
+  or Chromium binary as ParentImage is a reliable anchor; MITRE's
+  MonitoredBrowsers knob is used verbatim for the parent list, and the child
+  list is authored here from common Linux shells and script interpreters a
+  downloaded payload would invoke. PhishingIndicators (obfuscated/homograph URL
+  regex) has no field to test against in a process-creation event and is not
+  attempted. Requires an auditd rule arming the execve syscall, which is not
+  present on a default install of any mainstream distribution.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0107, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1566/002
+  - https://attack.mitre.org/detectionstrategies/DET0107
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.t1566.002
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_browser_parent:
+    ParentImage|endswith:
+      - '/firefox'
+      - '/firefox-bin'
+      - '/chrome'
+      - '/google-chrome'
+      - '/chromium'
+      - '/chromium-browser'
+  selection_interpreter_child:
+    Image|endswith:
+      - '/bash'
+      - '/sh'
+      - '/dash'
+      - '/zsh'
+      - '/python3'
+      - '/python'
+      - '/perl'
+  condition: selection_browser_parent and selection_interpreter_child
+falsepositives:
+  - "xdg-open and its downstream MIME handlers, which browsers on Linux invoke through /bin/sh on essentially every external link, mailto: link and downloaded-file open action — this is not specific to a malicious click and is the single largest source of matches on a desktop system."
+  - "Browser-extension native messaging hosts (password managers, ad blockers, enterprise policy agents) that communicate with the browser through a small wrapper script exec'd from the browser process, a normal part of how the native messaging protocol works rather than anything the user clicked."
+  - "The browser's own crash reporter and update helper, which are frequently thin shell scripts spawned directly by the running browser binary during a crash or a background update check."
+  - "Desktop-environment file-type dispatch invoked from the browser's download bar (\"Open Containing Folder\", \"Open With\") that hands off to a shell before launching the target application, independent of whether the downloaded file came from a phishing link."
+level: low

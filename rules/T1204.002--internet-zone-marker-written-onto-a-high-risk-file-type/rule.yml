@@ -1,0 +1,64 @@
+title: Internet zone marker written onto a high-risk file type
+id: 05cade52-d42e-457f-921b-89f6a813b25f
+status: experimental
+description: |
+  AN0819 begins with a delivered file landing in a user-controlled path, and the
+  one event that records that delivery rather than inferring it is Sysmon
+  EventID 15, written when a handler stamps the Zone.Identifier alternate data
+  stream onto a file it pulled from outside; this rule matches that stream on the
+  file types that need a user to open them, which is MITRE's SuspiciousExtensions
+  knob populated here with the script, shortcut, control-panel, disk-image and
+  macro-document extensions the technique lists. The later leg of the analytic —
+  the handler application spawning a system utility — is deliberately not written,
+  because the corpus already carries exactly that logic under the parent technique
+  T1204 and a second copy of the document-parent-spawns-LOLBin rule would add no
+  coverage. Plain .exe and .msi are excluded for a different reason: a downloaded
+  installer is the highest-volume zone-stream event on any estate and would bury
+  every other match. EventID 15 is not emitted by a bare Sysmon install and most
+  shipped configurations restrict stream hashing to a short extension list, so
+  confirm these extensions are in the running config first — otherwise the rule
+  is blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0294, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1204/002
+  - https://attack.mitre.org/detectionstrategies/DET0294
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1204.002
+logsource:
+  category: create_stream_hash
+  product: windows
+detection:
+  selection:
+    TargetFilename|endswith:
+      - '.hta:Zone.Identifier'
+      - '.lnk:Zone.Identifier'
+      - '.js:Zone.Identifier'
+      - '.jse:Zone.Identifier'
+      - '.vbs:Zone.Identifier'
+      - '.vbe:Zone.Identifier'
+      - '.wsf:Zone.Identifier'
+      - '.wsh:Zone.Identifier'
+      - '.bat:Zone.Identifier'
+      - '.cmd:Zone.Identifier'
+      - '.ps1:Zone.Identifier'
+      - '.scr:Zone.Identifier'
+      - '.pif:Zone.Identifier'
+      - '.cpl:Zone.Identifier'
+      - '.reg:Zone.Identifier'
+      - '.iso:Zone.Identifier'
+      - '.img:Zone.Identifier'
+      - '.vhd:Zone.Identifier'
+      - '.vhdx:Zone.Identifier'
+      - '.docm:Zone.Identifier'
+      - '.xlsm:Zone.Identifier'
+      - '.xll:Zone.Identifier'
+  condition: selection
+falsepositives:
+  - "IT and developer downloads of loose scripts. A .ps1, .bat or .cmd file pulled from an internal portal, a vendor support page or a code repository through a browser gets the same zone stream as a malicious one, and on an estate where staff script routinely this is the loudest entry here."
+  - "Operating system, driver and appliance media downloaded as .iso, .img or .vhd files during provisioning, which is ordinary IT work and matches on every image fetched."
+  - "Archive extraction, which propagates the zone marker to each member: one downloaded .zip containing shortcuts and batch files produces a match per file with no further user action, and MITRE's UserPaths knob is where the extraction directories used by your build and packaging tooling belong."
+  - "Cloud storage and file-sync clients writing the zone stream onto files synchronised from a shared folder, and sanctioned macro-enabled workbooks distributed as line-of-business tooling from an intranet site."
+level: medium

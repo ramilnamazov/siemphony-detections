@@ -1,0 +1,99 @@
+title: Bandwidth monetisation client executed on a Linux host
+id: 878e6aa4-903d-49b4-85ce-9a69a19f6374
+status: experimental
+description: |
+  Catches the launch of a client that sells the host's bandwidth and IP address
+  to a proxyware service — the proxyjacking behaviour named in the technique —
+  because the sustained data rate AN0081 really describes is a threshold over
+  time that Sigma cannot express. The same strings are matched against both the
+  command line and the binary path: these clients ship as native binaries under
+  /opt or /usr/local/bin and as container images, so the brand string survives
+  in argv either way, while the Image arm keeps the rule alive on a feed that
+  carries exe= but no arguments at all. That second arm is not optional, because
+  auditd's SYSCALL record holds only exe=, comm= and the syscall arguments —
+  argv arrives in a separate EXECVE record where arguments containing spaces or
+  quotes are hex-encoded and long ones are split into chunks — so this rule
+  needs auditd with an execve rule loaded (no mainstream distribution ships one)
+  AND a collector that reassembles and hex-decodes EXECVE argv; without the
+  second, the command-line arm returns zero forever, and zero rows reads as
+  quiet when it means blind. MITRE's ToolPattern knob names proxychains and
+  3proxy, both matched below; the proxyware brand list is authored here, carries
+  the date it was last refreshed, and is the part that ages fastest, so a quiet
+  result is weak evidence of absence. The ceiling is low by construction —
+  renaming the binary or retagging the container image defeats the rule
+  entirely, so it finds unsophisticated proxyjacking only, and the botnet,
+  torrent-seeding and internet-scanning behaviours the technique also covers
+  need the sustained-egress network leg this log source cannot aggregate.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0028, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1496/002
+  - https://attack.mitre.org/detectionstrategies/DET0028
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1496.002
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_cmdline:
+    CommandLine|contains:
+      # Named by MITRE's ToolPattern knob for AN0081.
+      - 'proxychains'
+      - '3proxy'
+      # Proxyware brands, assembled by the rule author, not by MITRE.
+      # Last refreshed 2026-08-16 — re-check before relying on a quiet result.
+      - 'honeygain'
+      - 'earnapp'
+      - 'traffmonetizer'
+      - 'peer2profit'
+      - 'packetstream'
+      - 'packetshare'
+      - 'repocket'
+      - 'proxyrack'
+      - 'pawns-cli'
+      - 'iproyal'
+      - 'bitping'
+      - 'nodepay'
+      - 'getgrass'
+      - 'earnfm'
+      - 'mysterium'
+      - 'proxylite'
+      - '9hits'
+      - 'speedshare'
+      - 'luminati'
+      - 'brightdata'
+  selection_image:
+    Image|contains:
+      # Same two lists against exe=, for feeds that carry no argv.
+      - 'proxychains'
+      - '3proxy'
+      - 'honeygain'
+      - 'earnapp'
+      - 'traffmonetizer'
+      - 'peer2profit'
+      - 'packetstream'
+      - 'packetshare'
+      - 'repocket'
+      - 'proxyrack'
+      - 'pawns-cli'
+      - 'iproyal'
+      - 'bitping'
+      - 'nodepay'
+      - 'getgrass'
+      - 'earnfm'
+      - 'mysterium'
+      - 'proxylite'
+      - '9hits'
+      - 'speedshare'
+      - 'luminati'
+      - 'brightdata'
+  condition: selection_cmdline or selection_image
+falsepositives:
+  - "Administrators, penetration testers and authorised red teams running proxychains to route a tool through a jump host, or 3proxy as a sanctioned internal proxy, which is the intended use of both tools MITRE's ToolPattern knob names."
+  - "Consumer-grade endpoints in BYOD or lab subnets where free VPN, free-internet and tethering apps bundle a proxyware SDK under these same brand strings. This is unsanctioned rather than adversary activity and will dominate hits in any estate with unmanaged Linux hosts."
+  - "Organisations that legitimately buy residential proxy or web-scraping capacity. Fraud, brand-protection and threat-intelligence teams run these same clients under contract, and the execve record of a sanctioned deployment is identical to that of a hijacked host."
+  - "Any command line that merely mentions a brand name without running the client — a package manager installing or removing it, a container image being pulled or tagged, an incident-response grep, or a configuration-management run that enforces its absence."
+  - "Employees monetising an idle machine for personal income, which is a true positive for the technique but normally an acceptable-use matter rather than an intrusion, and which will account for most hits in a permissive environment."
+level: medium

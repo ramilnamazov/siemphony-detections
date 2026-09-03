@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "stratum+tcp://" or ProcessCommandLine contains "stratum+ssl://" or ProcessCommandLine contains "stratum1+tcp://" or ProcessCommandLine contains "stratum2+tcp://" or ProcessCommandLine contains "--donate-level" or ProcessCommandLine contains "--nicehash" or ProcessCommandLine contains "--rig-id" or ProcessCommandLine contains "--algo=rx/0" or ProcessCommandLine contains "--algo=randomx" or ProcessCommandLine contains "--coin=monero" or ProcessCommandLine contains "xmrig" or ProcessCommandLine contains "minerd")

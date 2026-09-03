@@ -1,0 +1,2 @@
+SecurityEvent
+| where (EventID == 4697 and (ServiceFileName contains "\\cmd.exe" or ServiceFileName contains "%COMSPEC%" or ServiceFileName contains "powershell" or ServiceFileName contains "\\pwsh.exe" or ServiceFileName contains "\\wscript.exe" or ServiceFileName contains "\\cscript.exe" or ServiceFileName contains "\\mshta.exe" or ServiceFileName contains "\\rundll32.exe" or ServiceFileName contains "\\regsvr32.exe" or ServiceFileName contains "PSEXESVC" or ServiceFileName contains "\\\\"))

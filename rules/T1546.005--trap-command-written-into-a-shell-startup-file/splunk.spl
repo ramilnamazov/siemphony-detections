@@ -1,0 +1,1 @@
+index=* (CommandLine="*trap *" AND (CommandLine="*.bashrc*" OR CommandLine="*.bash_profile*" OR CommandLine="*.bash_login*" OR CommandLine="*.profile*" OR CommandLine="*.zshrc*" OR CommandLine="*.zprofile*" OR CommandLine="*.zlogin*" OR CommandLine="*/etc/profile*" OR CommandLine="*/etc/bash.bashrc*"))

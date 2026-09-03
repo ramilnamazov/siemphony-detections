@@ -1,0 +1,1 @@
+index=* ((Image="*/systemctl" AND CommandLine="*.timer*") OR (Image="*/systemd-run" AND (CommandLine="*--on-active*" OR CommandLine="*--on-boot*" OR CommandLine="*--on-startup*" OR CommandLine="*--on-unit-active*" OR CommandLine="*--on-unit-inactive*" OR CommandLine="*--on-calendar*" OR CommandLine="*--timer-property*")))

@@ -1,0 +1,65 @@
+title: Power configuration changed to stop a host sleeping
+id: 92855449-7353-417e-80b6-2a2a0493eac8
+status: experimental
+description: |
+  Matches AN1174's observable — powercfg.exe created with arguments that modify
+  sleep, hibernate or display timeouts — but narrowed from "any power setting
+  changed" to "a timeout set to never", because a timeout of zero is what the
+  technique actually needs: the machine stays awake, stays unlocked and keeps
+  running the implant. The eight `<setting>-timeout-<ac|dc> 0` strings cover the
+  standby, hibernate, monitor and disk timeouts on both mains and battery power,
+  and a second selection takes the `-h off` / `-hibernate off` form that removes
+  hibernation outright. Both are written as substrings of the whole command line
+  so the older `powercfg -change -standby-timeout-ac 0` and the documented
+  `powercfg /change standby-timeout-ac 0` spellings both match. Three honest
+  limits: the same change made through `-setacvalueindex` names a power-setting
+  GUID rather than a readable keyword and will not match; a change written
+  straight into the registry under HKLM\SYSTEM\CurrentControlSet\Control\Power
+  creates no process at all; and an unusual amount of whitespace between the
+  setting and its value breaks the literal. AN1175 (Linux systemd-inhibit and
+  /etc/systemd/sleep.conf) and AN1176 (macOS pmset) describe different platforms
+  and different log sources and are not expressed here.
+  The brief maps Security EventID 4688 onto Sigma's `process_creation` category,
+  which is Sysmon-shaped — this rule is written in that vocabulary (`Image`,
+  `CommandLine`), and a raw 4688 feed, whose native field names are
+  `NewProcessName` and `CommandLine`, needs the usual field mapping applied
+  before it can match. 4688 also requires *Audit Process Creation*, and matching
+  on arguments additionally requires the separate *Include command line in
+  process creation events* policy; with either off this rule returns zero rows,
+  and zero rows here means blind, not quiet.
+  UNVERIFIED — derived from MITRE ATT&CK DET0417 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1653
+  - https://attack.mitre.org/detectionstrategies/DET0417
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.t1653
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith: '\powercfg.exe'
+  selection_timeout_never:
+    CommandLine|contains:
+      - 'standby-timeout-ac 0'
+      - 'standby-timeout-dc 0'
+      - 'hibernate-timeout-ac 0'
+      - 'hibernate-timeout-dc 0'
+      - 'monitor-timeout-ac 0'
+      - 'monitor-timeout-dc 0'
+      - 'disk-timeout-ac 0'
+      - 'disk-timeout-dc 0'
+  selection_hibernate_off:
+    CommandLine|contains|windash:
+      - '-hibernate off'
+      - '-h off'
+  condition: selection_tool and (selection_timeout_never or selection_hibernate_off)
+falsepositives:
+  - "Endpoint management enforcing a power baseline — an SCCM configuration item, an Intune script, a GPO startup script or an RMM policy that runs powercfg with monitor-timeout-ac 0 or standby-timeout-ac 0 on every host at every policy cycle. In a managed estate this is the highest-volume match by a wide margin, and it is why the level is low rather than medium. MITRE's AllowedAdminTools knob is where this gets scoped away, populated with the parent process or account of whichever agent runs it in your environment."
+  - "Image build and provisioning task sequences, which routinely run powercfg -h off to reclaim the hiberfil.sys allocation on servers and VDI images and set standby-timeout-ac 0 so a long installation is not interrupted. One match per machine build, but every machine, and in bursts during a rollout."
+  - "OEM laptop power utilities, conference-room and kiosk software, and presentation modes that apply a never-sleep profile whenever a device is docked or projecting, then revert it afterwards — producing pairs of matches tied to hardware state rather than to any user action."
+  - "A user or administrator typing powercfg /change standby-timeout-ac 0 so an overnight backup, transfer or render is not interrupted, which is the same command line the technique uses and is separated from it only by who ran it and why."
+level: low

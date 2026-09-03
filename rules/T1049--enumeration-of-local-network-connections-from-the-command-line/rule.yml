@@ -1,0 +1,52 @@
+title: Enumeration of local network connections from the command line
+id: c5c78cc4-9d31-4d8d-aee8-0089d05038dd
+status: experimental
+description: |
+  Matches process creation whose command line names a connection-listing
+  utility — netstat in any path or casing form, the Get-NetTCPConnection and
+  Get-NetUDPEndpoint cmdlets, and net session. The whole test is on
+  CommandLine rather than split between Image and CommandLine because the
+  cmdlet form never appears as an Image: it is an argument of powershell.exe,
+  so one field carries both shapes and no backend has to OR across two.
+  This populates MITRE's CommandPatternList knob; MITRE names the knob, the
+  four patterns are authored here. ATT&CK also names "net use", which is
+  deliberately left out — "net use" is a substring of "net user" (account
+  discovery, T1087), and bare net use is drive mapping on every domain
+  workstation at logon, so including it would swamp the rule with a match it
+  cannot even attribute to the right technique. Two blind spots: a cmdlet
+  typed at an interactive PowerShell prompt spawns no process and is visible
+  only in Script Block Logging (EventID 4104, the brief's other Windows feed,
+  which is off unless Script Block Logging is enabled), and the same cmdlet
+  inside an -EncodedCommand blob does not match at all. The rule is written in
+  the Sysmon EventID 1 vocabulary of the brief's first log source; if the
+  estate feeds Security 4688 into this category instead, CommandLine is
+  populated only when both Audit Process Creation and the separate Include
+  command line in process creation events policy are on, and without them the
+  rule returns zero rows for want of the field rather than for want of the
+  behaviour.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0320, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1049
+  - https://attack.mitre.org/detectionstrategies/DET0320
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1049
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'netstat'
+      - 'Get-NetTCPConnection'
+      - 'Get-NetUDPEndpoint'
+      - 'net session'
+  condition: selection
+falsepositives:
+  - "Monitoring, inventory and EDR health agents that shell out to netstat -ano on a polling interval to record listening ports; on any host running one of these the rule fires every cycle and is the highest-volume match by a wide margin."
+  - "Helpdesk and administrator connectivity troubleshooting, where netstat -ano and Get-NetTCPConnection are among the first commands typed in an elevated prompt during an incident or a port-conflict investigation."
+  - "Application installers and service start-up scripts that call netstat to check whether a listening port is already taken before binding to it, which fires on every install and on every service restart."
+  - "PowerShell configuration and remediation scripts — Intune remediations, DSC resources, load-balancer and cluster health checks — that call Get-NetTCPConnection to assert a service is listening."
+level: low

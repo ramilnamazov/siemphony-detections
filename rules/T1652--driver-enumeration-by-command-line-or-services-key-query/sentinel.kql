@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "driverquery" or (ProcessCommandLine contains "query" and ProcessCommandLine contains "CurrentControlSet\\Services") or ProcessCommandLine contains "CurrentControlSet\\HardwareProfiles")

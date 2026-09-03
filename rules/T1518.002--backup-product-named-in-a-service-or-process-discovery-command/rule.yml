@@ -1,0 +1,65 @@
+title: Backup product named in a service or process discovery command
+id: 281ecc1f-c446-479a-84c2-e0e4a0b0c2c5
+status: experimental
+description: |
+  MITRE's analytic pairs a discovery command — tasklist, sc query, reg query, dir
+  under cmd, or the PowerShell and WMI equivalents — with the name of a backup
+  product, and that pairing is exactly what this rule requires: the executable
+  must be one of those enumeration tools and the command line must name a backup
+  vendor. Both halves are needed because either alone is worthless, since sc query
+  runs constantly and a vendor name appears in unrelated paths all day. Veeam,
+  Acronis and CrashPlan come from MITRE's own text; the rest of the vendor list is
+  the author's, and it is the concrete population of MITRE's KnownBackupVendors
+  knob rather than anything MITRE supplies. findstr and cmd are in the tool list
+  so that the piped form is not missed — in tasklist piped to findstr the vendor
+  name is on the findstr command line, not on tasklist's. Dropbox, which MITRE
+  also names, is left out because a sync client appears in ordinary file paths
+  too often to carry signal. This category is fed here by Security EventID 4688,
+  which requires Audit Process Creation and, for CommandLine to be populated at
+  all, the separate policy that includes the command line in the event; neither
+  is enabled by default, and without the second one this rule matches nothing.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0088, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1518/002
+  - https://attack.mitre.org/detectionstrategies/DET0088
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1518.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith:
+      - '\tasklist.exe'
+      - '\sc.exe'
+      - '\reg.exe'
+      - '\wmic.exe'
+      - '\net.exe'
+      - '\findstr.exe'
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_product:
+    CommandLine|contains:
+      - 'veeam'
+      - 'acronis'
+      - 'crashplan'
+      - 'backupexec'
+      - 'netbackup'
+      - 'commvault'
+      - 'arcserve'
+      - 'macrium'
+      - 'shadowprotect'
+      - 'rubrik'
+      - 'cohesity'
+      - 'datto'
+  condition: selection_tool and selection_product
+falsepositives:
+  - "The backup product running its own automation. Agents and job schedulers launch cmd.exe and powershell.exe from a directory carrying the vendor name on every job, which satisfies both halves of this rule without any discovery taking place, and it recurs on the backup schedule."
+  - "Monitoring, asset-inventory and patch-management tooling that enumerates services and installed software with sc query, wmic or reg query on a cycle, matching one vendor name per host per run."
+  - "Backup administrators and vendor support engineers checking agent and service state interactively. The command is identical to the adversary's, so nothing in the event separates them — MITRE's UserContextScope knob is the intended discriminator, scoping to interactive or low-privilege users rather than the service accounts these jobs run under."
+  - "The vendor names are unanchored substrings tested against the whole command line, so any argument containing one — an installation path, a log directory, a share name — matches even when the command has nothing to do with enumeration."
+level: medium

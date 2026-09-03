@@ -1,0 +1,47 @@
+title: Per-user CLSID registered with a payload under InprocServer32 or LocalServer32
+id: c9951408-0230-4b5c-8e36-0bcd444ed995
+status: experimental
+description: |
+  AN1323's registry source is Security EventID 4657, but this rule is written
+  in Sysmon's registry_set vocabulary (a single TargetObject) because that is
+  what the brief's sigmaLogsource declares; a deployment feeding from 4657
+  instead needs its ObjectName/ObjectValueName fields mapped onto TargetObject
+  first — enabling Audit Registry and a SACL alone does not make 4657 fit this
+  shape. The match targets the actual hijack mechanism — a CLSID under
+  `HKEY_CURRENT_USER\Software\Classes\CLSID\` (Sysmon's `HKU\` prefix)
+  overriding the machine-wide HKLM registration — and ends on the CLSID's
+  InprocServer32/LocalServer32 subkey and its `(Default)` value, because that
+  is where the payload path actually lives; the CLSID key's own value carries
+  nothing. The module load or execution MITRE correlates against this write is
+  a cross-event join Sigma cannot express, and most public Sysmon configs
+  filter `\Software\Classes` out as noise, so this needs an explicit include
+  rule first.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0481, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/015
+  - https://attack.mitre.org/detectionstrategies/DET0481
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.015
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_hive:
+    TargetObject|startswith: 'HKU\'
+  selection_com_path:
+    TargetObject|contains: '\Software\Classes\CLSID\'
+  selection_payload_value:
+    TargetObject|endswith:
+      - '\InprocServer32\(Default)'
+      - '\LocalServer32\(Default)'
+  condition: selection_hive and selection_com_path and selection_payload_value
+falsepositives:
+  - "Application installers and updaters that register per-user COM components without needing admin rights — browser toolbars and extensions, Office and Adobe shell-integration add-ins, and cloud-storage overlay-icon handlers all write InprocServer32 under HKCU as their normal install step, and this is the highest-volume source on a general-purpose fleet."
+  - "Non-persistent VDI, App-V and roaming-profile environments that reprovision per-user COM registrations from a template on every logon, producing a recurring hit for the same CLSID across every session on every host."
+  - "Shell-extension and productivity tools that deliberately use a per-user CLSID to avoid requiring elevation — 7-Zip, WinRAR and similar archivers, and cloud-sync clients placing a Explorer overlay handler, are legitimate uses of the exact registration shape this rule is written to catch."
+  - "Endpoint security and browser-monitoring agents that register their own per-user COM hooks for legitimate inspection, which are structurally identical to a hijack from this rule's point of view."
+level: medium

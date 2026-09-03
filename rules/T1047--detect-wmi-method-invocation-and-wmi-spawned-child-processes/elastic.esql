@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.parent.executable) LIKE "*\\\\wmiprvse.exe" OR (TO_LOWER(process.command_line) LIKE "*process*" AND TO_LOWER(process.command_line) LIKE "*call*" AND TO_LOWER(process.command_line) LIKE "*create*") OR (TO_LOWER(process.command_line) LIKE "*/node:*" AND TO_LOWER(process.command_line) LIKE "*call*") OR (TO_LOWER(process.command_line) LIKE "*win32_process*" AND TO_LOWER(process.command_line) LIKE "*create*") OR (TO_LOWER(process.command_line) LIKE "*invoke-wmimethod*" OR TO_LOWER(process.command_line) LIKE "*invoke-cimmethod*"))

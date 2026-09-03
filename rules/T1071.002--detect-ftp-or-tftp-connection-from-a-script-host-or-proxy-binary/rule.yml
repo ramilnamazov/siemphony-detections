@@ -1,0 +1,67 @@
+title: Detect FTP or TFTP connection from a script host or proxy binary
+id: e593c7e5-0706-4e43-8c30-8ddb06beb58e
+status: experimental
+description: |
+  Matches an outbound Sysmon network connection to an FTP, FTPS or TFTP port
+  where the process that opened the socket is a script host or a signed-binary
+  proxy rather than a file-transfer client — AN1169's "suspicious process
+  initiating file-transfer traffic" leg, expressed with the three fields
+  Sysmon EventID 3 actually carries (`Initiated`, `DestinationPort`, `Image`).
+  Two parts of the analytic are deliberately absent. SMB is not in the port
+  list: the Windows SMB client redirector runs in kernel mode, so Sysmon
+  attributes port 139/445 connections to `System`, not to the script host that
+  triggered them, and an `Image`-gated port-445 selection would look like SMB
+  coverage while matching almost nothing. `cmd.exe`, `ftp.exe` and
+  `bitsadmin.exe` are absent for the same class of reason — cmd.exe opens no
+  sockets of its own, ftp.exe is the standard client MITRE's ProcessImageFilter
+  knob points away from, and a BITS job is carried by the service host, not by
+  bitsadmin.exe. The image list is that knob populated here with hosts that do
+  open their own sockets; MITRE's own examples in the knob are cmd and mshta.
+  MITRE's DataFlowDirectionThreshold and FilenamePattern knobs are a byte-ratio
+  and a filename, neither of which exists in EventID 3 and neither of which
+  Sigma can compute, so this rule fires on the connection alone and the analyst
+  sizes the transfer elsewhere. Prerequisite: Sysmon EventID 3 is only produced
+  where the running Sysmon config includes a matching NetworkConnect rule, and
+  the widely used community configs filter it hard and several drop UDP
+  outright — which would silently blind the TFTP (port 69) arm.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0416, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1071/002
+  - https://attack.mitre.org/detectionstrategies/DET0416
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1071.002
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection_outbound:
+    Initiated: 'true'
+  selection_transfer_port:
+    DestinationPort:
+      - 20
+      - 21
+      - 69
+      - 989
+      - 990
+  selection_image:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+      - '\curl.exe'
+      - '\tftp.exe'
+  condition: selection_outbound and selection_transfer_port and selection_image
+falsepositives:
+  - "Legacy in-house automation that uploads to a partner or bank FTP/FTPS endpoint from PowerShell or a VBScript wrapper. This is the single largest source of benign volume in older estates, it runs under a service account at fixed times, and at the EventID 3 level it is byte-for-byte the same event as an operator staging a collection archive. Baseline by destination IP and by the account, which is the practical stand-in for MITRE's DataFlowDirectionThreshold knob that this rule cannot evaluate."
+  - "Network engineering work with the native TFTP client. Pushing switch firmware or pulling a router configuration to a local TFTP server produces tftp.exe to port 69, which is otherwise the strongest single term in the rule, so an estate with network staff will see this term dominate the port-69 matches."
+  - "curl.exe in build, packaging and CI scripts pulling artefacts from an internal FTP mirror. curl.exe ships with Windows now, so this is ordinary tooling rather than a dropped binary, and nothing in the connection event distinguishes the mirror from an operator's staging host."
+  - "rundll32.exe acting as a generic host for a third-party DLL that does its own FTP transfer, and certutil.exe fetching a CRL or certificate bundle from a URL that happens to be FTP. Both are the legitimate purpose of the binary rather than proxy execution."
+level: high

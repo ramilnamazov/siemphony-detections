@@ -1,0 +1,81 @@
+title: Domain-wide policy attribute or delegation ACL changed on the domain object
+id: 1279dc3a-e1b4-4a37-bb4a-9e4cae8fe3d2
+status: experimental
+description: |
+  AN0755 describes GPO edits, trust edits, delegation-permission changes and
+  rogue domain controller registration together, but the first two already
+  have dedicated rules in this corpus: T1484.001 watches Security 5136 for
+  ObjectClass groupPolicyContainer, and T1484.002 watches the same event for
+  ObjectClass trustedDomain. Repeating either here would be the same
+  observable under the parent's ID for zero new coverage, so this rule takes
+  the piece of AN0755 that belongs to neither child: attribute changes on the
+  domain's own root object (ObjectClass domainDNS) and on Fine-Grained
+  Password Policy objects (ObjectClass msDS-PasswordSettings), scoped to the
+  attributes that carry actual domain-wide policy rather than every possible
+  edit — domain password and lockout policy, msDS-PasswordSettings' own
+  per-object equivalents, ms-DS-MachineAccountQuota, gPLink (which GPOs are
+  linked to the domain root, as distinct from editing a GPO's own content),
+  and nTSecurityDescriptor on the domain object itself, which is the delegation
+  leg AN0755 names explicitly — granting DCSync-class replication rights is a
+  domain-object ACL edit, not a GPO or trust edit, and is not covered by
+  either sibling rule. Rogue domain controller registration (DCShadow) is not
+  attempted: that observable is an nTDSDSA object *creation* under the
+  Configuration partition, which is Security EventID 5137, not 5136 — 5137 is
+  absent from every log source this brief lists, and treating 5136 as though
+  it covered object creation as well as modification would misrepresent what
+  the event records.
+  MITRE's `UserContext` knob (flag unexpected accounts) and `TimeWindow` knob
+  (correlate with logon or process activity) are not implemented — lib/sigma
+  has no baseline and no cross-event join, so this fires on the attribute
+  change alone regardless of who made it.
+  Prerequisite: Security 5136 needs the *Audit Directory Service Changes*
+  subcategory enabled on every domain controller, plus a SACL covering the
+  domain's root object and the Password Settings Container — neither is on in
+  a default install or the Microsoft/CIS baselines, so an empty result here
+  means the sensor is blind, not that the domain is unchanged.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0270, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1484
+  - https://attack.mitre.org/detectionstrategies/DET0270
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1484
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_object:
+    EventID: 5136
+    ObjectClass:
+      - 'domainDNS'
+      - 'msDS-PasswordSettings'
+  selection_attribute:
+    AttributeLDAPDisplayName:
+      - 'gPLink'
+      - 'gPOptions'
+      - 'lockoutDuration'
+      - 'lockoutThreshold'
+      - 'lockoutObservationWindow'
+      - 'maxPwdAge'
+      - 'minPwdAge'
+      - 'minPwdLength'
+      - 'pwdHistoryLength'
+      - 'pwdProperties'
+      - 'ms-DS-MachineAccountQuota'
+      - 'nTSecurityDescriptor'
+      - 'msDS-PasswordSettingsPrecedence'
+      - 'msDS-LockoutDuration'
+      - 'msDS-LockoutObservationWindow'
+      - 'msDS-LockoutThreshold'
+      - 'msDS-MinimumPasswordLength'
+      - 'msDS-PasswordHistoryLength'
+  condition: selection_object and selection_attribute
+falsepositives:
+  - "Administrators changing domain password or lockout policy through the Default Domain Policy or a Fine-Grained Password Policy as a deliberate hardening or compliance project, which rewrites exactly these attributes by design."
+  - "Linking or unlinking an approved GPO at the domain root as part of routine policy rollout, which rewrites gPLink on the domain object every time regardless of whether the linked GPO itself is benign."
+  - "Directory-tooling or migration projects (domain migration utilities, tiering/delegation-model remediation, identity governance platforms) that rewrite the domain object's ACL to establish a new delegation model, which is indistinguishable here from an attacker granting themselves replication rights."
+  - "AD backup and disaster-recovery operations — an authoritative or non-authoritative restore of the domain object or the Password Settings Container replays these same attribute writes."
+level: medium

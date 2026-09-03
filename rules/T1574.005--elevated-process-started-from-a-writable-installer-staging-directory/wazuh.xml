@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="IntegrityLevel" type="pcre2">(?i)(^High$|^System$)</field>
+    <field name="Image" type="pcre2">(?i)(\\AppData\\Local\\Temp\\|:\\Windows\\Temp\\)</field>
+    <description>Elevated process started from a writable installer staging directory</description>
+    <mitre>
+      <id>T1574.005</id>
+    </mitre>
+  </rule>
+</group>

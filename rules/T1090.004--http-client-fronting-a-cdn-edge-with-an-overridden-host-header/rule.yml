@@ -1,0 +1,74 @@
+title: HTTP client fronting a CDN edge with an overridden Host header
+id: a4491efb-bb50-4bfd-85aa-d33e2bf6c0d2
+status: experimental
+description: |
+  Domain fronting is a mismatch between the TLS SNI and the HTTP Host header,
+  and no single log source in this brief holds both fields. Sysmon EventID 3
+  records socket endpoints only and EventID 22 records `QueryName`, so neither
+  Windows source can express the mismatch at all; Zeek carries `server_name` in
+  ssl.log and `host` in http.log, but those are two separate log sources and
+  Sigma cannot join them. What is left, and what AN0565 names explicitly, is the
+  client side: `curl` or `wget` dialling an HTTPS URL whose hostname is a
+  CDN edge while forcing a different Host header, which is the client-side shape
+  of the SNI/Host mismatch. Both halves are required. The Host override alone is
+  connection testing; `--resolve` and `--connect-to` are deliberately not
+  selectors at all, because they change only the address dialled while SNI and
+  the Host header both stay the URL's hostname — that is connection pinning, not
+  fronting. The CDN list is the inverse use of MITRE's CDNAllowList knob, which
+  names front-end domains to reason about; the four values below are populated
+  here rather than sourced from MITRE, and an estate should add its own edge
+  hostnames. Related but distinct: the T1001.003 rule in this corpus matches the
+  same tools overriding Host to impersonate a named cloud API, with no CDN
+  residency requirement; the CDN gate here is what makes a match evidence of
+  fronting rather than of impersonation. This sees the invocation, not the
+  fronting — an implant that fronts from inside its own code, a request without
+  an explicit `https://` scheme, a front on a CDN not listed, and MITRE's
+  empty-SNI "domainless" variant all pass without a match. On Alpine and other
+  BusyBox userlands `wget` is an applet, so execve records `/bin/busybox`, which
+  is why it is in the tool list; BusyBox wget supports only the
+  `--header=Host:` form of the three. Prerequisite: auditd ships no execve rule
+  by default, so without an explicit -a always,exit -F arch=b64 -S execve there
+  is no process_creation telemetry on the host at all and this rule returns zero
+  rows regardless of what ran. It also assumes a feed that reconstructs
+  `CommandLine` from the a0..aN fields and hex-decodes them: auditd hex-encodes
+  any argument containing whitespace, so on a raw feed the
+  `-H 'Host: front.example'` form arrives as hex and only the whitespace-free
+  `-H Host:front.example` form still matches.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0196, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1090/004
+  - https://attack.mitre.org/detectionstrategies/DET0196
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1090.004
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_client:
+    Image|endswith:
+      - '/curl'
+      - '/wget'
+      - '/busybox'
+  selection_host_override:
+    CommandLine|contains:
+      - '-H Host:'
+      - '-HHost:'
+      - '--header=Host:'
+  selection_tls:
+    CommandLine|contains: 'https://'
+  selection_cdn:
+    CommandLine|contains:
+      - 'cloudfront.net'
+      - 'azureedge.net'
+      - 'fastly.net'
+      - 'akamaihd.net'
+  condition: selection_client and selection_host_override and selection_tls and selection_cdn
+falsepositives:
+  - "Pre-cutover verification of a CDN distribution, where an operator or a deployment script curls the distribution hostname over HTTPS and supplies the production hostname as a Host header because no CNAME exists yet. This is the documented way to test a CloudFront or Azure CDN endpoint before DNS points at it, it satisfies every gate this rule has, and it is the loudest source here by a wide margin."
+  - "Cache and origin troubleshooting runbooks that reproduce a routing problem by requesting the edge hostname directly while forcing the customer hostname in the Host header, so support can compare what the edge serves against what the origin serves."
+  - "Multi-tenant platform integration tests that select a tenant or a staging backend by Host header while connecting to the shared CDN front end that all tenants sit behind."
+  - "Synthetic monitoring and health-check agents built on curl that probe each edge property by its CDN hostname with the service hostname pinned in the Host header, running on a fixed schedule from a monitoring host."
+level: low

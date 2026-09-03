@@ -1,0 +1,60 @@
+title: Network-facing service spawning a shell or scripting interpreter
+id: 60dea374-d7c3-4a7d-bf9f-8daab3d263e6
+status: experimental
+description: |
+  MITRE's Windows analytic for exploitation of remote services correlates
+  inbound traffic to a service port with the service crashing or restarting and
+  with unexpected child processes appearing under it. The inbound-to-crash join,
+  the ServicePortSet and the failed-connection rate are all correlation and
+  threshold conditions Sigma has no way to state, so this rule takes the child
+  process leg on its own: a listening service — IIS worker, database engine,
+  print spooler, DNS server, web server — creating a command shell, a scripting
+  interpreter or a download utility. A daemon that serves requests has no
+  ordinary reason to launch an interactive shell, which makes this the strongest
+  single event in the chain even without the crash that usually precedes it.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0118, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1210
+  - https://attack.mitre.org/detectionstrategies/DET0118
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1210
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_service_parent:
+    ParentImage|endswith:
+      - '\w3wp.exe'
+      - '\httpd.exe'
+      - '\nginx.exe'
+      - '\tomcat9.exe'
+      - '\tomcat10.exe'
+      - '\sqlservr.exe'
+      - '\mysqld.exe'
+      - '\postgres.exe'
+      - '\spoolsv.exe'
+      - '\dns.exe'
+      - '\sshd.exe'
+  selection_shell_child:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\bitsadmin.exe'
+      - '\certutil.exe'
+      - '\curl.exe'
+      - '\net.exe'
+      - '\net1.exe'
+  condition: selection_service_parent and selection_shell_child
+falsepositives:
+  - "Web applications that legitimately shell out — an intranet admin page calling cmd.exe, a reporting feature invoking a batch job, or a deployment hook run by the IIS worker. This is the main source of noise and it is per-application, so the exclusion belongs on the specific site or application pool rather than on w3wp.exe as a whole."
+  - "Database maintenance that uses xp_cmdshell or an SQL Agent job step of type CmdExec, which appears as sqlservr.exe launching cmd.exe on a schedule."
+  - "Printer driver installation and spooler-hosted vendor components, where spoolsv.exe runs a helper script during driver setup — the same parent-child shape that print-spooler exploitation produces."
+  - "OpenSSH server sessions on hosts where sshd is a supported administration path, since every interactive logon spawns a shell from sshd.exe and those hosts need excluding by name before this rule is usable. MITRE's AllowedAdminCIDRs knob is the equivalent suppression on the network side, which this rule cannot apply because the source address is not on the process event."
+level: high

@@ -1,0 +1,54 @@
+title: Audit policy or Windows Event Log channel disabled via CLI tooling
+id: c74dd0b5-5b58-4b9e-beb6-6862f33d3ad5
+status: experimental
+description: |
+  AN0535 spans five log sources — service state, an audit-log-cleared event,
+  two registry categories and process creation — but only one of those lets a
+  single Sigma rule express the *disable* half of the technique's name rather
+  than the *clear* half. This rule matches the two command lines the brief's
+  description names directly: `auditpol /set ... /success:disable
+  /failure:disable`, and `wevtutil sl <channel> /e:false`, the switch that
+  turns a channel off rather than emptying it. `wevtutil cl` (clear) and
+  Security 1102 are deliberately left out — that observable belongs to
+  Indicator Removal: Clear Windows Event Logs (T1070.001), and folding it in
+  here would blur the two techniques the same way casual reading of "disable
+  or modify" already does. A third selector covers the bluntest form of the
+  same behaviour, the EventLog service itself being stopped or reconfigured
+  through `sc.exe`/`net.exe`. The registry-key legs (Sysmon 13/14 on the
+  EventLog and Autologger keys) and the System 7035 service-state leg are not
+  expressed here — each needs its own logsource and its own rule, since
+  lib/sigma has no construct for combining logsources in one detection.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0187, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1685/001
+  - https://attack.mitre.org/detectionstrategies/DET0187
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1685.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_wevtutil_disable:
+    Image|endswith: '\wevtutil.exe'
+    CommandLine|contains: '/e:false'
+  selection_auditpol_disable:
+    Image|endswith: '\auditpol.exe'
+    CommandLine|contains:
+      - '/success:disable'
+      - '/failure:disable'
+  selection_service_stop:
+    Image|endswith:
+      - '\sc.exe'
+      - '\net.exe'
+      - '\net1.exe'
+    CommandLine|contains: 'eventlog'
+  condition: 1 of selection*
+falsepositives:
+  - "Group Policy re-application. A scheduled gpupdate cycle replays the site's audit-policy baseline through auditpol on every domain-joined host, and most real baselines leave several subcategories at success-only or failure-only, so the remaining half of each pair is written as a literal /success:disable or /failure:disable on a normal refresh interval. This is the highest-volume source by a wide margin on a managed domain."
+  - "Log-retention and disk-space management tooling that disables noisy diagnostic or operational channels (for example a verbose PowerShell or application-compatibility log) with wevtutil sl ... /e:false as part of a documented baseline, rather than the Security or System channel."
+  - "Imaging, sysprep and generalization tooling that stops or reconfigures the EventLog service as one step of a multi-step build process, which is disruptive but sanctioned."
+  - "Security baseline and compliance tools (CIS/STIG remediation scripts) that assert an intentionally-disabled subcategory explicitly rather than relying on the existing state, producing the same auditpol command an adversary would run."
+level: low

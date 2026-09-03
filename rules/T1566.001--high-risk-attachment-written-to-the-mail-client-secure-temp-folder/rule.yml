@@ -1,0 +1,96 @@
+title: High-risk attachment written to the mail client secure temp folder
+id: 79adda3b-c69d-4df3-851a-80482f25c547
+status: experimental
+description: |
+  Takes the delivery leg of AN0655 rather than the execution leg: an attachment
+  of a high-risk type materialising in the Outlook secure temporary cache, the
+  folder the mail client writes to when a user opens an attachment straight from
+  a message — deliberately not a parent-child process rule, because the
+  Office-spawns-a-script-host pattern already covers T1203 and T1204 and cannot
+  tell an emailed document from a browser download, whereas this path is written
+  only by the mail client. The extension list is shaped by Outlook's Level 1
+  blocked-attachment list: Outlook never writes a .exe, .js, .lnk, .hta, .reg
+  or (on current channels) .one into this folder at all, so those types sit in
+  `selection_ext_blocked` and are inert unless an administrator has set
+  Level1Remove or an Exchange policy unblocked them — the types that survive
+  Level 1 are precisely the ones attackers moved to, and they are the live
+  surface here. Suffix matching on a delivery artefact is a list-maintenance
+  problem rather than a behavioural one, so any unlisted extension defeats the
+  rule outright; the values are authored to populate MITRE's
+  `AttachmentExtensions` knob and are not supplied by MITRE. A match is
+  evidence of delivery, not execution — Outlook writes the cache copy when the
+  attachment is opened or previewed, so a user who looked and closed produces
+  the same event as one who detonated, and the alert must be pivoted to process
+  creation before it means anything. Requires Sysmon EventID 11 with this path
+  not excluded (stock configurations filter file-create events aggressively),
+  and it covers classic outlook.exe only: the new Outlook client and webmail
+  use a different cache, and an attachment saved through Save As to Downloads
+  never touches this folder.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0236, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1566/001
+  - https://attack.mitre.org/detectionstrategies/DET0236
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.t1566.001
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_path:
+    TargetFilename|contains: '\Content.Outlook\'
+  # Types Outlook does not block, so they do reach this folder — the live surface.
+  selection_ext_live:
+    TargetFilename|endswith:
+      - '.docm'
+      - '.xlsm'
+      - '.xlam'
+      - '.xll'
+      - '.pptm'
+      - '.jar'
+      - '.iso'
+      - '.img'
+      - '.vhd'
+      - '.vhdx'
+      - '.svg'
+      - '.htm'
+      - '.html'
+  # Containers: the standard way a payload gets past the gateway. Highest volume
+  # of the three groups and the first to drop when tuning.
+  selection_ext_archive:
+    TargetFilename|endswith:
+      - '.zip'
+      - '.7z'
+      - '.rar'
+      - '.cab'
+  # Outlook Level 1 blocked types. These cannot reach this folder in a default
+  # install; they only fire where Level1Remove or an Exchange policy unblocks them.
+  selection_ext_blocked:
+    TargetFilename|endswith:
+      - '.exe'
+      - '.scr'
+      - '.pif'
+      - '.com'
+      - '.cmd'
+      - '.bat'
+      - '.ps1'
+      - '.vbs'
+      - '.vbe'
+      - '.js'
+      - '.jse'
+      - '.wsf'
+      - '.hta'
+      - '.lnk'
+      - '.chm'
+      - '.reg'
+      - '.one'
+  condition: selection_path and 1 of selection_ext*
+falsepositives:
+  - "Archive attachments. A .zip or .7z sent as ordinary business mail writes into this folder the moment it is opened, and on a normal mailbox that is the entire result set by a wide margin — which is why the level is set no higher than low and why selection_ext_archive is kept separate so it can be dropped first."
+  - "Macro-enabled business documents. Finance and engineering teams exchange .xlsm and .docm attachments as routine work, and opening one writes a file here that is indistinguishable at the file-creation event from a weaponised copy."
+  - "Web and image attachments: .htm, .html and .svg files circulated by marketing, design and reporting teams, or saved newsletters and exported dashboards, all of which land here on preview."
+  - "Vendor and internal IT mail carrying signed installers, .iso images or .vhd disk images for software distribution, which look identical to container-delivered malware at the point of write."
+  - "Mailbox automation such as archiving, journaling, data-loss-prevention or antivirus add-ins that open every attachment on arrival, which can produce this event for an entire mailbox in one sweep."
+level: low

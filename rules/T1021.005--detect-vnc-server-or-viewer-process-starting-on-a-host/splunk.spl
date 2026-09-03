@@ -1,0 +1,1 @@
+index=* (Image="*\\winvnc.exe" OR Image="*\\winvnc4.exe" OR Image="*\\vncserver.exe" OR Image="*\\vncserverui.exe" OR Image="*\\vncviewer.exe" OR Image="*\\tvnserver.exe" OR Image="*\\tvnviewer.exe" OR Image="*\\uvnc_service.exe")

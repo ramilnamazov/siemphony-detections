@@ -1,0 +1,1 @@
+index=* (TargetFilename="*\\Windows\\SoftwareDistribution\\Datastore\\*" OR TargetFilename="*\\Windows\\SoftwareDistribution\\Download\\*" OR TargetFilename="*\\Windows\\Security\\Database\\*" OR TargetFilename="*\\System Volume Information\\*" OR TargetFilename="*\\$Recycle.Bin\\*")

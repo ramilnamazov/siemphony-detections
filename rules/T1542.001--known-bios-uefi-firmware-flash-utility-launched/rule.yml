@@ -1,0 +1,51 @@
+title: Known BIOS/UEFI firmware flash utility launched
+id: bfd84137-b562-43d7-b6e3-2a42b05793a5
+status: experimental
+description: |
+  AN0275 names `fwupdate.exe` and "vendor flash tools" as the process-creation
+  signal for a firmware write; this rule matches that binary plus the closely
+  related AMI, Insyde and ASUS flash utilities (`afuwin.exe`/`afudos.exe`,
+  `h2offt.exe`/`h2offtwin64.exe`, `winflash.exe`) added here to widen coverage
+  beyond MITRE's single named example — those five are this rule's own
+  addition, not MITRE's. The brief offers Security EventID 4688 for this leg
+  but maps it onto the Sysmon-shaped `process_creation` category, and the rule
+  is written in that vocabulary (`Image`, `CommandLine`); a native 4688 feed
+  needs `NewProcessName` mapped onto `Image` and `ProcessCommandLine` onto
+  `CommandLine` before it can match at all, and 4688 itself requires *Audit
+  Process Creation* plus the separate *Include command line in process
+  creation events* policy, neither on by default or in the MS/CIS baselines.
+  AN0275's other two sources, Sysmon EventID 9 (raw disk sector writes) and
+  EventID 11 (file creation in the EFI GUID partition), are not used here —
+  they would need a byte-range or path baseline this rule does not attempt,
+  so a raw `DeviceIoControl` write from a tool not on this binary list is
+  invisible to it. The account-privilege half of the analytic ("executed from
+  non-administrative or non-IT management accounts") is also not implemented:
+  `process_creation` carries no reliable account-role field, so the rule flags
+  every launch of these binaries regardless of who ran them.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0099, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1542/001
+  - https://attack.mitre.org/detectionstrategies/DET0099
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.t1542.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith:
+      - '\fwupdate.exe'
+      - '\afuwin.exe'
+      - '\afudos.exe'
+      - '\h2offt.exe'
+      - '\h2offtwin64.exe'
+      - '\winflash.exe'
+  condition: selection
+falsepositives:
+  - "Vendor-managed firmware update campaigns pushed through Dell Command | Update, Lenovo System Update or HP Image Assistant, which silently invoke these same AMI/Insyde/ASUS flash utilities during a scheduled patch window."
+  - "IT staff manually re-flashing BIOS firmware during a break-fix or hardware-refresh cycle using the OEM's own flash tool, which is legitimate use of the identical binary this rule matches on."
+level: medium

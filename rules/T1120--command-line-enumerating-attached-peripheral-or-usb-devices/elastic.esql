@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*get-pnpdevice*" OR TO_LOWER(process.command_line) LIKE "*win32_usbcontroller*" OR TO_LOWER(process.command_line) LIKE "*win32_pnpentity*")

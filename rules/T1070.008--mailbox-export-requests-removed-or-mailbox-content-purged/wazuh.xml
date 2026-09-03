@@ -1,0 +1,25 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4104$</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(Remove-MailboxExportRequest|Remove-MailboxImportRequest)</field>
+    <description>Mailbox export requests removed or mailbox content purged (1/2)</description>
+    <mitre>
+      <id>T1070.008</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4104$</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(Search-Mailbox|New-ComplianceSearchAction)</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(-DeleteContent|-Purge)</field>
+    <description>Mailbox export requests removed or mailbox content purged (2/2)</description>
+    <mitre>
+      <id>T1070.008</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,1 @@
+index=* ((type="PATH" AND name="*/etc/pam.d/*") OR (type="PATH" AND (name="*/pam_google_authenticator.so" OR name="*/pam_duo.so" OR name="*/pam_oath.so" OR name="*/pam_yubico.so" OR name="*/pam_u2f.so" OR name="*/pam_radius_auth.so")))

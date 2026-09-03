@@ -1,0 +1,108 @@
+title: Web server worker writes a server-side script into a web root
+id: d1d48dd0-d5c7-4642-969d-4cae6a9057ca
+status: experimental
+description: |
+  AN1108 has two halves — an unexpected file appearing in a web directory, and
+  the server worker later spawning a shell — and this rule takes the first. The
+  second is already published in this corpus as the T1505 parent's rule,
+  which matches w3wp.exe, php-cgi.exe, httpd.exe, nginx.exe and sqlservr.exe
+  spawning an interpreter and whose own description says it "sees the payoff and
+  never the plant". This rule is the plant, so the two are complementary rather
+  than duplicates. It requires all three of: a Sysmon EventID 11 file-create
+  whose creating process is a web server worker, a target path inside a web
+  directory, and a server-side script extension. The creator gate is what makes
+  the rule worth running — a release pipeline, an administrator copying files or
+  a package installer writes into the same directories with the same extensions,
+  and none of them is w3wp.exe or php-cgi.exe, whereas an exploited web
+  application writing its own backdoor is the worker process itself, which is the
+  shape ProxyLogon-class web shell drops take. The path list is MITRE's
+  `WebRootPath` knob, populated here with the default IIS layout plus the
+  htdocs/httpdocs/public_html/webapps conventions third-party stacks use; the
+  extension list and the process list are authored, not sourced from MITRE, whose
+  `ParentProcess` knob describes the process-creation leg rather than this one.
+  Three limits are structural, and the first is the one that decides whether this
+  rule ever fires. Sysmon's own sample configurations filter FileCreate hard —
+  the widely used ones include only a handful of extensions and directories — so
+  on a stock deployment this rule returns zero rows not because nothing was
+  dropped but because the event was never generated; the config must include
+  FileCreate for the web roots and script extensions below before the rule means
+  anything, and zero rows reads as quiet when it actually means blind. Second,
+  the rule only sees shells the web server itself wrote: a shell copied in over
+  SMB, unpacked by an installer, or written by an out-of-process ASP.NET Core
+  application (the writer there is dotnet.exe or the application's own binary,
+  neither of which is matched) is invisible here. Third, a JSP shell dropped
+  through a servlet container is written by java.exe rather than by the
+  tomcat9.exe service wrapper, and java.exe is deliberately left out of the
+  creator list because it would match every build, IDE and CI job on the estate —
+  so the Java arm of this technique is uncovered.
+  What is not attempted: the analytic's Security 4624/4648 log source, because a
+  logon record carries no file path and no process lineage and cannot express a
+  web shell at all; MITRE's `PayloadEntropyThreshold` and `TimeWindow` knobs,
+  which are a content measure and a cross-event correlation that lib/sigma models
+  neither of; and the Linux and macOS analytics — AN1109's process leg (apache2
+  or nginx spawning a shell) is already published as this corpus's T1059.004
+  rule, its file leg needs auditd watches on the web root that no distribution
+  loads by default, and AN1110's macos/unifiedlog source has no field vocabulary
+  in the brief, in lib/sigma or in Sigma's taxonomy. Vocabulary note: this rule
+  is written in the Sysmon EventID 11 names `Image` and `TargetFilename` that the
+  brief's `file_event` logsource implies. An estate feeding the same category
+  from Security 4663 instead has `ProcessName` and `ObjectName` and needs a field
+  mapping before any of this matches — configuring *Audit Object Access* and a
+  SACL without that mapping buys nothing here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0394, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1505/003
+  - https://attack.mitre.org/detectionstrategies/DET0394
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1505.003
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_server_writer:
+    Image|endswith:
+      - '\w3wp.exe'
+      - '\php-cgi.exe'
+      - '\php.exe'
+      - '\httpd.exe'
+      - '\nginx.exe'
+  selection_web_directory:
+    TargetFilename|contains:
+      - '\inetpub\'
+      - '\wwwroot\'
+      - '\htdocs\'
+      - '\httpdocs\'
+      - '\public_html\'
+      - '\webapps\'
+      - '\www\'
+  selection_script_extension:
+    TargetFilename|endswith:
+      - '.asp'
+      - '.aspx'
+      - '.ashx'
+      - '.asmx'
+      - '.asax'
+      - '.cshtml'
+      - '.vbhtml'
+      - '.php'
+      - '.php3'
+      - '.php4'
+      - '.php5'
+      - '.php7'
+      - '.phtml'
+      - '.jsp'
+      - '.jspx'
+      - '.jspf'
+      - '.cfm'
+      - '.cfml'
+  condition: all of selection_*
+falsepositives:
+  - "Content management systems updating themselves. A WordPress, Joomla, Drupal or PrestaShop core or plugin update on a Windows PHP host is php-cgi.exe writing dozens of .php files into public_html or wwwroot in one burst, which is this rule's exact selection with nothing distinguishing it. On a CMS host this is the highest-volume match by a wide margin and is why the level is medium rather than high."
+  - "Deployment features that run inside the worker process rather than beside it. Web Deploy handled by the IIS management service, an application's own self-update or plugin installer, and CMS theme or template editors that save a page from the browser all write server-side script files as w3wp.exe during ordinary release and administration work."
+  - "Applications that generate script files as a feature: page builders and template editors that persist user-authored .php or .cshtml, report and form designers that emit an .aspx per saved definition, and caching layers that write compiled template output back into the web directory."
+  - "File-upload endpoints that store user content under the web root without rewriting the extension, where an uploaded document simply happens to end in one of these suffixes. The write is benign and the file is never requested, but the event is identical to a shell being placed."
+  - "Restore and migration work performed through the web tier, such as a site-migration or backup plugin unpacking an archive of the site's own pages back into place under the worker process account."
+level: medium

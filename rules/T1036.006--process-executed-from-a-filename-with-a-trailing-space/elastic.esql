@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE TO_LOWER(process.executable) LIKE "* "

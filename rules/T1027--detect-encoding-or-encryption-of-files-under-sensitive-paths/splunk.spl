@@ -1,0 +1,1 @@
+index=* (((CommandLine="*openssl enc*" OR CommandLine="*gpg --symmetric*" OR CommandLine="*gpg -c *" OR CommandLine="*base64 *" OR CommandLine="*xxd -p*") AND (CommandLine="*/etc/*" OR CommandLine="*/home/*" OR CommandLine="*/root/*" OR CommandLine="*/srv/*" OR CommandLine="*/var/www/*")) AND NOT ((CommandLine="* -d *" OR CommandLine="*--decode*" OR CommandLine="*--decrypt*")))

@@ -1,0 +1,54 @@
+title: PowerShell engine loaded by a process that is not a PowerShell host
+id: 4c643eb0-5435-49fb-99e6-a018dc836418
+status: experimental
+description: |
+  AN1252 asks the strategy to cover indirect invocation as well as powershell.exe
+  itself, and the module load is where indirect invocation is actually visible:
+  anything that runs PowerShell without the shipped executable — a C# loader, a
+  signed application hosting a runspace, an implant calling into the automation
+  engine — still has to map System.Management.Automation.dll into its address
+  space, and neither a renamed interpreter nor a bypassed command line changes
+  that. The rule matches that load and subtracts the binaries Microsoft ships as
+  PowerShell hosts, leaving processes that are running PowerShell under some other
+  name. The encoded and hidden arguments MITRE's CommandLinePattern knob points at
+  are deliberately not written here: they belong to the process-creation side and
+  describe obfuscation rather than execution, and the document-parent-spawns-
+  PowerShell chain the ParentProcessName knob names is already the corpus's T1204
+  rule. Two limits worth stating: the filter is by image path, so a binary renamed
+  to powershell.exe is excluded by the same list that makes the rule usable at
+  all; and Sysmon EventID 7 is off in a bare install while the widely deployed
+  configurations restrict module logging to a named DLL allowlist, so confirm
+  System.Management.Automation.dll is in the running config before reading an
+  empty result as quiet rather than blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0455, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1059/001
+  - https://attack.mitre.org/detectionstrategies/DET0455
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1059.001
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection:
+    ImageLoaded|endswith:
+      - '\System.Management.Automation.dll'
+      - '\System.Management.Automation.ni.dll'
+  filter_shipped_hosts:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\powershell_ise.exe'
+      - '\pwsh.exe'
+      - '\wsmprovhost.exe'
+      - '\sdiagnhost.exe'
+      - '\ServerManager.exe'
+  condition: selection and not filter_shipped_hosts
+falsepositives:
+  - "Endpoint management and configuration agents that host a runspace in-process rather than launching powershell.exe — the Configuration Manager client, the Intune management extension, monitoring agents and backup software all do this. On a managed estate they run on a schedule on every host and are the loudest match by a wide margin, which is what the level reflects."
+  - "Developer and administration tooling built on the automation engine: Visual Studio and VS Code extension hosts, MSBuild tasks, cloud deployment agents and SQL Server management components load the same assembly at startup under their own image name."
+  - "Server product management surfaces such as the Exchange, SharePoint and Active Directory administration front ends, which are PowerShell wrappers and therefore load the engine every time an administrator opens them."
+  - "Antivirus and EDR products that host a runspace to run their own remediation and collection scripts, producing a load under the vendor's service binary on every scan or response action."
+level: low

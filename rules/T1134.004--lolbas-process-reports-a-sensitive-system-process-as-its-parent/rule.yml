@@ -1,0 +1,63 @@
+title: LOLBAS process reports a sensitive system process as its parent
+id: dad089c3-608a-4dc6-95f7-3484a63522dd
+status: experimental
+description: |
+  AN1351's actual observable is a mismatch across three independent lineage
+  sources — ETW EventHeader ProcessId, Security 4688 Creator Process ID/Name
+  and Sysmon ParentProcessGuid — but the brief supplies only one of those
+  three (Security 4688), so no cross-source mismatch can be computed here;
+  once PPID spoofing succeeds, 4688's own ParentProcessName field reports
+  exactly the forged value, indistinguishable within that single event from a
+  genuine parent. What this rule detects instead is MITRE's SensitiveParents
+  knob turned into a plausibility check: it names lsass.exe, services.exe and
+  wininit.exe as the example SYSTEM processes whose spoofed use "auto-
+  escalates severity"; this rule adds smss.exe and csrss.exe, the two other
+  session/boot-manager processes in the same trust tier, none of which
+  legitimately parents an interactive shell or a LOLBAS binary. A match here
+  means either a genuinely forged PPID pointing at one of these five, or one
+  of the narrower legitimate exceptions named below — the rule cannot tell
+  the two apart, since both produce the same 4688 record. It also cannot see
+  the UpdateProcThreadAttribute/PROC_THREAD_ATTRIBUTE_PARENT_PROCESS call
+  itself, or a spoofed PPID pointing at an ordinary (non-sensitive) process
+  such as explorer.exe, which is the case MITRE's own example (a document
+  spawning PowerShell spoofed to look like it came from explorer.exe) — that
+  variant is indistinguishable from the enormous volume of processes explorer
+  legitimately parents and is not attempted. Prerequisite: 4688 needs *Audit
+  Process Creation* enabled; it is off by default and in the CIS baseline.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0489, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1134/004
+  - https://attack.mitre.org/detectionstrategies/DET0489
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1134.004
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_child:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\mshta.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+  selection_sensitive_parent:
+    ParentImage|endswith:
+      - '\lsass.exe'
+      - '\services.exe'
+      - '\wininit.exe'
+      - '\smss.exe'
+      - '\csrss.exe'
+  condition: selection_child and selection_sensitive_parent
+falsepositives:
+  - "Legacy backup, monitoring or scheduled-task services whose ImagePath directly invokes cmd.exe or powershell.exe as the service binary itself, rather than hosting it under svchost.exe — the Service Control Manager (services.exe) is the recorded parent for any such service at every start, and is the single most common benign match for this rule."
+  - "Component-registration or configuration services deployed by Group Policy or MDM whose service binary is rundll32.exe or regsvr32.exe directly, again parented by services.exe as the Service Control Manager."
+  - "Windows Recovery Environment, in-place upgrade and system-repair tooling in which smss.exe or wininit.exe transiently parents a command interpreter during very early boot or repair phases — rare, but a documented benign edge case distinct from a running production endpoint."
+level: medium

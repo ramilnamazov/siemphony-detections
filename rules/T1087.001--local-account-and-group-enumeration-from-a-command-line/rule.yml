@@ -1,0 +1,79 @@
+title: Local account and group enumeration from a command line
+id: 9f9c9b39-8b3d-4ea2-9e44-c798c9c707bf
+status: experimental
+description: |
+  AN0846's `CommandLinePattern` knob names `net user`, `net localgroup` and
+  `Get-LocalUser`; this rule is those three plus the wmic spelling added here,
+  gated so that what matches is local rather than domain enumeration. The net leg
+  wants net.exe or net1.exe — either can be the logged image, because net.exe
+  re-executes itself as net1.exe — with a `user` or `localgroup` subcommand and
+  without a `/domain` switch, and that absent switch is the whole discriminator
+  against the sibling T1087.002, whose published rule requires it. `net accounts`
+  is deliberately not in the verb list: it returns the password policy, which is
+  T1201 rather than an account listing. The cmdlet leg matches `Get-LocalUser`
+  and `Get-LocalGroup`, the second written without a suffix so it also covers
+  `Get-LocalGroupMember` by substring; the WMI class name `Win32_UserAccount` is
+  left out because the T1087.002 rule already carries it, while `wmic
+  useraccount` is kept because that spelling appears in no other rule in this
+  corpus.
+  Three limits are structural. The domain exclusion is a substring test for
+  ` /do` and ` -do`, which catches the switch as typed and as abbreviated but not
+  a wrapper that passes it through a variable, so a domain query written that way
+  falls into this rule as a false match on the sibling technique. A cmdlet called
+  from inside a .ps1, a module or a here-string never reaches `CommandLine` at
+  all. And MITRE's `UserContext` and `TimeWindow` knobs — fire only for
+  unexpected or low-privileged accounts, or only on a burst of enumeration in
+  short succession — are a per-identity baseline and a timeframe, neither of
+  which Sigma models, so nothing here encodes them and the rule is left matching
+  the single-event precursor, which is why the level sits at the bottom of the
+  scale. The analytic's other two arms are not attempted: AN0847's Linux leg keys
+  on reads of /etc/passwd, which getent, sudo, login and every id call perform
+  constantly, and the brief supplies no field schema for macos/unifiedlog
+  anywhere, so AN0848's fields would have to be invented. Expect overlap with the
+  published T1033 rule, which selects the same net.exe ` user` shape as an owner
+  discovery precursor. This rule is written in the Sysmon EventID 1 vocabulary
+  (`Image`, `CommandLine`) that AN0846 names; an estate feeding Security 4688
+  instead needs `NewProcessName` mapped onto `Image` first, and 4688 needs both
+  *Audit Process Creation* and the separate *Include command line in process
+  creation events* policy before `CommandLine` exists at all — neither is on in a
+  default install or in the Microsoft and CIS baselines.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0303, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1087/001
+  - https://attack.mitre.org/detectionstrategies/DET0303
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1087.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_net_binary:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+  selection_net_verb:
+    CommandLine|contains:
+      - ' user'
+      - ' localgroup'
+  filter_domain_scope:
+    CommandLine|contains:
+      - ' /do'
+      - ' -do'
+  selection_local_cmdlet:
+    CommandLine|contains:
+      - 'Get-LocalUser'
+      - 'Get-LocalGroup'
+  selection_wmic_useraccount:
+    Image|endswith: '\wmic.exe'
+    CommandLine|contains: 'useraccount'
+  condition: (selection_net_binary and selection_net_verb and not filter_domain_scope) or selection_local_cmdlet or selection_wmic_useraccount
+falsepositives:
+  - "Endpoint management and compliance tooling. Configuration Manager baselines, Intune remediation scripts, RMM checks and CIS benchmark tests read the local Administrators group with net localgroup administrators or Get-LocalGroup on a fixed schedule on every host in the estate. This is the highest-volume match here by a wide margin, it runs under a service account rather than a person, and it is the reason this rule is scored low rather than medium."
+  - "Service desk and administrative troubleshooting. Confirming that a local account exists, is enabled, or is a member of the local Administrators group with net user or net localgroup is ordinary first-line work and produces an event indistinguishable from the adversary's."
+  - "Inventory and credentialed vulnerability scanning. Asset-management agents and authenticated Nessus, Qualys or Lansweeper policies call wmic useraccount get name,sid to inventory local principals, so every scan window produces one match per scanned host."
+  - "Installers and prerequisite checks. Server products, database engines and driver packages read local group membership before creating or configuring a service account, so an install, repair or upgrade emits a match with no operator intent behind it."
+  - "Logon and startup scripts that branch on local administrator membership, which fire once per user per session across the whole estate with nobody at the keyboard."
+level: low

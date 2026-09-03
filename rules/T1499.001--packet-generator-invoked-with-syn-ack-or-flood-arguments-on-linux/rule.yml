@@ -1,0 +1,93 @@
+title: Packet generator invoked with SYN, ACK or flood arguments on Linux
+id: 07c0cdfb-79dd-47c2-a397-24adc2c8ef6f
+status: experimental
+description: |
+  AN1013 defines its log source as the invocation of packet generation tools,
+  naming hping3 and nping, so this rule matches an auditd EXECVE record whose
+  argv[0] resolves to one of those binaries — the hping and hping2 entries are
+  kept because some distributions install the binary under those names rather
+  than as symlinks — and whose arguments carry SYN, ACK or flood evidence:
+  -S/--syn or -A/--ack, the flags that put hping into the state-exhausting
+  handshake mode this technique is filed under, or --flood, which removes the
+  per-packet pacing either mode would otherwise have. Matching argv[0] and the
+  flag together is possible in one selection because a raw auditd stream keeps
+  both on the same EXECVE record — argv[0] is a0 and every subsequent argument
+  is a1..aN on that record, not split across it and the SYSCALL record the way
+  exe and the arguments are. An earlier version of this rule claimed the
+  opposite and matched on exe alone; that was wrong, made the rule a strict
+  subset of the tool list in this corpus's T1498.001 rule with no argument
+  evidence at all, and left a diagnostic `hping3 -c 3` indistinguishable from
+  `hping3 -S --flood`. Argument position is not fixed, so the flag check is
+  repeated across a1 through a4 to catch the flag wherever the user placed it
+  relative to the target and other options; a flag placed at a5 or later is
+  still missed, and `hping3 --flood` alone (no explicit -S/-A) still matches,
+  which keeps this rule's firing set overlapping with T1498.001's rather than
+  disjoint from it — the two rules describe the same tool family from two
+  different feeds (this one raw auditd, that one the normalised
+  process_creation view) and neither fully separates a state-exhaustion flood
+  from a bandwidth flood on argument evidence alone. Still out of reach
+  entirely: MITRE's AmplificationThreshold knob is a volume and lib/sigma has
+  no aggregation, no timeframe and no near, so a match here means a
+  flood-shaped invocation happened, never that the TCP state table came under
+  measurable pressure; the fork-bomb half of AN1013's log source is a shell
+  construct with no distinct binary; and a compiled dropper or a hand-rolled
+  socket loop leaves no matching command at all. Prerequisite: auditd records
+  nothing about execution until an exec rule is loaded, for example
+  `-a always,exit -F arch=b64 -S execve -k exec` plus its b32 twin, and without
+  it this rule returns zero rows, which reads as quiet when it means blind.
+  Field values must also arrive unquoted and hex-decoded from the auditd
+  parser (auparse, a Wazuh decoder, or a Filebeat auditd module) — against
+  unnormalised text, a trailing quote on a0 or a1 defeats every endswith and
+  contains here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0356, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1499/001
+  - https://attack.mitre.org/detectionstrategies/DET0356
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.impact
+  - attack.t1499.001
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_execve:
+    type: 'EXECVE'
+    a0|endswith:
+      - 'hping'
+      - 'hping2'
+      - 'hping3'
+      - 'nping'
+  selection_flood_evidence:
+    - a1|contains:
+        - '-S'
+        - '--syn'
+        - '-A'
+        - '--ack'
+        - '--flood'
+    - a2|contains:
+        - '-S'
+        - '--syn'
+        - '-A'
+        - '--ack'
+        - '--flood'
+    - a3|contains:
+        - '-S'
+        - '--syn'
+        - '-A'
+        - '--ack'
+        - '--flood'
+    - a4|contains:
+        - '-S'
+        - '--syn'
+        - '-A'
+        - '--ack'
+        - '--flood'
+  condition: selection_execve and selection_flood_evidence
+falsepositives:
+  - "Network and platform engineers using hping3 -S or nping --syn to test whether a firewall rule passes a given TCP flag, or hping3 --flood to measure link throughput or NIC behaviour under load. The command is identical to a real launch and only the target, schedule and account separate them, which is why the level is low."
+  - "Scanning and assessment hosts where the nmap package is installed: nping ships with nmap, and reachability or packet-crafting steps in a scan workflow that pass --flood or a SYN flag execute it from the same accounts and on the same schedule as the scan itself."
+  - "Booked load and resilience testing, and authorised penetration tests with availability in scope, where hping3 -S --flood or hping3 -A --flood is pointed at the organisation's own service from the same host a real attack would use."
+  - "Lab, training and CTF images, where these packages are installed deliberately and the SYN/ACK/flood flags are exercised as coursework, so every student host produces matches for the duration of a course."
+level: low

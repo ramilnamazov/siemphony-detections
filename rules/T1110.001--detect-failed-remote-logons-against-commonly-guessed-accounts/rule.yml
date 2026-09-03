@@ -1,0 +1,79 @@
+title: Detect failed remote logons against commonly guessed accounts
+id: 96b89932-c9a8-4ec0-b741-5a9f25b00b09
+status: experimental
+description: |
+  Matches a single Security EventID 4625 failure whose target is one of the
+  default or generic account names a password-guessing tool tries first, where
+  the attempt arrived over the network rather than at the console and failed
+  because the password was wrong or the account does not exist. AN1521 defines
+  the behaviour as a *series* of failures over a TimeWindow with a
+  SourceIPThreshold, and Sigma as this corpus constrains it models neither a
+  count nor a window nor a join to the later success — which is why the parent
+  T1110 is declined here outright. What one event can still carry is MITRE's
+  `UsernamePattern` knob, populated below with generic and default account
+  names rather than with anything MITRE supplied, so the rule sees one guess
+  and leaves the burst to be recognised by whoever reads the alerts.
+  Two clauses do the narrowing. `LogonType` is limited to 3 (network, so SMB
+  and WinRM), 8 (network cleartext, so basic-auth web management) and 10
+  (RemoteInteractive, so RDP), which drops the console mistype that produces
+  most benign 4625s. `SubStatus` is limited to 0xC000006A (bad password) and
+  0xC0000064 (no such user), which drops failures caused by lockout, a disabled
+  or expired account and logon-hour restrictions — administrative outcomes, not
+  guesses. If a collector normalises 4625 without preserving `SubStatus`, that
+  clause must be removed or the rule matches nothing.
+  The match is exact on `TargetUserName`, not a substring, so `admin1`,
+  `administrator2` and localised names such as `administrateur` fall outside it;
+  widening the list is the intended tuning direction. 4625 is written by the
+  machine that performed the authentication, so guessing against a *domain*
+  account is recorded on the domain controller as 4771/4768/4776 instead and is
+  invisible here — this rule covers local accounts and the member-server and
+  workstation leg only. It is written in the Security channel vocabulary
+  (`EventID`, `LogonType`, `SubStatus`, `TargetUserName`) and none of those
+  fields carry over to a Sysmon category. Unlike 4688, the audit subcategory
+  behind 4625 (*Audit Logon*, Failure) is enabled in the default configuration
+  and in the Microsoft and CIS baselines, so no extra policy is needed.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0551, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1110/001
+  - https://attack.mitre.org/detectionstrategies/DET0551
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1110.001
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4625
+    LogonType:
+      - 3
+      - 8
+      - 10
+    SubStatus:
+      - '0xC000006A'
+      - '0xC0000064'
+    TargetUserName:
+      - 'administrator'
+      - 'admin'
+      - 'guest'
+      - 'root'
+      - 'sa'
+      - 'sysadmin'
+      - 'oracle'
+      - 'postgres'
+      - 'ftp'
+      - 'test'
+      - 'user'
+      - 'backup'
+      - 'support'
+      - 'demo'
+  condition: selection
+falsepositives:
+  - "A service, scheduled task or mapped drive still holding an old password for a local account named administrator, backup or support. It retries on a timer from one fixed internal address and is the densest recurring source of matches this rule will ever produce, so a source-address allowlist is the first tuning step rather than an optional one."
+  - "Authenticated vulnerability scanners and asset-inventory tools sweeping the estate with a credential set that is wrong or expired on a subset of hosts, which produces a burst of LogonType 3 failures against administrator from the scanner's address on every scan schedule."
+  - "A help desk engineer mistyping the local administrator password over RDP or WinRM, which writes exactly this event with LogonType 10 or 3 and is indistinguishable from a guess at the single-event level."
+  - "Estates that genuinely operate accounts called test, user, backup, support or demo, where every ordinary forgotten password for those users matches. Trim the name list to names that do not exist in your directory before deploying it."
+  - "Legacy line-of-business applications authenticating over LogonType 8 with a hard-coded generic account name that was missed in a password rotation, which then fails on every request until someone notices."
+level: medium

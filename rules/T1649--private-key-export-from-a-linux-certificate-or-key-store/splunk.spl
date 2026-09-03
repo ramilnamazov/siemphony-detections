@@ -1,0 +1,1 @@
+index=* ((Image="*/openssl" AND (CommandLine="*pkcs12*" OR CommandLine="*pkcs8*")) OR ((Image="*/pk12util" OR Image="*/certutil") AND (CommandLine="*/nssdb*" OR CommandLine="*/.pki*")) OR (Image="*/keytool" AND (CommandLine="*-importkeystore*" OR CommandLine="*-exportcert*")))

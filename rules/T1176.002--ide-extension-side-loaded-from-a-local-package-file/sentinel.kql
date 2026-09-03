@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "--install-extension" and ProcessCommandLine contains ".vsix")

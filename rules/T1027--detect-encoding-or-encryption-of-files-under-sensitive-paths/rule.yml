@@ -1,0 +1,58 @@
+title: Detect encoding or encryption of files under sensitive paths
+id: d1ed6f77-f8b4-4ac3-b6e2-f1e8e72bdcef
+status: experimental
+description: |
+  MITRE's Linux analytic describes base64, openssl and similar tools being used
+  to encode or encrypt files after staging or enumeration, so this rule pairs
+  the tool invocation with the file it was pointed at, both read off the same
+  CommandLine field of one execve event. The tool terms and the path list are
+  MITRE's CommandRegex and SensitivePathList knobs, populated here with openssl
+  enc, symmetric gpg, base64 and xxd against /etc, /home, /root, /srv and
+  /var/www; gzip and tar are deliberately absent because on any real host they
+  would supply nearly every match. The decode and decrypt directions are
+  filtered out, since that is the reverse behaviour and belongs to T1140. Three
+  limits: a shell pipeline such as tar czf - /home | openssl enc leaves no path
+  in openssl's own argv and is missed entirely, encoding of data held in a
+  variable or a heredoc never touches a path either, and auditd emits nothing
+  here until an execve syscall rule is loaded — the stock auditd install ships
+  none, so this rule returns zero rows on an unconfigured host and zero rows
+  means blind, not clean.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0378, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027
+  - https://attack.mitre.org/detectionstrategies/DET0378
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1027
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tool:
+    CommandLine|contains:
+      - 'openssl enc'
+      - 'gpg --symmetric'
+      - 'gpg -c '
+      - 'base64 '
+      - 'xxd -p'
+  selection_target:
+    CommandLine|contains:
+      - '/etc/'
+      - '/home/'
+      - '/root/'
+      - '/srv/'
+      - '/var/www/'
+  filter_reverse:
+    CommandLine|contains:
+      - ' -d '
+      - '--decode'
+      - '--decrypt'
+  condition: selection_tool and selection_target and not filter_reverse
+falsepositives:
+  - "Backup and archiving jobs that encrypt a copy of /etc or /home before shipping it offsite. Hand-written cron wrappers around openssl enc and gpg --symmetric are the classic form, and on a fileserver they are the loudest match this rule has, which is why it is scored low."
+  - "CI/CD and provisioning runs — Ansible, cloud-init, GitLab runners — that base64-encode certificates, kubeconfigs or SSH keys out of /etc/ssl or a user's /home/<user>/.ssh so they survive being passed between stages."
+  - "Hosting control panels such as cPanel and Plesk, whose scheduled account backups gpg-encrypt customer data under /home before upload, once per account per night."
+  - "Administrators and support staff encoding a config file under /etc with base64 to paste it into a ticket or chat without line-wrapping damage."
+level: low

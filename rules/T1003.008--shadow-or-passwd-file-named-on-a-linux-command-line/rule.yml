@@ -1,0 +1,64 @@
+title: Shadow or passwd file named on a Linux command line
+id: c6c302c2-3197-4bde-87f3-dfbc8a1748fd
+status: experimental
+description: |
+  Matches the execve leg of AN1234: a process launched with /etc/shadow on its
+  command line, the unshadow utility that joins the two files into a cracking
+  input, or /etc/passwd handed to a binary whose job is to copy, archive, encode
+  or ship a file elsewhere. The match sits on CommandLine rather than on Image
+  because MITRE's `exe` knob names cat, cp and awk while the same read is
+  equally served by less, strings, tar, base64, head or a python one-liner, so
+  keying on the reader would miss most of the ways this actually happens;
+  unshadow is matched on Image as well, since an adversary who copied the pair
+  out first invokes it against the copies and puts neither /etc path in argv.
+  /etc/passwd on its own is deliberately not enough: it is world-readable and
+  named on command lines constantly by ordinary administration, so it is gated
+  on a transfer or archiving binary — that gate is authored here, not taken from
+  MITRE, which names only the `exe` knob. Two limits follow from using execve. A
+  shell builtin read (`while read line < /etc/shadow`) forks no process, and a
+  program that opens the file through a path it builds at runtime never puts it
+  in argv; the analytic's other log source, an auditd file-access watch such as
+  `-w /etc/shadow -p r`, is the complement that catches both. Prerequisite: a
+  stock auditd install ships no execve rule, so without an explicit
+  `-a always,exit -F arch=b64 -S execve` there is no process_creation telemetry
+  on the host at all and this returns zero rows regardless of what ran — zero
+  rows reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0446, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1003/008
+  - https://attack.mitre.org/detectionstrategies/DET0446
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1003.008
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_shadow:
+    CommandLine|contains: '/etc/shadow'
+  selection_unshadow:
+    Image|endswith: '/unshadow'
+  selection_passwd_moved:
+    CommandLine|contains: '/etc/passwd'
+    Image|endswith:
+      - '/cp'
+      - '/tar'
+      - '/base64'
+      - '/xxd'
+      - '/curl'
+      - '/scp'
+      - '/nc'
+      - '/nc.openbsd'
+      - '/nc.traditional'
+      - '/netcat'
+      - '/ncat'
+  condition: 1 of selection*
+falsepositives:
+  - "Compliance and hardening scanners that read /etc/shadow by absolute path on every host on a schedule — Lynis, oscap remediation scripts, CIS-benchmark shell scripts and AIDE or Tripwire wrappers all grep, awk or checksum it as a standard check. This is a predictable, recurring, estate-wide match and the highest-volume one this rule has, which is why it is scored medium rather than high."
+  - "Administrators troubleshooting a locked, expired or non-hashing account with sudo cat /etc/shadow or grep <user> /etc/shadow, and password-age audits run by hand from a runbook. The command is identical to the one this rule is written for and only the operator account separates them."
+  - "Account-management procedures that take a backup before a bulk change, such as cp /etc/passwd /etc/passwd.bak or cp /etc/shadow /root/shadow.$(date +%F) ahead of a mass useradd, a UID renumbering or a directory migration."
+  - "Container image builds and chroot or distroless staging that copy /etc/passwd into the output tree so the runtime user resolves, which is routine in CI and matches selection_passwd_moved through /cp and /tar."
+  - "Backup jobs invoking tar with an explicit include list that names /etc/passwd and /etc/shadow, producing one match per host per backup window under a service account."
+level: medium

@@ -1,0 +1,2 @@
+DeviceImageLoadEvents
+| where (InitiatingProcessFolderPath endswith "\\outlook.exe" and (FolderPath endswith "\\vbscript.dll" or FolderPath endswith "\\scrobj.dll"))

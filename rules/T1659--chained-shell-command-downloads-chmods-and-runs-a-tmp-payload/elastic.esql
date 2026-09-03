@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((((TO_LOWER(process.executable) LIKE "*/sh" OR TO_LOWER(process.executable) LIKE "*/bash" OR TO_LOWER(process.executable) LIKE "*/dash") AND (TO_LOWER(process.command_line) LIKE "*curl *" OR TO_LOWER(process.command_line) LIKE "*wget *")) AND (TO_LOWER(process.command_line) LIKE "*/tmp/*" OR TO_LOWER(process.command_line) LIKE "*/var/tmp/*")) AND (TO_LOWER(process.command_line) LIKE "*chmod +x*" OR TO_LOWER(process.command_line) LIKE "*chmod 755*" OR TO_LOWER(process.command_line) LIKE "*chmod 777*"))

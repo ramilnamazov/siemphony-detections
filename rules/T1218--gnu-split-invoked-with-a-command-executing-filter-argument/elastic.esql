@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) LIKE "*/split" AND (TO_LOWER(process.command_line) LIKE "*--filter=*" OR TO_LOWER(process.command_line) LIKE "*--filter *"))

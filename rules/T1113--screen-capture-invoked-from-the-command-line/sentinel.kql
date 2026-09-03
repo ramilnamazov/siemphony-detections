@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "CopyFromScreen" or ProcessCommandLine contains "CopyPixelOperation" or ProcessCommandLine contains "System.Drawing.Bitmap" or ProcessCommandLine contains "Drawing.Graphics]::FromImage" or ProcessCommandLine contains "BitBlt" or ProcessCommandLine contains "PrintWindow" or ProcessCommandLine contains "savescreenshot" or ProcessCommandLine contains "psr.exe /start" or ProcessCommandLine contains "Get-Screenshot")

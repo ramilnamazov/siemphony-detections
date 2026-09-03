@@ -1,0 +1,2 @@
+SecurityEvent
+| where ((EventID == 4624 and LogonType == 10 and LogonProcessName =~ "NtLmSsp") or (EventID == 4648 and (ProcessName endswith "\\mstsc.exe" or ProcessName endswith "\\wmic.exe" or ProcessName endswith "\\winrs.exe" or ProcessName endswith "\\powershell.exe" or ProcessName endswith "\\pwsh.exe" or ProcessName endswith "\\psexec.exe" or ProcessName endswith "\\psexec64.exe")))

@@ -1,0 +1,44 @@
+title: Debugger value written under an Image File Execution Options key
+id: 980a25ef-38ae-42e9-adaa-fbc0e7ed3c75
+status: experimental
+description: |
+  Matches the registry write that creates the IFEO injection primitive itself —
+  a value named Debugger under an Image File Execution Options subkey — which is
+  the first half of MITRE's AN1186. The gate is on the *value name*, not on the
+  hijacked binary, which is what separates this from the accessibility-binary
+  hijack under T1546.008: that rule fires on the target executable's name and
+  ignores which value was written, this one fires on any target so long as a
+  debugger was attached. Both predicates are tested on TargetObject because a
+  single registry_set record carries the key path and the value name as one
+  string; on a Sysmon EventID 13 feed that is native, and on the Security
+  EventID 4657 feed named in the brief the pipeline must concatenate ObjectName
+  and ObjectValueName or the endswith predicate never matches. 4657 also needs
+  the Audit Registry subcategory enabled *and* a SACL placed on the IFEO key —
+  neither is on in a default install or in the MS and CIS baselines, so an
+  unprepared host returns zero rows for reasons that have nothing to do with
+  adversary activity. The SilentProcessExit MonitorProcess half of the technique
+  writes to a different key and is deliberately out of scope here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0422, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/012
+  - https://attack.mitre.org/detectionstrategies/DET0422
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.012
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_ifeo:
+    TargetObject|contains: '\Image File Execution Options\'
+  selection_debugger:
+    TargetObject|endswith: '\Debugger'
+  condition: selection_ifeo and selection_debugger
+falsepositives:
+  - "A developer attaching a debugger to a process that cannot be launched under one directly, which is the supported use of this key. gflags -i app.exe +dbg and the Visual Studio child-process debugging option both write exactly this value, so engineering workstations and build agents produce these routinely while servers should not."
+  - "An application-compatibility shim or vendor installer pointing an obsolete executable name at its replacement through Debugger, so that launching the old binary transparently starts the new one. The write is structurally identical to the attack and is best suppressed on the installing process rather than by narrowing the key match."
+  - "An IT script neutralising an unwanted executable by setting its Debugger to a blocker or to a no-op binary, a common ad-hoc application-control measure. MITRE's TargetBinary knob, populated locally with the executables that actually matter in the environment, is where this gets narrowed if it is frequent."
+level: high

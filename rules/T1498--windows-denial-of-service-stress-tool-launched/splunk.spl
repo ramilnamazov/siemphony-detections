@@ -1,0 +1,1 @@
+index=* ((Image="*\\loic.exe" OR Image="*\\hoic.exe" OR Image="*\\hoic2.exe" OR Image="*\\xoic.exe") OR ((Image="*\\python.exe" OR Image="*\\pythonw.exe") AND (CommandLine="*goldeneye.py*" OR CommandLine="*slowloris.py*" OR CommandLine="*hulk.py*")))

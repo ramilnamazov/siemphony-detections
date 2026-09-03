@@ -1,0 +1,11 @@
+<group name="sigma,zeek,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for zeek so this only evaluates relevant events. -->
+    <field name="user_agent" type="pcre2">(?i)(compatible; MSIE |Mozilla/4\.0)</field>
+    <description>HTTP client asserting an obsolete Internet Explorer user agent</description>
+    <mitre>
+      <id>T1036.012</id>
+    </mitre>
+  </rule>
+</group>

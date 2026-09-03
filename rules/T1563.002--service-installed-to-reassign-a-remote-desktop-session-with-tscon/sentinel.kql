@@ -1,0 +1,2 @@
+Event
+| where ((Source =~ "Service Control Manager" and EventID == 7045) and (ImagePath contains "tscon" or ImagePath contains "rdp-tcp#"))

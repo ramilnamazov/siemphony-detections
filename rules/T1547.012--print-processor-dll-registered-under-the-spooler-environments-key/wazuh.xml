@@ -1,0 +1,13 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)\\Control\\Print\\Environments\\</field>
+    <field name="TargetObject" type="pcre2">(?i)\\Print Processors\\</field>
+    <field name="Details" negate="yes" type="pcre2">(?i)winprint\.dll$</field>
+    <description>Print processor DLL registered under the spooler Environments key</description>
+    <mitre>
+      <id>T1547.012</id>
+    </mitre>
+  </rule>
+</group>

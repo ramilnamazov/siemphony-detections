@@ -1,0 +1,60 @@
+title: Command-line HTTP client querying a collaboration platform API
+id: bfa88fdc-6858-4fe3-94e7-1d02096e3274
+status: experimental
+description: |
+  AN1161 describes curl, wget or a scripted client scraping documentation systems
+  and internal REST APIs, and the only part of that a single process-creation
+  event can carry is the tool plus the endpoint it was pointed at, so this rule
+  ANDs those two fields: a retrieval binary whose command line names a wiki,
+  ticketing, document-library or WebDAV API path. MITRE's CommandRegex knob is
+  the intended home for those patterns; the list here is the author's, drawn from
+  the published Confluence, Jira, SharePoint, GitLab, MediaWiki and Nextcloud
+  endpoint shapes, and a site whose repository sits on another product must
+  extend it or the rule is silent. Two things the analytic asks for are outside
+  Sigma: the burst — AccessVolumeThreshold and TimeWindow are counts over an
+  interval and there is no aggregation here, so one hit is one request and not
+  evidence of bulk collection — and interpreted scrapers, because a Python or
+  Ruby client execs the interpreter and the repository URL usually sits inside
+  the script rather than on the command line. Access through a browser or a
+  native desktop client produces no process event at all and is invisible to
+  this rule. On auditd this needs an execve rule loaded (for example
+  `-a always,exit -F arch=b64 -S execve`); without one the feed is empty and an
+  empty result means blind, not quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0413, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1213
+  - https://attack.mitre.org/detectionstrategies/DET0413
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1213
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tool:
+    Image|endswith:
+      - '/curl'
+      - '/wget'
+  selection_repository:
+    CommandLine|contains:
+      - '/rest/api/content'
+      - '/rest/api/space'
+      - '/wiki/rest/api/'
+      - '/rest/api/2/'
+      - '/rest/api/3/'
+      - '/_api/web/lists'
+      - '/_api/web/getfolderbyserverrelativeurl'
+      - '/_vti_bin/'
+      - '/api/v4/projects'
+      - '/api/v3/repos'
+      - '/w/api.php'
+      - '/remote.php/dav/files/'
+  condition: selection_tool and selection_repository
+falsepositives:
+  - "Scheduled monitoring and synthetic checks. Nagios, Zabbix and similar agents curl a Confluence, Jira or GitLab REST endpoint every few minutes from a Linux host, which is continuous and by a wide margin the largest source of matches here; nothing in the event separates a health probe from a page pull."
+  - "Documentation-as-code and release automation. CI jobs that publish release notes through the Confluence REST API, export a space before an upgrade, or read issue metadata from Jira with curl inside a pipeline step."
+  - "Backup and migration scripts that walk a team drive over the SharePoint or Nextcloud WebDAV path with wget to archive it, which is exactly the mass-retrieval shape the analytic describes but run by the storage owner."
+  - "An administrator or developer testing an endpoint by hand — a single curl against the wiki API while debugging authentication or a broken integration."
+level: low

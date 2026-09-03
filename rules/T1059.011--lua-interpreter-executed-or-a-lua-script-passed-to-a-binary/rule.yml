@@ -1,0 +1,83 @@
+title: Lua interpreter executed or a .lua script passed to a binary
+id: a9af0bd9-f1e0-4e70-94d2-f116301d5637
+status: experimental
+description: |
+  Two observables for AN0278's "execution of Lua interpreters or scripts
+  (.lua)" on a single process-creation event. The first is a named Lua
+  interpreter as the process image. The second exists because Lua interpreters
+  ship under many names and version suffixes (lua5.1.exe, luajit.exe, or a
+  renamed build) and an image-name list alone is defeated by any name not on
+  it — but a .lua path on a command line only proves that a process referenced
+  the file, not that it executed it, so that branch excludes images under
+  Program Files and System32 and a short list of named editors, version-control
+  and search tools that read .lua files as content. That list is necessarily
+  incomplete — antivirus and EDR content scanners are closed-source and vary by
+  vendor, so no Image allowlist can exclude them, and any other editor, backup
+  tool or file-copy utility not named in the filter survives and matches on
+  nothing more than a .lua path in argv. This branch therefore does not detect
+  Lua execution; it detects "some process was invoked with a .lua path as an
+  argument," and the level below is set for that population, not for the
+  narrower interpreter-usage noise the filter does catch.
+  AN0278's file-drop correlation (Sysmon EventID 11) and its TimeWindow knob
+  describe a join across two event types Sigma cannot express, so only the
+  process-creation event is authored, and a renamed interpreter staged inside
+  Program Files, or Lua embedded through struct lua_State with no separate
+  process at all, produces no match here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0101, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1059/011
+  - https://attack.mitre.org/detectionstrategies/DET0101
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1059.011
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_interpreter:
+    Image|endswith:
+      - '\lua.exe'
+      - '\lua5.1.exe'
+      - '\lua5.2.exe'
+      - '\lua5.3.exe'
+      - '\lua5.4.exe'
+      - '\lua51.exe'
+      - '\lua52.exe'
+      - '\lua53.exe'
+      - '\lua54.exe'
+      - '\luajit.exe'
+      - '\wlua.exe'
+  selection_script_arg:
+    CommandLine|endswith:
+      - '.lua'
+      - '.lua"'
+  filter_installed_path:
+    Image|contains:
+      - '\program files\'
+      - '\program files (x86)\'
+      - '\windows\system32\'
+      - '\windows\syswow64\'
+  filter_content_tools:
+    Image|endswith:
+      - '\code.exe'
+      - '\nvim.exe'
+      - '\vim.exe'
+      - '\sublime_text.exe'
+      - '\notepad++.exe'
+      - '\git.exe'
+      - '\rg.exe'
+      - '\findstr.exe'
+      - '\7z.exe'
+      - '\tar.exe'
+      - '\robocopy.exe'
+      - '\xcopy.exe'
+  condition: selection_interpreter or (selection_script_arg and not (filter_installed_path or filter_content_tools))
+falsepositives:
+  - "Any non-interpreter process invoked with a .lua path as its last command-line argument that is not one of the named editors or content tools in the filter — antivirus and EDR content scanners walking the filesystem, other text editors and IDEs, backup and file-sync utilities such as rsync-for-Windows or rclone, and archivers not named in the filter. This is the dominant, undisclosed noise source for the untethered branch: it never executed as Lua, it only named a .lua path."
+  - "Editors, package managers and Lua language servers installed under a user profile rather than Program Files — Neovim or lua-language-server launched from %LOCALAPPDATA%, a scoop or npm shim, an IDE plugin host — passing an init.lua or config .lua path they only read. On a developer host this is loud, and it is not an execution of Lua at all."
+  - "Applications that embed Lua for scripting or plugins invoking their bundled interpreter with a .lua argument during ordinary use, such as a game's addon loader, Wireshark loading a .lua dissector, or Nmap running a .lua NSE script during authorized scanning."
+  - "Developers and CI build agents running Lua test suites or build tooling such as busted and luarocks, which invoke the interpreter directly against .lua files on every build."
+  - "Portable or self-contained tools that ship their own copy of lua.exe or luajit.exe outside Program Files, including game mod managers and vendor diagnostic bundles, which match the interpreter branch on every launch."
+level: informational

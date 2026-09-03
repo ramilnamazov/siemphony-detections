@@ -1,0 +1,69 @@
+title: RDP connection history or firewall state cleared via command line
+id: 21a5f384-458e-4869-8525-4efa3cf18783
+status: experimental
+description: |
+  Matches process creation where a command line removes one of the artefacts
+  that records an inbound or outbound remote-desktop connection, or wipes the
+  local firewall configuration that would show the listener or rule an operator
+  added. The first arm pairs an artefact gate — the `Terminal Server Client`
+  registry path and cache folder, or a `Default.rdp` file — with a removal verb
+  (`reg delete`, `Remove-Item`, `del`, `rd`, `rmdir`), because either half alone
+  is far too common to stand on its own: the paths are read constantly by the
+  RDP client itself, and the verbs appear in most maintenance scripts ever
+  written. The second arm gates `netsh.exe` on `advfirewall` and then on a
+  destructive sub-command (` reset` or `delete rule`), so ordinary
+  `netsh advfirewall show` and `add rule` traffic does not match. The verbs are
+  matched as substrings, so an unrelated token in the same command line can
+  satisfy the verb gate; the artefact gate is what keeps that rare. MITRE's
+  `TargetPathRegex` knob names the `Terminal Server Client` and `Default.rdp`
+  paths; the verb and sub-command lists are authored here. The rule is written
+  in the Sysmon EventID 1 vocabulary the brief names — `Image` and
+  `CommandLine`. A Security 4688 feed carries the same behaviour under
+  `NewProcessName`, and needs both Audit Process Creation and the separate
+  Include command line in process creation events policy before `CommandLine`
+  is populated at all, so 4688 cannot be substituted without a field mapping
+  first; the brief's other legs (Security 4663 mapped onto `file_event`, and
+  4670/4656 on the raw security service) are likewise separate feeds with their
+  own field names and are not combined here. Deletion performed through an API —
+  `RegDeleteKey` from compiled code, a `.reg` import, or a firewall change via
+  the `NetSecurity` COM/WMI provider — never reaches a command line and is
+  invisible to this rule, and clearing the TerminalServices event channels
+  themselves belongs to T1070.001 rather than here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0049, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1070/007
+  - https://attack.mitre.org/detectionstrategies/DET0049
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1070.007
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_rdp_artifact:
+    CommandLine|contains:
+      - 'Terminal Server Client'
+      - 'Default.rdp'
+  selection_removal_verb:
+    CommandLine|contains:
+      - ' delete '
+      - 'del '
+      - 'rd '
+      - 'rmdir '
+      - 'Remove-Item'
+  selection_netsh:
+    Image|endswith: '\netsh.exe'
+    CommandLine|contains: 'advfirewall'
+  selection_netsh_verb:
+    CommandLine|contains:
+      - ' reset'
+      - 'delete rule'
+  condition: (selection_rdp_artifact and selection_removal_verb) or (selection_netsh and selection_netsh_verb)
+falsepositives:
+  - "Profile-cleanup and logoff scripts on non-persistent VDI and RDS estates, which delete the per-user `Terminal Server Client\\Servers` MRU and the cached `.rdp` files on every session teardown so the next user does not inherit them. On such an estate this is the highest-volume match in the rule by a wide margin and is indistinguishable on the command line from an operator wiping their own jump-host trail."
+  - "VPN, remote-support and endpoint-security installers and uninstallers — and the Configuration Manager or Intune steps that wrap them — running `netsh advfirewall firewall delete rule name=...` to remove their own inbound rules, or `netsh advfirewall reset` during imaging to return the host to a known policy baseline."
+  - "Helpdesk connectivity troubleshooting, where `netsh advfirewall reset` is a standard first step for ruling out a local firewall policy as the cause of a ticket, and where stale `Terminal Server Client\\Servers` entries are deleted by hand after a server is renamed or decommissioned."
+  - "Privacy and disk-cleaning utilities such as CCleaner and BleachBit, and corporate \"clear recent items\" scripts, which remove the Terminal Server Client MRU alongside browser, Explorer and Run-dialog history on a schedule."
+level: low

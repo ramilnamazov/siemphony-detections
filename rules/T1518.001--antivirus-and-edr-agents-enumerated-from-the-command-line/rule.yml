@@ -1,0 +1,78 @@
+title: Antivirus and EDR agents enumerated from the command line
+id: d4c5a372-3753-46c3-b4d5-75d49d6f22d4
+status: experimental
+description: |
+  Matches MITRE's AN0048 in the form a single process-creation record can carry:
+  a command line naming the Windows Security Center WMI classes, a Defender
+  status cmdlet, a firewall-profile dump, or one of the enumeration tools
+  carrying the name of a security agent. The first three arms need no tool gate
+  because those class and cmdlet names appear nowhere else, while the vendor arm
+  is gated on the enumeration tool because a product name on its own turns up in
+  ordinary paths all day; the vendor and service names are the author's
+  population of MITRE's ImagePathContains knob, not MITRE's list. It shares its
+  shape with the published T1518.002 rule for backup-software discovery, but the
+  value lists are disjoint and the three ungated arms have no equivalent there.
+  This category is fed here by Security EventID 4688, which needs Audit Process
+  Creation and the separate policy that includes the command line in the event —
+  every arm of this rule reads CommandLine, so without that second policy it
+  matches nothing at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0016, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1518/001
+  - https://attack.mitre.org/detectionstrategies/DET0016
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1518.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_securitycenter:
+    CommandLine|contains:
+      - 'securitycenter2'
+      - 'AntiVirusProduct'
+      - 'AntiSpywareProduct'
+      - 'FirewallProduct'
+  selection_defender_cmdlet:
+    CommandLine|contains:
+      - 'Get-MpComputerStatus'
+      - 'Get-MpPreference'
+      - 'Get-MpThreat'
+  selection_firewall_dump:
+    Image|endswith: '\netsh.exe'
+    CommandLine|contains: 'firewall show'
+  selection_agent_name:
+    Image|endswith:
+      - '\tasklist.exe'
+      - '\sc.exe'
+      - '\reg.exe'
+      - '\findstr.exe'
+      - '\wmic.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+    CommandLine|contains:
+      - 'windefend'
+      - 'msmpeng'
+      - 'crowdstrike'
+      - 'csfalcon'
+      - 'sentinelone'
+      - 'sentinelagent'
+      - 'carbonblack'
+      - 'cbdefense'
+      - 'cylance'
+      - 'cybereason'
+      - 'sophos'
+      - 'symantec'
+      - 'mcafee'
+      - 'kaspersky'
+      - 'trendmicro'
+      - 'tanium'
+  condition: 1 of selection*
+falsepositives:
+  - "Endpoint management, asset inventory and compliance tooling. Configuration-management agents and vulnerability scanners call the Defender status cmdlets, dump firewall profiles with netsh and query agent services with sc on a fixed schedule, and on a managed fleet that is the rule's dominant volume by a wide margin."
+  - "The security products themselves. Antivirus, EDR and firewall agents run their own health checks through these same cmdlets and WMI classes, and their installers query the Security Center classes in order to register the product with Windows."
+  - "Helpdesk and support workflows, where confirming that the antivirus service is running is the first troubleshooting step and uses the same tasklist or sc query command an adversary would type."
+  - "The vendor names are unanchored substrings tested against the whole command line, so any powershell.exe or findstr.exe invocation whose script path, log directory or share name contains a product name matches even though no enumeration took place."
+level: low

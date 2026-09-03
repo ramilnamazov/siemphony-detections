@@ -1,0 +1,82 @@
+title: Shared object opened from /tmp, or ptrace called by a network service
+id: c9692f69-e4aa-4680-a4c3-e50aba1a408d
+status: experimental
+description: |
+  AN1241 groups four things under one "OS API Execution" logsource: ptrace,
+  mmap, mprotect, open and dlopen. Three of those five names are dead ends on
+  their own and are deliberately not gated on here. `dlopen` is not a syscall
+  at all — it is a glibc wrapper that resolves to `openat`, so `syscall:
+  'dlopen'` would never fire; the open half of this rule matches the syscall
+  that actually appears instead. Bare `mmap` is called continually by every
+  process doing ordinary memory allocation, so including it would make a
+  selection effectively always-true, the same reasoning this corpus's
+  T1055.008 rule already applied to the identical syscall. And bare `ptrace`
+  by any process is exactly what T1055.008 already covers on this same
+  logsource; repeating that selector here under a different technique id
+  would double-count one signal rather than add coverage, which is the same
+  trap this corpus's T1036.004 rule named when it declined to re-author a
+  sibling's PATH selector. What is left, and what this rule matches instead,
+  is the two pieces AN1241 names that T1055.008 does not touch. First, a PATH
+  record naming a `.so` file opened from a location no legitimate dynamic
+  linker resolves from — /tmp, /dev/shm or /var/tmp — which is the concrete
+  form of "open and map a malicious shared object" the analytic's own text
+  asks for. Second, `ptrace` called by a process whose own binary is one that
+  should never legitimately attach to another process — nginx, apache2 and
+  sshd, MITRE's own three examples for the AnomalousParentProcessList knob —
+  which is a materially narrower claim than T1055.008's bare "ptrace happened"
+  and is aimed at exactly this technique's privilege-escalation framing: a
+  compromised network-facing service escalating by hijacking a peer's VDSO
+  rather than a developer or debugger attaching from a shell.
+  Three of AN1241's pieces cannot be honestly expressed. The memprotect leg —
+  "change from PROT_READ|PROT_WRITE to PROT_EXEC" — has no field to bind to:
+  raw auditd's mprotect SYSCALL record carries the requested protection as an
+  unresolved hex bitmask in its argument fields, and lib/sigma has no
+  bitwise-AND construct to test it even if the field were named. The
+  TimeWindow_PtraceToMmap knob is a join between the ptrace-attach record and
+  a later mmap/open record from the same target process; PATH and SYSCALL are
+  separate auditd records with no correlation construct connecting them
+  here. And the osquery leg, {product: linux, service: osquery}, has no
+  standardised Sigma field vocabulary anywhere in this corpus.
+  Prerequisite: none of `ptrace`, `open` or `openat` are audited on any
+  distribution out of the box. This rule returns zero rows — meaning blind,
+  not quiet — until rules such as `-a always,exit -F arch=b64 -S ptrace -S
+  openat -k vdso_hijack` are loaded. The `syscall` field also depends on name
+  resolution: raw, unresolved auditd output records the architecture-specific
+  syscall number rather than the string `ptrace`, so this selector needs
+  `ausearch -i`, laurel or an equivalent interpreting layer in front of it,
+  the same caveat already recorded against T1055.008.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0448, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1055/014
+  - https://attack.mitre.org/detectionstrategies/DET0448
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1055.014
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_so_from_tmp:
+    type: 'PATH'
+    name|contains:
+      - '/tmp/'
+      - '/dev/shm/'
+      - '/var/tmp/'
+    name|endswith: '.so'
+  selection_anomalous_ptrace:
+    type: 'SYSCALL'
+    syscall: 'ptrace'
+    exe|endswith:
+      - '/nginx'
+      - '/apache2'
+      - '/sshd'
+  condition: 1 of selection*
+falsepositives:
+  - "Application deployment that stages a shared object under /tmp before an install script moves or dlopen's it in place — several language package managers and CI build steps unpack .so files into a temporary directory as a normal intermediate step, matching the path selector with nothing malicious involved."
+  - "Sandboxed and containerised workloads that mount their writable layer under /dev/shm or /var/tmp and load application-bundled .so plugins from there by design, common for headless browser, GPU and audio libraries in container images."
+  - "APM, security or profiling agents that inject themselves into nginx, apache2 or sshd worker processes via ptrace to attach a profiler or enforce policy — several commercial RASP and observability agents work exactly this way and would trigger the anomalous-ptrace selector continuously on any host running one."
+  - "Crash and coredump handling: systemd-coredump or an equivalent collector attaching via ptrace to a crashing nginx, apache2 or sshd worker to capture its state before it exits, which fires on every crash of one of those services."
+level: low

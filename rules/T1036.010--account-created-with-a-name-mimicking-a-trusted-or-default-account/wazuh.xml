@@ -1,0 +1,12 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4720$</field>
+    <field name="TargetUserName" type="pcre2">(?i)(admin|help|root|backup|service|adm1n|backup_help)</field>
+    <description>Account created with a name mimicking a trusted or default account</description>
+    <mitre>
+      <id>T1036.010</id>
+    </mitre>
+  </rule>
+</group>

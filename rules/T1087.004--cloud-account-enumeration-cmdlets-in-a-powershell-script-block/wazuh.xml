@@ -1,0 +1,26 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4104$</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(Get-MsolUser|Get-MsolRoleMember|Get-AzureADUser|Get-AzureADDirectoryRoleMember|Get-MgUser|Get-MgBetaUser|Get-MgDirectoryRoleMember|Get-EntraUser|Get-EntraDirectoryRoleMember|Get-AzADUser|az ad user list|aws iam list-users|aws iam list-roles|gcloud iam service-accounts list|gcloud projects get-iam-policy)</field>
+    <description>Cloud account enumeration cmdlets in a PowerShell script block (1/2)</description>
+    <mitre>
+      <id>T1087.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4104$</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(Get-Recipient|Get-Mailbox|Get-User)</field>
+    <field name="EventID" type="pcre2">(?i)^4104$</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(ResultSize Unlimited|ResultSize:Unlimited)</field>
+    <description>Cloud account enumeration cmdlets in a PowerShell script block (2/2)</description>
+    <mitre>
+      <id>T1087.004</id>
+    </mitre>
+  </rule>
+</group>

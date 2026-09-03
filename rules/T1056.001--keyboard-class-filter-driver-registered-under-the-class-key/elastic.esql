@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(registry.path) LIKE "*\\\\control\\\\class\\\\{4d36e96b-e325-11ce-bfc1-08002be10318}\\\\upperfilters*" OR TO_LOWER(registry.path) LIKE "*\\\\control\\\\class\\\\{4d36e96b-e325-11ce-bfc1-08002be10318}\\\\lowerfilters*")

@@ -1,0 +1,45 @@
+title: Service installed to reassign a remote desktop session with tscon
+id: a7803f61-39a0-4552-a23e-e4e03b1948b5
+status: experimental
+description: |
+  Detects a Windows service being installed whose image path invokes tscon or
+  names a terminal session, which is how an operator obtains the SYSTEM rights
+  that reassigning another user's remote desktop session requires — the service
+  runs the command, the session moves to the adversary's terminal, and no logon
+  event is generated for the hijacker. The System channel source was chosen over
+  the process creation source in the same analytic because it records the setup
+  step, is written by the Service Control Manager on every install with no audit
+  policy to enable, and its fields (`ImagePath`, `ServiceName`) are native to that
+  channel rather than mapped from a Sysmon vocabulary. AN1620's other half — a
+  session reassignment with no corresponding 4624 or 4648 inside MITRE's
+  `TimeWindow`, checked against its `SessionIDMapping` knob — is an absence
+  correlated across two log sources, which Sigma cannot express. An adversary who
+  already holds SYSTEM (a stolen token, a scheduled task, a remote execution tool
+  running as the machine account) can call tscon directly and installs no service
+  at all, so this rule sees the common path and not every path.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0588, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1563/002
+  - https://attack.mitre.org/detectionstrategies/DET0588
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1563.002
+logsource:
+  product: windows
+  service: system
+detection:
+  selection_service_install:
+    Provider_Name: 'Service Control Manager'
+    EventID: 7045
+  selection_session_takeover:
+    ImagePath|contains:
+      - 'tscon'
+      - 'rdp-tcp#'
+  condition: selection_service_install and selection_session_takeover
+falsepositives:
+  - "Session brokers, kiosk shells and thin-client management agents that install a service to reconnect or reassign disconnected sessions on logoff or on a schedule, which is exactly the tscon invocation this rule matches."
+  - "Remote support and monitoring products that drop a short-lived service to reattach an unattended console session for a technician, then remove it when the session ends."
+  - "An administrator recovering a hung or orphaned console session, where wrapping tscon in a temporary service is the documented way to run it with the privileges the command needs."
+level: high

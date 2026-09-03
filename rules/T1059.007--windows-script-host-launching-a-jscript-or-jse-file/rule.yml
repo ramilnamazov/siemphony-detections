@@ -1,0 +1,49 @@
+title: Windows Script Host launching a JScript or JSE file
+id: b03b00a3-890e-45d2-8f53-abc359978cda
+status: experimental
+description: |
+  AN0733's Windows leg, narrowed to what actually separates this technique
+  from its command-interpreter siblings elsewhere in this corpus: not that
+  wscript.exe or cscript.exe ran, but that the file handed to it is a JScript
+  source (.js) or encoded JScript (.jse). Sibling rules already in this
+  corpus key on wscript.exe/cscript.exe/mshta.exe as children of an Office
+  application or explorer.exe without checking which scripting language was
+  invoked, since Windows Script Host runs VBScript and JScript through the
+  same two binaries; this rule is deliberately host-plus-extension only, with
+  no ParentImage gate, so it also catches JScript launched directly (a
+  scheduled task, a shortcut, a double-click) rather than only the
+  Office/browser-spawned case AN0733 highlights. mshta.exe is excluded: an
+  HTA file gives no signal on this command line for which script language it
+  embeds, so including it here would be a claim this logic cannot support.
+  The analytic's correlated network and system-modification legs are
+  separate events with no join Sigma can express, so this rule matches on
+  launch alone. The command-line substring match on `.js` is a known
+  limitation: it would also match a `.json` argument passed alongside the
+  script path, though wscript/cscript invocations are typically single-file
+  and this is not expected to be a meaningful source of noise.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0264, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1059/007
+  - https://attack.mitre.org/detectionstrategies/DET0264
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1059.007
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_host:
+    Image|endswith:
+      - '\wscript.exe'
+      - '\cscript.exe'
+  selection_js_file:
+    CommandLine|contains:
+      - '.js'
+      - '.jse'
+  condition: selection_host and selection_js_file
+falsepositives:
+  - "Legacy logon and drive-mapping scripts. Some enterprises still deploy JScript logon scripts through Group Policy (cscript.exe against a script on the NETLOGON share), which fires at every interactive logon fleet-wide — check for this before enabling the rule anywhere near production."
+  - "Software packaging and deployment tooling (SCCM, Ivanti, PDQ Deploy and similar) that ships silent-install or configuration wrapper scripts written in JScript and invokes them through wscript.exe or cscript.exe as a routine step of application deployment."
+level: low

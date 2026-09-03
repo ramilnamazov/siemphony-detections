@@ -1,0 +1,86 @@
+title: Container CLI used to run a shell inside a running container
+id: 8ea173a7-1769-48e7-a223-25483873d5a0
+status: experimental
+description: |
+  Matches the CLI half of AN0233: one of the container management clients the
+  analytic names — docker, kubectl and crictl, joined here by the closely
+  related podman and nerdctl — invoked with an exec verb, where the command
+  handed into the container is an interpreted shell. The analytic names sh,
+  bash and python; ash, zsh and dash are added here. All three conditions are
+  required together, because the client on its own is ordinary tooling and exec
+  on its own appears in unrelated command lines; it is the combination that
+  says an operator or an adversary is running arbitrary commands inside a
+  container rather than deploying one. The shell gate is split in two so that
+  it carries a word boundary Sigma has no operator for: a shell path, or a
+  shell name followed by an argument, or a shell name at the end of the command
+  line. A bare contains on ' sh' would also match ' sha256sum' and ' shutdown'
+  and would report those as an opened shell.
+  Three limits are structural. The API and SDK route the technique describes —
+  the Docker SDK for Python, curl against /var/run/docker.sock, or the
+  Kubernetes API called with a pod service account — executes none of these
+  binaries and produces no match here at all; only the CLI arm is covered. The
+  process that actually runs inside the container is started by the daemon
+  through containerd-shim and runc, not as a child of the client, so no parent
+  lineage links the two events and MITRE's TimeWindow knob for correlating the
+  exec with the shell spawn and its network activity has no Sigma construct
+  behind it. And an exec that runs a non-shell command (docker exec c whoami,
+  kubectl exec pod -- cat /etc/shadow) is deliberately outside this rule; the
+  shell gate is what keeps the volume survivable, and it costs that coverage.
+  The brief maps auditd SYSCALL execve onto Sigma's process_creation category,
+  which is Sysmon-shaped, so this rule is written in that vocabulary (Image,
+  CommandLine) and an auditd feed needs exe mapped onto Image and the a0/a1
+  argv fields reconstructed into a single CommandLine string before any of it
+  matches. Prerequisite: no distribution audits execve by default, so this rule
+  returns zero rows until a rule such as
+  `-a always,exit -F arch=b64 -S execve -k exec` is loaded — and zero rows
+  reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0083, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1059/013
+  - https://attack.mitre.org/detectionstrategies/DET0083
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1059.013
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_client:
+    Image|endswith:
+      - '/docker'
+      - '/kubectl'
+      - '/crictl'
+      - '/podman'
+      - '/nerdctl'
+  selection_exec:
+    CommandLine|contains: ' exec '
+  selection_shell_arg:
+    CommandLine|contains:
+      - '/bin/sh'
+      - '/bin/bash'
+      - '/bin/ash'
+      - '/bin/zsh'
+      - '/bin/dash'
+      - ' sh '
+      - ' bash '
+      - ' ash '
+      - ' zsh '
+      - ' dash '
+      - ' python'
+  selection_shell_tail:
+    CommandLine|endswith:
+      - ' sh'
+      - ' bash'
+      - ' ash'
+      - ' zsh'
+      - ' dash'
+  condition: selection_client and selection_exec and (selection_shell_arg or selection_shell_tail)
+falsepositives:
+  - "Engineers debugging live workloads. kubectl exec -it <pod> -- /bin/bash and docker exec -it <container> sh are the normal first step of every on-call investigation and every developer's day in a Kubernetes or Compose shop, so on any cluster with human operators this is the highest-volume match by a wide margin, which is why this rule is low rather than medium. MITRE's AuthorizedUserAgents knob is the place to record which accounts and hosts may do it, and that list cannot be written in advance for someone else's estate."
+  - "CI/CD pipelines and deployment jobs. GitLab runners, Jenkins agents and Argo hooks routinely run docker exec app sh -c 'rake db:migrate' or kubectl exec for post-deploy migrations and smoke tests, producing a match on every pipeline run from a service account at a predictable point in the build."
+  - "Scheduled maintenance wrappers, where a cron entry or a backup agent shells into a database container as docker exec db sh -c 'pg_dump ...' or 'mysqldump ...' every night — a fixed, repeating match per host per schedule."
+  - "Configuration management convergence, where the Ansible community.docker and kubernetes.core modules implement their exec actions by invoking the same clients, so every managed container produces a match on every run whether or not anything changed."
+  - "Container image build and test harnesses on a developer laptop, where a Makefile or a test script runs docker exec build sh -c 'make check' on every local iteration, producing a burst of matches from an interactive user with no service account to filter on."
+level: low

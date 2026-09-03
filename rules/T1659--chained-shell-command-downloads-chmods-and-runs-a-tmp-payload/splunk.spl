@@ -1,0 +1,1 @@
+index=* ((((Image="*/sh" OR Image="*/bash" OR Image="*/dash") AND (CommandLine="*curl *" OR CommandLine="*wget *")) AND (CommandLine="*/tmp/*" OR CommandLine="*/var/tmp/*")) AND (CommandLine="*chmod +x*" OR CommandLine="*chmod 755*" OR CommandLine="*chmod 777*"))

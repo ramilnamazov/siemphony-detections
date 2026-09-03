@@ -1,0 +1,12 @@
+<group name="sigma,zeek,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for zeek so this only evaluates relevant events. -->
+    <field name="command" type="pcre2">(?i)(^STOR$|^STOU$|^APPE$)</field>
+    <field name="arg" type="pcre2">(?i)(\.zip$|\.rar$|\.7z$|\.tar$|\.gz$|\.tgz$|\.cab$|\.bak$|\.sql$|\.dmp$|\.pst$|\.csv$)</field>
+    <description>Cleartext FTP upload of an archive or database dump</description>
+    <mitre>
+      <id>T1048.003</id>
+    </mitre>
+  </rule>
+</group>

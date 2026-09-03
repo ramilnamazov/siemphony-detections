@@ -1,0 +1,64 @@
+title: Directory replication rights exercised by a non-machine account
+id: 3e1db1cb-d351-420a-96cc-3d6d1259a31f
+status: experimental
+description: |
+  Implements AN1632 on Security EventID 4662: a directory object access in which
+  the control access right exercised is one of the three replication extended
+  rights, requested by a principal whose name does not end in a dollar sign.
+  That pairing is the whole detection. DCSync works by asking a domain
+  controller to replicate secrets through DRSUAPI, and a genuine replication
+  partner is a domain controller presenting its own computer account, so the
+  account-name shape is what separates the tool from the protocol. The three
+  GUIDs are DS-Replication-Get-Changes, DS-Replication-Get-Changes-All and
+  DS-Replication-Get-Changes-In-Filtered-Set; matching any one of them rather
+  than requiring the pair a full secret pull needs keeps the rule on
+  reconnaissance-shaped calls too. Two field-format cautions matter more than
+  the logic. `AccessMask` is written by Windows as the hex string 0x100 for a
+  control access right, so a pipeline that zero-pads it, lower-cases the prefix
+  or converts it to decimal turns this selection permanently false; and
+  `Properties` is a multi-value blob, which is why it is matched with contains
+  rather than by equality. Several limits belong on the face of the rule.
+  MITRE's `SourceIP` knob cannot be applied here at all — 4662 carries no
+  client address field, so "expected replication should only come from known
+  DCs" is not expressible on this event, and neither is the `TimeWindow`
+  correlation the analytic describes, lib/sigma having no timeframe or join.
+  The machine-account filter is also the rule's blind spot: DCSync run under a
+  stolen computer account, or from a compromised domain controller's own
+  identity, is filtered out by design. EventID 4929 from the brief is not used —
+  it records the removal of a replica source naming context, an administrative
+  topology change rather than a secret pull. Prerequisite: 4662 needs *Audit
+  Directory Service Access* enabled for Success on domain controllers and an
+  audit ACE on the domain naming context covering the replication extended
+  rights. DS Access auditing is in the domain controller baseline, but the SACL
+  is worth confirming on the domain object before trusting a quiet result,
+  because if either half is missing the rule returns zero rows and zero rows
+  reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0594, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1003/006
+  - https://attack.mitre.org/detectionstrategies/DET0594
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1003.006
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4662
+    AccessMask: '0x100'
+    Properties|contains:
+      - '1131f6aa-9c07-11d1-f79f-00c04fc2dcd2'
+      - '1131f6ad-9c07-11d1-f79f-00c04fc2dcd2'
+      - '89e95b76-444d-4c62-991a-0facbeda640c'
+  filter_machine_account:
+    SubjectUserName|endswith: '$'
+  condition: selection and not filter_machine_account
+falsepositives:
+  - "The directory synchronisation account of Microsoft Entra Connect. With password hash sync enabled it holds Replicate Directory Changes and Replicate Directory Changes All and exercises them continuously — every two minutes on the default schedule — under a user account such as MSOL_<hex> that does not end in a dollar sign and so survives the filter. On any tenant using password hash sync this is the highest-volume match by a wide margin. It is one enumerable, statically named principal rather than a class of users, which is why the level is medium rather than low, and excluding it by name is what MITRE's UserContext knob is for."
+  - "Password-auditing and directory-assessment tooling run by the identity team. DSInternals Get-ADReplAccount, Specops Password Auditor, Semperis Purple Knight and equivalent products pull hashes through the same replication API on purpose, typically on a weekly or monthly schedule from an administrator workstation, and the event is byte-for-byte what an attack produces."
+  - "Directory migration and coexistence products during a cutover. Quest Migration Manager, BinaryTree and similar tools are granted replication rights so they can move password data between forests, and they exercise them in sustained bursts for the duration of a migration window."
+  - "Third-party identity and security platforms that ingest directory data — some privileged access management, password-breach detection and identity-threat products request replication rights at deployment, so the first match after a new tool is installed is a change-management question rather than an incident."
+level: medium

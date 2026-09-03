@@ -1,0 +1,63 @@
+title: Database client launched by a script host or Office parent
+id: 1c8dda6a-ce4a-4877-98c2-8d7373cf33dd
+status: experimental
+description: |
+  Matches execution of a command-line database client — the SQL Server, MySQL,
+  PostgreSQL, MongoDB, Oracle and SQLite tools — when its parent is one of the
+  processes MITRE calls out in this analytic as an odd launcher: explorer.exe
+  (an interactive double-click rather than automation), a script host, or an
+  Office application. Both halves sit on a single field each so the rule stays a
+  flat AND and renders in every backend. cmd.exe is deliberately absent from the
+  parent list: it is the normal path for scheduled backup and ETL batch jobs, and
+  including it would drown the rule. The analytic's full behaviour is a
+  correlation — client execution, then a .sql/.bak/.csv write, then an outbound
+  transfer above MaxTransferVolume — which Sigma cannot express across three log
+  sources with a time window, so this is the execution precursor only.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0242, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1213/006
+  - https://attack.mitre.org/detectionstrategies/DET0242
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1213.006
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_client:
+    Image|endswith:
+      - '\sqlcmd.exe'
+      - '\osql.exe'
+      - '\isql.exe'
+      - '\bcp.exe'
+      - '\sqlps.exe'
+      - '\sqlplus.exe'
+      - '\mysql.exe'
+      - '\mysqldump.exe'
+      - '\psql.exe'
+      - '\pg_dump.exe'
+      - '\mongo.exe'
+      - '\mongosh.exe'
+      - '\mongodump.exe'
+      - '\sqlite3.exe'
+  selection_parent:
+    ParentImage|endswith:
+      - '\explorer.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\outlook.exe'
+  condition: selection_client and selection_parent
+falsepositives:
+  - "Scheduled backup, ETL and reporting jobs written in PowerShell that shell out to sqlcmd.exe, bcp.exe or mysqldump.exe. MITRE's KnownDBToolPaths knob is the intended place to record where the sanctioned tools live and which service accounts run them, and that inventory is site-specific."
+  - "A DBA or developer starting a client interactively from Explorer on a workstation where the tools are installed under a user profile rather than Program Files — the same KnownDBToolPaths knob, seen from the noisy side."
+  - "Excel or Access refresh of an external data connection, where the Office process is the parent of a client or bulk-copy helper during a routine report refresh."
+  - "Vendor installers and application health checks that run sqlcmd.exe against a local instance during setup or upgrade, launched from a bootstrap script host."
+level: medium

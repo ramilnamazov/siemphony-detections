@@ -1,0 +1,12 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4720$</field>
+    <field name="SubjectUserName" type="pcre2">(?i)\$$</field>
+    <description>User account created from a SYSTEM or machine account context</description>
+    <mitre>
+      <id>T1136</id>
+    </mitre>
+  </rule>
+</group>

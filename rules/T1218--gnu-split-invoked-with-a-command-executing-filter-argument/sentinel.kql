@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "/split" and (ProcessCommandLine contains "--filter=" or ProcessCommandLine contains "--filter "))

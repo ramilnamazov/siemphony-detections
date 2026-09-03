@@ -1,0 +1,65 @@
+title: System tool name executed from outside its expected system directory
+id: 41bf002c-6463-4f7d-83f4-bb06c9a053c3
+status: experimental
+description: |
+  Matches the Windows leg of AN0009: a Sysmon process creation whose `Image`
+  file name matches a fixed system tool but whose path is not System32,
+  SysWOW64 or WinSxS. That name-plus-location mismatch is the payoff of PATH
+  hijacking — an earlier entry in the PATH environment variable resolves to
+  an attacker's binary of the same name before the real one is ever reached,
+  so the process that actually launches carries the right file name and the
+  wrong path. `net.exe` and `powershell.exe` are MITRE's own
+  SuspiciousBinaryList examples; `net1.exe`, `ipconfig.exe`, `whoami.exe`,
+  `systeminfo.exe`, `tasklist.exe`, `netstat.exe`, `reg.exe`, `sc.exe`,
+  `schtasks.exe` and `cmd.exe` are added here as tools that, like `net.exe`,
+  ship from a single fixed OS location and are common targets for exactly
+  this hijack. MITRE's other named example, `python.exe`, is deliberately
+  excluded: Windows does not ship Python, so there is no fixed system
+  directory to filter against, and without that anchor the selection would
+  reduce to "any python.exe launch" with no location discriminator at all —
+  the same test this rule relies on for every other entry. This rule sees
+  only the effect (the wrong binary ran under the right name); it cannot see
+  the cause, a PATH environment variable or registry PATH key that puts a
+  writable directory ahead of System32, so it says nothing about how the
+  directory got there. Requires Sysmon with process creation logging
+  enabled; this is not native Windows telemetry and is absent without the
+  Sysmon driver installed and configured to capture EventID 1.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0004, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/007
+  - https://attack.mitre.org/detectionstrategies/DET0004
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.007
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_system_tool_name:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+      - '\ipconfig.exe'
+      - '\whoami.exe'
+      - '\systeminfo.exe'
+      - '\tasklist.exe'
+      - '\netstat.exe'
+      - '\reg.exe'
+      - '\sc.exe'
+      - '\schtasks.exe'
+      - '\cmd.exe'
+      - '\powershell.exe'
+  filter_system_paths:
+    Image|contains:
+      - ':\Windows\System32\'
+      - ':\Windows\SysWOW64\'
+      - ':\Windows\WinSxS\'
+  condition: selection_system_tool_name and not filter_system_paths
+falsepositives:
+  - "Deployment and packaging tools that bundle a private helper copy of a common-named utility such as reg.exe or sc.exe inside their own Program Files install directory for use during setup or repair, distinct from the real system binary."
+  - "Portable IT and helpdesk toolkits carried on removable media or a network share, where a technician runs whoami.exe, ipconfig.exe, netstat.exe or systeminfo.exe directly from a USB drive or file share for offline triage."
+  - "Backup, recovery and security-vendor agents that ship a private signed copy of cmd.exe or reg.exe under their own install directory for use inside a recovery environment or repair mode."
+level: medium

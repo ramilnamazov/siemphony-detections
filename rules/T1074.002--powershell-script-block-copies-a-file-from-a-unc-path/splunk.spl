@@ -1,0 +1,1 @@
+index=* ((EventID="4104" AND (ScriptBlockText="*Copy-Item*" OR ScriptBlockText="*copy-item*" OR ScriptBlockText="*Robocopy*" OR ScriptBlockText="*robocopy*")) AND ScriptBlockText="*\\\\*")

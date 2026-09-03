@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\ipconfig.exe" or FolderPath endswith "\\arp.exe" or FolderPath endswith "\\route.exe" or FolderPath endswith "\\nbtstat.exe" or FolderPath endswith "\\getmac.exe")

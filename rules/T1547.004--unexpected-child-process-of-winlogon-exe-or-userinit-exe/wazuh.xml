@@ -1,0 +1,37 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 3 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\winlogon\.exe$|\\userinit\.exe$)</field>
+    <field name="Image" negate="yes" type="pcre2">(?i)(\\Windows\\System32\\userinit\.exe$|\\Windows\\explorer\.exe$|\\Windows\\System32\\LogonUI\.exe$|\\Windows\\System32\\dwm\.exe$|\\Windows\\System32\\fontdrvhost\.exe$|\\Windows\\System32\\wlrmdr\.exe$|\\Windows\\System32\\mpnotify\.exe$|\\Windows\\System32\\rdpclip\.exe$|\\Windows\\System32\\AtBroker\.exe$)</field>
+    <field name="ParentImage" negate="yes" type="pcre2">(?i)\\userinit\.exe$</field>
+    <description>Unexpected child process of winlogon.exe or userinit.exe (1/3)</description>
+    <mitre>
+      <id>T1547.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\winlogon\.exe$|\\userinit\.exe$)</field>
+    <field name="Image" negate="yes" type="pcre2">(?i)(\\Windows\\System32\\userinit\.exe$|\\Windows\\explorer\.exe$|\\Windows\\System32\\LogonUI\.exe$|\\Windows\\System32\\dwm\.exe$|\\Windows\\System32\\fontdrvhost\.exe$|\\Windows\\System32\\wlrmdr\.exe$|\\Windows\\System32\\mpnotify\.exe$|\\Windows\\System32\\rdpclip\.exe$|\\Windows\\System32\\AtBroker\.exe$)</field>
+    <field name="Image" negate="yes" type="pcre2">(?i)(\\cmd\.exe$|\\cscript\.exe$|\\wscript\.exe$|\\powershell\.exe$)</field>
+    <description>Unexpected child process of winlogon.exe or userinit.exe (2/3)</description>
+    <mitre>
+      <id>T1547.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\winlogon\.exe$|\\userinit\.exe$)</field>
+    <field name="Image" negate="yes" type="pcre2">(?i)(\\Windows\\System32\\userinit\.exe$|\\Windows\\explorer\.exe$|\\Windows\\System32\\LogonUI\.exe$|\\Windows\\System32\\dwm\.exe$|\\Windows\\System32\\fontdrvhost\.exe$|\\Windows\\System32\\wlrmdr\.exe$|\\Windows\\System32\\mpnotify\.exe$|\\Windows\\System32\\rdpclip\.exe$|\\Windows\\System32\\AtBroker\.exe$)</field>
+    <field name="CommandLine" negate="yes" type="pcre2">(?i)(\\NETLOGON\\|\\SYSVOL\\)</field>
+    <description>Unexpected child process of winlogon.exe or userinit.exe (3/3)</description>
+    <mitre>
+      <id>T1547.004</id>
+    </mitre>
+  </rule>
+</group>

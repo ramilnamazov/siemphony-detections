@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "\\vmrun.exe" or FolderPath endswith "\\VBoxManage.exe") and (ProcessCommandLine contains " list" or ProcessCommandLine contains " showvminfo")) or ((FolderPath endswith "\\powershell.exe" or FolderPath endswith "\\pwsh.exe") and ProcessCommandLine contains "Get-VM"))

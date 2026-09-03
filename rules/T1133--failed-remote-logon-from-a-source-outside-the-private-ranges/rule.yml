@@ -1,0 +1,142 @@
+title: Failed remote logon from a source outside the private ranges
+id: b72955d9-02d7-48b8-8cd7-6adb2e313767
+status: experimental
+description: |
+  Matches a failed logon (Security EventID 4625) of type NetworkCleartext (8)
+  or RemoteInteractive/RDP (10) whose `IpAddress` falls outside RFC1918, CGNAT
+  (100.64.0.0/10), loopback, link-local and IPv6 unique-local space — the
+  external-origin leg of AN1004, the one part a single event can carry; the
+  failure-count, geolocation and business-hours legs all need aggregation or
+  enrichment this corpus's Sigma model cannot express, and a single event here
+  cannot distinguish background internet scanning from a targeted attempt.
+  LogonType 3 (plain network) was dropped because it also matches ordinary
+  internal-service credential failures (SMB, LDAP) unrelated to an external
+  remote-access service; 4776 is not used because it carries no source-address
+  field and cannot satisfy this rule's external-origin filter. A successful
+  external remote-service logon is EventID 4624, which this rule can never
+  see, so a quiet result is not evidence that no external access occurred —
+  and a VPN/Citrix gateway that re-authenticates on the user's behalf presents
+  an internal address, hiding genuinely external attempts that pass through
+  it. Prerequisite: 4625 needs the Logon subcategory of Audit Logon auditing
+  Failure; where it is off, this rule returns zero rows, which reads as quiet
+  but means blind. Addresses in IPv4-mapped IPv6 form (`::ffff:10.0.0.1`) are
+  read as external by this filter; add per-estate handling if that form
+  appears in your feed.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0354, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1133
+  - https://attack.mitre.org/detectionstrategies/DET0354
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.initial-access
+  - attack.t1133
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4625
+    LogonType:
+      - '8'
+      - '10'
+  filter_internal_source:
+    IpAddress|startswith:
+      - '10.'
+      - '127.'
+      - '169.254.'
+      - '172.16.'
+      - '172.17.'
+      - '172.18.'
+      - '172.19.'
+      - '172.20.'
+      - '172.21.'
+      - '172.22.'
+      - '172.23.'
+      - '172.24.'
+      - '172.25.'
+      - '172.26.'
+      - '172.27.'
+      - '172.28.'
+      - '172.29.'
+      - '172.30.'
+      - '172.31.'
+      - '192.168.'
+      - '100.64.'
+      - '100.65.'
+      - '100.66.'
+      - '100.67.'
+      - '100.68.'
+      - '100.69.'
+      - '100.70.'
+      - '100.71.'
+      - '100.72.'
+      - '100.73.'
+      - '100.74.'
+      - '100.75.'
+      - '100.76.'
+      - '100.77.'
+      - '100.78.'
+      - '100.79.'
+      - '100.80.'
+      - '100.81.'
+      - '100.82.'
+      - '100.83.'
+      - '100.84.'
+      - '100.85.'
+      - '100.86.'
+      - '100.87.'
+      - '100.88.'
+      - '100.89.'
+      - '100.90.'
+      - '100.91.'
+      - '100.92.'
+      - '100.93.'
+      - '100.94.'
+      - '100.95.'
+      - '100.96.'
+      - '100.97.'
+      - '100.98.'
+      - '100.99.'
+      - '100.100.'
+      - '100.101.'
+      - '100.102.'
+      - '100.103.'
+      - '100.104.'
+      - '100.105.'
+      - '100.106.'
+      - '100.107.'
+      - '100.108.'
+      - '100.109.'
+      - '100.110.'
+      - '100.111.'
+      - '100.112.'
+      - '100.113.'
+      - '100.114.'
+      - '100.115.'
+      - '100.116.'
+      - '100.117.'
+      - '100.118.'
+      - '100.119.'
+      - '100.120.'
+      - '100.121.'
+      - '100.122.'
+      - '100.123.'
+      - '100.124.'
+      - '100.125.'
+      - '100.126.'
+      - '100.127.'
+      - '0.0.0.0'
+      - '-'
+      - '::1'
+      - 'fe80:'
+      - 'fc'
+      - 'fd'
+  condition: selection and not filter_internal_source
+falsepositives:
+  - "Continuous internet background authentication noise against any internet-exposed surface — an RD Gateway, published RDP host, Exchange/OWA, or a VPN concentrator that logs to Windows — from automated scanners and credential-stuffing bots probing default paths rather than targeted activity. On such a host this is the highest-volume match by a wide margin, thousands of events a day, which is why the level is low rather than high."
+  - "Remote staff with a stale saved credential after a password change: a phone or laptop mail client retries on every poll from the mobile carrier's or the home ISP's public address, producing a steady stream of network-cleartext 4625 events for a legitimate user until someone updates the saved password."
+  - "Cloud-hosted and partner integrations that authenticate from provider-owned public addresses — hybrid identity connectors, external monitoring probes, mail relays and third-party SaaS connectors — all of which are external by this rule's definition and are expected to be there, and which fail routinely on certificate rollover or token expiry."
+  - "Organisations that use publicly routable address space on their own internal network, or that route branch offices and site-to-site links over a public-addressed WAN, where an ordinary mistyped password at a desk in a branch office is counted as an external attempt."
+level: low

@@ -1,0 +1,53 @@
+title: Application binary rewritten outside a package installer
+id: 74b647ec-ac81-4f91-8282-edba7e738037
+status: experimental
+description: |
+  Matches an executable or DLL under Program Files being created or overwritten
+  by a process other than a recognised installer or servicing component — the
+  file-write half of AN1097's "application binaries used to display data"
+  behaviour. AN1097 also asks for API-hooking detection and hash-baseline
+  comparison, but neither produces a discrete Sigma-expressible event, so only
+  the write itself is captured. This is deliberately not the parent T1565's
+  shape, which watches a *data* file (database, ledger) written by a script
+  host; T1565.003 targets the rendering application's own binary, which is
+  what separates Runtime from Stored Data Manipulation. Written in the Sysmon
+  EventID 11 vocabulary (`TargetFilename`, `Image`) rather than AN1097's
+  Security EventID 4657 or Sysmon EventID 15 alternatives, which carry the
+  same fact through different fields this rule does not map. MITRE's
+  `MonitoredPaths` knob is approximated here as Program Files; the installer
+  allowlist is authored, not sourced, and MITRE's `HashBaseline` knob — a
+  binary-integrity comparison — has no Sigma equivalent, so a match means
+  "written by an unexpected process," not "content diverged from baseline."
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0391, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1565/003
+  - https://attack.mitre.org/detectionstrategies/DET0391
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1565.003
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_binary:
+    TargetFilename|contains:
+      - '\Program Files\'
+      - '\Program Files (x86)\'
+    TargetFilename|endswith:
+      - '.exe'
+      - '.dll'
+  filter_installers:
+    Image|endswith:
+      - '\msiexec.exe'
+      - '\TrustedInstaller.exe'
+      - '\TiWorker.exe'
+      - '\wusa.exe'
+      - '\setup.exe'
+  condition: selection_binary and not filter_installers
+falsepositives:
+  - "Self-updating applications (browsers, chat clients, update agents) that rewrite their own .exe or .dll under Program Files outside of msiexec.exe — the highest-volume match on any actively used workstation."
+  - "Enterprise patch and software-distribution agents (SCCM, Intune management extension, third-party RMM) that push binary updates through a custom updater process rather than msiexec.exe."
+  - "Antivirus and EDR engine or signature updates that overwrite DLLs inside their own Program Files installation directory on a schedule."
+level: medium

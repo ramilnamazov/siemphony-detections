@@ -1,0 +1,67 @@
+title: Scripted recursive copy sweeping multiple document types
+id: aad6ea77-2853-4827-abf9-9c877c56e2ab
+status: experimental
+description: |
+  Authors a single-event stand-in for AN0531's core signal — "search for and
+  copy information fitting set criteria such as file type" — as a PowerShell
+  Copy-Item invocation that is both recursive and names several unrelated
+  document extensions in one command line, which is what a scripted bulk
+  collection sweep looks like at the point it runs versus an ordinary
+  one-off copy. MITRE's ProcessCountThreshold and ClipboardCheckRate knobs
+  describe a rate over repeated events, which Sigma's lack of aggregation
+  support (no `count() by`) makes impossible to express directly, so this
+  substitutes "several file types requested together" for "many files copied
+  over time" as the single-event proxy for automation. Three limits are
+  structural, and none of them is a false positive. Sysmon EventID 1 records
+  the process command line only, so this fires solely on a sweep typed inline
+  (powershell.exe -Command "Copy-Item -Recurse ... -Include *.doc,*.pdf"); a
+  launch of powershell.exe -File collect.ps1, an -EncodedCommand payload, a
+  pipeline where -Recurse and -Include sit on Get-ChildItem and the trailing
+  Copy-Item carries neither, or plain aliasing (cpi, gci) all put none of the
+  matched tokens on the recorded command line, because the cmdlet text lives
+  inside the script body this event never captures. Inline invocation is one
+  style of scripted collection and not the dominant one for real automation, so
+  treat a silent result as unmeasured rather than clean. Second, 'recurse' is
+  matched as a bare substring, so -Recurse:$false — recursion explicitly turned
+  off, no tree walked — still satisfies that gate. Third, robocopy and xcopy are
+  left out of the selector rather than OR-ed in on a different CommandLine
+  shape, keeping the rule to one condition all four backends render. This is deliberately not
+  the shape already published elsewhere in the corpus: T1005 matches a find/
+  grep search for credential and SSH-key filenames, and this matches a
+  PowerShell copy of general document types — different tool class, different
+  target, no overlap.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0186, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1119
+  - https://attack.mitre.org/detectionstrategies/DET0186
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1119
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_copy_verb:
+    CommandLine|contains: 'copy-item'
+  selection_recurse_flag:
+    CommandLine|contains: 'recurse'
+  selection_extension:
+    CommandLine|contains:
+      - '.doc'
+      - '.xls'
+      - '.ppt'
+      - '.pdf'
+      - '.csv'
+      - '.txt'
+  condition: selection_tool and selection_copy_verb and selection_recurse_flag and selection_extension
+falsepositives:
+  - "User-profile migration and onboarding/offboarding scripts run by helpdesk tooling, which use Copy-Item -Recurse against a user's Documents folder filtered to common office extensions as their normal operating pattern — in an environment with active migration or provisioning waves this is the largest source of matches."
+  - "Backup, e-discovery or legal-hold agents that periodically sweep user document folders and copy matching file types to a review or backup repository as part of routine, scheduled compliance operations."
+  - "Software packaging and imaging scripts (SCCM/Intune build tasks) that stage a fixed set of document templates into a reference image using the same cmdlet and flag combination."
+level: medium

@@ -1,0 +1,49 @@
+title: MMC opening an .msc console staged in a user-writable path
+id: 1c45415b-271b-4b4f-a70b-ab5847a4ffaf
+status: experimental
+description: |
+  Matches mmc.exe started with a command line that names an .msc console living
+  under a user-writable or network location — the Users, AppData, Downloads,
+  Desktop, ProgramData and Temp directories plus UNC paths that MITRE spells out
+  in this analytic's SuspiciousMSCPathRegex knob. The Microsoft-supplied consoles
+  are loaded from System32 by name, so a console path rooted in a profile or on a
+  share is the staging step of the proxy-execution chain. All three tests are
+  ANDed and each sits on a single field, which keeps the rule a flat conjunction
+  that every backend can render. The rest of the chain the analytic describes —
+  COM activation of a non-baseline CLSID, an unsigned DLL load into signed
+  mmc.exe, then network activity — spans four log sources joined by a five to ten
+  minute window, none of which Sigma can express, so this rule is the first link
+  only.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0222, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/014
+  - https://attack.mitre.org/detectionstrategies/DET0222
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.014
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_mmc:
+    Image|endswith: '\mmc.exe'
+  selection_console:
+    CommandLine|contains: '.msc'
+  selection_staged_path:
+    CommandLine|contains:
+      - '\Users\'
+      - '\AppData\'
+      - '\Downloads\'
+      - '\Desktop\'
+      - '\ProgramData\'
+      - '\Temp\'
+      - '\\\\'
+  condition: selection_mmc and selection_console and selection_staged_path
+falsepositives:
+  - "Custom administrative consoles that an operations team genuinely keeps in a profile folder or on a file share and opens by UNC path. MITRE's AllowedMSCList knob exists precisely for this — the sanctioned console names and locations have to be enumerated per environment before the rule is quiet."
+  - "Software vendors and management suites that ship their own .msc snap-in and install it under ProgramData rather than System32, so every routine launch of the product console matches the staged-path test."
+  - "Roaming or redirected profiles, where an ordinary Microsoft console is reached through a UNC home directory and the path test fires on the redirection rather than on anything the operator did."
+  - "The double-backslash term also matches a command line that merely contains an escaped path or a UNC reference elsewhere in its arguments, not only in the console path — the SuspiciousMSCPathRegex knob is where a site tightens that into a real path anchor."
+level: high

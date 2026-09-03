@@ -1,0 +1,1 @@
+index=* (((type="EXECVE" AND (a0="mount" OR a0="/bin/mount" OR a0="/usr/bin/mount")) AND ((a1="*bind*" OR a1="*-B*") OR (a2="*bind*" OR a2="*-B*") OR (a3="*bind*" OR a3="*-B*") OR (a4="*bind*" OR a4="*-B*") OR (a5="*bind*" OR a5="*-B*") OR (a6="*bind*" OR a6="*-B*"))) AND (a1="*/proc/*" OR a2="*/proc/*" OR a3="*/proc/*" OR a4="*/proc/*" OR a5="*/proc/*" OR a6="*/proc/*"))

@@ -1,0 +1,1 @@
+index=* ((Image="*\\net.exe" OR Image="*\\net1.exe" OR Image="*\\findstr.exe" OR Image="*\\cmd.exe" OR Image="*\\python.exe") AND NOT ((Image="C:\\Windows\\System32\\*" OR Image="C:\\Windows\\SysWOW64\\*" OR Image="C:\\Program Files\\*" OR Image="C:\\Program Files (x86)\\*")))

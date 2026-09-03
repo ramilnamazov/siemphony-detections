@@ -1,0 +1,1 @@
+index=* ((((Image="*\\powershell.exe" OR Image="*\\pwsh.exe") AND CommandLine="*copy-item*") AND CommandLine="*recurse*") AND (CommandLine="*.doc*" OR CommandLine="*.xls*" OR CommandLine="*.ppt*" OR CommandLine="*.pdf*" OR CommandLine="*.csv*" OR CommandLine="*.txt*"))

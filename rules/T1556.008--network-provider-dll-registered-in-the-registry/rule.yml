@@ -1,0 +1,71 @@
+title: Network provider DLL registered in the registry
+id: f83b287a-4df6-47ef-b348-01eb9bcc01a1
+status: experimental
+description: |
+  Registering a network provider is how NPPSPY-style credential capture is
+  installed: mpnotify.exe hands every interactive and domain logon's cleartext
+  password to each registered provider, so the registration itself is the
+  earliest and cheapest thing to watch. Two writes make a provider real, and
+  this rule is one selection for each. The first is `ProviderPath` under a
+  service's `NetworkProvider` subkey, which names the DLL that will receive
+  credentials — an event is kept only when the value written does not point into
+  System32 or SysWOW64, because every provider Windows ships (ntlanman.dll,
+  drprov.dll, davclnt.dll) lives there. The second is a write to `ProviderOrder`
+  under `Control\NetworkProvider\Order` or its `HwOrder` twin, the ordered list a
+  provider's service name has to be added to before Windows will load it; that
+  leg carries no path to filter on, so it matches every rewrite of the list.
+  This addresses MITRE's `MonitoredRegistryKeys` and `SuspiciousDLLPaths` knobs,
+  populated here with the two key paths above and with System32/SysWOW64 as the
+  expected-location set — MITRE names the knobs, the values are authored.
+  Three limits are worth stating. A DLL dropped into System32 before it is
+  registered defeats the path filter entirely, and is caught only if the
+  operator also rewrites `ProviderOrder`; that is the main reason the order leg
+  is kept despite being the noisier of the two. AN1598's other three arms are
+  not attempted here — its Sysmon EventID 11 file-creation, EventID 7 module-load
+  and EventID 10 process-access legs are separate log sources, and its
+  `TimeWindow` knob asks for the registry write, the DLL creation and the
+  subsequent load during logon to be correlated, which needs a cross-event join
+  and a timeframe that Sigma models neither of. And this rule is written in the
+  Sysmon EventID 13 vocabulary (`TargetObject`, `Details`), which is the
+  vocabulary Sigma's `registry_set` category is shaped around; the brief maps
+  Security EventID 4657 onto that category, but 4657 splits the key and the value
+  name into `ObjectName` and `ObjectValueName` and carries the data in
+  `ObjectValue`, so an estate collecting 4657 needs those fields mapped onto
+  `TargetObject` and `Details` before this rule can match at all — turning on
+  *Audit Registry* and the SACL will not by itself make it fire. On the Sysmon
+  side, registry events are not collected by a bare Sysmon install and several
+  widely used configurations filter the registry down to a short include list,
+  so confirm `Control\NetworkProvider` and `Services\*\NetworkProvider` are in
+  the running config before treating a quiet result as a clean one.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0580, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1556/008
+  - https://attack.mitre.org/detectionstrategies/DET0580
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.t1556.008
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_provider_path:
+    TargetObject|endswith: '\NetworkProvider\ProviderPath'
+  filter_system_dll:
+    Details|contains:
+      - '\System32\'
+      - '\SysWOW64\'
+  selection_provider_order:
+    TargetObject|endswith:
+      - '\NetworkProvider\Order\ProviderOrder'
+      - '\NetworkProvider\HwOrder\ProviderOrder'
+  condition: (selection_provider_path and not filter_system_dll) or selection_provider_order
+falsepositives:
+  - "Installation and upgrade of software that ships its own network provider. VPN and remote-access clients, virtual desktop agents such as Citrix Workspace and VMware Horizon, DFS and network-drive tools, and older NetWare or Micro Focus clients all write a ProviderPath under Program Files and insert their service name into ProviderOrder. This is the loudest match this rule has, it arrives estate-wide in bursts during a deployment or an agent upgrade wave, and it is why the level sits at medium rather than high."
+  - "Machine build, imaging and sysprep. A task sequence that installs the standard agent set rewrites ProviderOrder once per product per build, so every newly provisioned host produces several matches under a task-sequence process rather than an interactive shell."
+  - "Windows feature and role changes that add or remove a provider, such as enabling or disabling the WebClient/WebDAV service or the Remote Desktop client components, which rewrite the order list without any DLL being introduced."
+  - "Repair, reinstall and rollback flows for an already-installed client, including MSI self-repair and endpoint tooling that reasserts its configuration on a schedule, each of which rewrites the same values it wrote at install time."
+level: medium

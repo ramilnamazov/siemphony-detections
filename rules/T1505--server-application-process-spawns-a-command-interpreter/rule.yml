@@ -1,0 +1,65 @@
+title: Server application process spawns a command interpreter
+id: 603e77d1-3d76-40e1-8418-83b4ae26bdd5
+status: experimental
+description: |
+  AN1507 describes server modules that "later execute command-line interpreters",
+  and that hand-off is the one thing observable at the parent level: whichever
+  extensibility feature was abused — an IIS native module or ISAPI filter, a web
+  shell page, an Apache module, or a SQL stored procedure calling xp_cmdshell —
+  the server worker process itself ends up as the parent of a shell, and a single
+  Sysmon EventID 1 record carries both halves of that. MITRE supplies the
+  `ParentProcessName` knob; the five server workers matched here are authored,
+  and java.exe and the Tomcat service wrappers are deliberately left out of it,
+  because a JVM parent spawning cmd.exe is ordinary in build, CI and
+  application-server work and would swamp the rule. The analytic's other log
+  source, Security EventID 4698, is not used at all: scheduled-job creation
+  carries a task name and task XML and has no field that can express a module
+  being installed, so a rule written against it would render in four backends and
+  match nothing. Being the parent technique's rule it necessarily overlaps
+  T1505.001, T1505.003 and T1505.004 — at this level of ATT&CK there is no
+  observable that is "server software component" in general rather than one of
+  its children. The installation step, and MITRE's `TimeWindow` knob between
+  install and execution, are a cross-event correlation lib/sigma cannot express,
+  so this sees the payoff and never the plant. One vocabulary note: the rule is
+  written in the Sysmon EventID 1 field names the brief's process_creation
+  logsource implies; if the same category is fed from Security 4688 instead, the
+  names are `NewProcessName` and `ParentProcessName` and the feed needs a field
+  mapping first, plus *Audit Process Creation* and the separate *Include command
+  line in process creation events* policy.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0547, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1505
+  - https://attack.mitre.org/detectionstrategies/DET0547
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1505
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_server_parent:
+    ParentImage|endswith:
+      - '\w3wp.exe'
+      - '\php-cgi.exe'
+      - '\httpd.exe'
+      - '\nginx.exe'
+      - '\sqlservr.exe'
+  selection_interpreter:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cscript.exe'
+      - '\wscript.exe'
+      - '\mshta.exe'
+      - '\bash.exe'
+      - '\wsl.exe'
+  condition: selection_server_parent and selection_interpreter
+falsepositives:
+  - "Line-of-business ASP.NET applications that shell out on purpose — a page that drives a PDF or image converter through cmd.exe, a legacy batch job wrapped in a web front end, or housekeeping code that shells out to clear temporary files. This is the loudest source by a wide margin and the only one that can recur at request rate, which is why the level is medium; on an estate where no application does this the rule is close to silent and would justify a higher level once the exception list has been built from ParentCommandLine."
+  - "Scheduled maintenance and ETL work that uses xp_cmdshell from sqlservr.exe, such as bulk-load staging, BCP export wrappers, directory listings before a file import, and backup-file rotation. On any estate where xp_cmdshell is enabled this is a predictable recurring hit under the SQL Server service account at fixed times."
+  - "Web-deployment and release tooling running inside the worker process, including Web Deploy post-synchronisation commands and application-warmup or cache-priming scripts that invoke powershell.exe from w3wp.exe during a deployment window."
+  - "Monitoring, APM and backup agents that launch a short cmd.exe or powershell.exe probe from the worker process to collect host or application state on a polling interval, producing a steady low-rate match under a service account."
+level: medium

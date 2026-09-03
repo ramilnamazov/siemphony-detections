@@ -1,0 +1,11 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)(\\Policies\\Google\\Chrome\\ExtensionInstallForcelist\\|\\Policies\\Google\\Chrome\\ExtensionSettings\\|\\Policies\\Microsoft\\Edge\\ExtensionInstallForcelist\\|\\Policies\\Microsoft\\Edge\\ExtensionSettings\\|\\Policies\\BraveSoftware\\Brave\\ExtensionInstallForcelist\\|\\Google\\Chrome\\Extensions\\|\\Microsoft\\Edge\\Extensions\\|\\Chromium\\Extensions\\|\\Mozilla\\Firefox\\Extensions\\|\\NativeMessagingHosts\\)</field>
+    <description>Browser extension registered or force-installed via registry</description>
+    <mitre>
+      <id>T1176</id>
+    </mitre>
+  </rule>
+</group>

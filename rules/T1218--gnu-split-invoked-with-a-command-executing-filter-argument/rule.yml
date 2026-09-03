@@ -1,0 +1,55 @@
+title: GNU split invoked with a command-executing --filter argument
+id: 6797ea87-b3da-480c-abd6-a79760eb9d00
+status: experimental
+description: |
+  Matches execution of the coreutils split binary with a --filter argument,
+  the mechanism MITRE's own technique text and its GTFO split citation name as
+  the parent-level example of proxying a command through a trusted binary —
+  split hands each output chunk to the filter program on stdin, so any command
+  named there runs as its child. This is the one piece of AN0227 with a fixed,
+  checkable shape; the rest of the analytic ("uncommon sequences or chained
+  behaviors") and its AnomalyScore knob describe a statistical baseline no
+  Sigma selector expresses. CommandLine here is reconstructed from auditd's
+  a0..aN fields, and a --filter value containing a space (a shell redirection
+  or pipe, the common benign form) lands in one argument auditd hex-encodes
+  whole, so this rule reliably catches only the plain --filter=<binary> form
+  GTFOBins itself documents, not a redirected one. It is also the only
+  genuinely parent-level slice of the technique: the Windows binaries AN0226
+  names — rundll32.exe, msiexec.exe and regsvr32.exe — each already have a
+  dedicated child sub-technique in the current ATT&CK v19.2 corpus
+  (Rundll32 T1218.011, Msiexec T1218.007, Regsvr32 T1218.010, all confirmed
+  against attack.mitre.org/techniques/T1218 and against this pipeline's own
+  T1218.007/.009/.010/.011 scaffolds) and belong there, not here. That
+  crosswalk is not supplied anywhere in this technique's own brief.json —
+  it comes from checking the sibling techniques directly, not from anything
+  in this scaffold — so treat it as authored, verifiable background rather
+  than a MITRE-sourced field. PREREQUISITE — auditd does not record execve by
+  default; this rule needs an armed watch rule such as
+  `-a always,exit -F arch=b64 -S execve`, the same prerequisite the sibling
+  T1071 rule in this corpus states. Without it, zero matches means the
+  syscall was never audited, not that no proxying occurred.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0081, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218
+  - https://attack.mitre.org/detectionstrategies/DET0081
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tool:
+    Image|endswith: '/split'
+  selection_filter:
+    CommandLine|contains:
+      - '--filter='
+      - '--filter '
+  condition: selection_tool and selection_filter
+falsepositives:
+  - "A --filter value with no embedded space, for example --filter=/bin/gzip writing to a fixed path — the simple form of a legitimate compress-while-splitting pipeline, indistinguishable on the command line from the GTFOBins shell escape this rule targets."
+  - "A log pipeline that decodes auditd's hex-encoded arguments before this rule sees them, which would additionally surface the common --filter='gzip > $FILE.gz' redirection form used by backup and log-rotation scripts."
+  - "An administrator manually testing a no-redirection --filter form such as --filter=gzip while reading the coreutils manual, which needs no shell metacharacter and so is not hex-encoded by auditd, unlike the manual's own piped --filter example."
+level: low

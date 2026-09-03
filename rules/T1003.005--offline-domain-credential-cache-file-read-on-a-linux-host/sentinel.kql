@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "/var/lib/sss/db/cache" or ProcessCommandLine contains "/var/lib/sss/secrets" or ProcessCommandLine contains "/var/opt/quest/vas/authcache")

@@ -1,0 +1,49 @@
+title: Script engine invoked with an SVG file on its command line
+id: 64ab9e70-032b-4725-aa2c-651b160ec9fb
+status: experimental
+description: |
+  AN1407's real shape is a file-write followed within MITRE's TimeWindow by
+  script-engine execution, network callback or credential collection — a
+  three-stage correlation Sigma cannot express in one event. What survives to a
+  single process_creation record is the deviation this rule matches instead: an
+  SVG, an image format with no legitimate reason to be fed to a script host, on
+  the command line of wscript.exe, cscript.exe, mshta.exe or rundll32.exe. The
+  file-extension gate is MITRE's FileExtensionPattern knob restricted to .svg
+  and .svgz; ParentProcessWhitelist has no expression here because the rule
+  gates on the argument rather than on what launched the engine. A hit shows a
+  script host was pointed at an SVG, not that the SVG carried a script tag or
+  that anything fired afterwards — confirming smuggled content requires opening
+  the file, which this event never does — a genuine, unmodified icon and a
+  smuggled payload are indistinguishable at this level. The gate is also purely
+  lexical, so an SVG fetched from an extensionless route or a query-string path
+  (http://host/asset?id=1), or renamed on disk before invocation, leaves nothing
+  for it to match.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0510, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/017
+  - https://attack.mitre.org/detectionstrategies/DET0510
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1027.017
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_engine:
+    Image|endswith:
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+  selection_svg_arg:
+    CommandLine|contains:
+      - '.svg'
+      - '.svgz'
+  condition: selection_engine and selection_svg_arg
+falsepositives:
+  - "Legitimate SVG open, preview or conversion via a script wrapper — for example a help-desk or documentation tool shelling out to wscript.exe against C:\\tools\\svgviewer\\open.vbs icons.svg to preview a genuine, unmodified icon, or an asset build pipeline invoking rundll32 or wscript against a path or argument that contains '.svg' as a normal batch-conversion step. This is indistinguishable from smuggled content at the process_creation level because the event never inspects file content."
+  - "HTA-based installers and setup wizards that hardcode a path to an .svg logo or icon in their mshta.exe command line for branding, a cosmetic reference with no script content involved."
+  - "Design and publishing automation that shells out to rundll32 or a wscript helper to batch-convert or rasterize .svg assets as a normal step in a release or documentation pipeline."
+level: medium

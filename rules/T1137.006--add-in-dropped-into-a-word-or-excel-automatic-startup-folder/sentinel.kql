@@ -1,0 +1,2 @@
+DeviceFileEvents
+| where ((((FolderPath contains "\\Microsoft\\Word\\STARTUP\\" and (FolderPath endswith ".wll" or FolderPath endswith ".dotm" or FolderPath endswith ".dot")) or (FolderPath contains "\\XLSTART\\" and (FolderPath endswith ".xll" or FolderPath endswith ".xlam" or FolderPath endswith ".xla" or FolderPath endswith ".xlsm" or FolderPath endswith ".xlsb" or FolderPath endswith ".xls" or FolderPath endswith ".xltm"))) and not (FolderPath contains "\\~$")) and not (FolderPath endswith "\\PERSONAL.XLSB"))

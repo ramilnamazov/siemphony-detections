@@ -1,0 +1,61 @@
+title: Non-installer process writes an executable into System32 or SysWOW64
+id: 5de03204-020d-42c2-bd23-a633c0a73376
+status: experimental
+description: |
+  AN1211 describes a service binary being overwritten because the file or its
+  containing directory has weak permissions, then that binary running under
+  the service's own elevated context. Sysmon EID 11 (file_event, the logsource
+  used here) can see only the write half of that story — it has no service
+  name, no ACL and no privilege field — so this rule is a coarse proxy: an
+  executable or DLL created or modified under System32 or SysWOW64, the two
+  directories that host the large majority of built-in Windows service
+  binaries, by a process outside a short allowlist of legitimate servicing
+  tools (Windows Installer, TrustedInstaller, the servicing worker and the
+  standalone update installer). It cannot confirm the written file backs a
+  registered service, and it cannot see the later execution under elevated
+  privileges that AN1211's second half describes — that is a Sysmon EID
+  11-to-EID 1 join on path and time window, which lib/sigma has no construct
+  for. MITRE's MonitoredServices and HashBaseline knobs (a specific service
+  list and known-good hashes) are not populated at all, because neither is
+  something this pipeline can source generically; PrivilegedAccounts becomes
+  the filter_trusted_writer allowlist below, authored here rather than taken
+  from MITRE. Prerequisite: this fires only where the Sysmon configuration in
+  use actually captures EID 11 for these paths — a config that filters file
+  events by extension or excludes system directories produces zero rows here
+  regardless of what is happening on disk.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0436, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/010
+  - https://attack.mitre.org/detectionstrategies/DET0436
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.010
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_target:
+    TargetFilename|endswith:
+      - '.exe'
+      - '.dll'
+  selection_service_dir:
+    TargetFilename|contains:
+      - '\System32\'
+      - '\SysWOW64\'
+  filter_trusted_writer:
+    Image|startswith:
+      - 'C:\Windows\System32\msiexec.exe'
+      - 'C:\Windows\servicing\TrustedInstaller.exe'
+      - 'C:\Windows\System32\wusa.exe'
+  filter_trusted_writer_tiworker:
+    Image|endswith: '\TiWorker.exe'
+  condition: selection_target and selection_service_dir and not 1 of filter_trusted_writer*
+falsepositives:
+  - "Routine Windows Update or cumulative-update servicing: TiWorker.exe hardlinks updated components from the WinSxS store into System32 and SysWOW64 on every patch cycle, on every Windows host — this is filtered by process name only, since TiWorker.exe itself runs from a versioned WinSxS servicing-stack subdirectory rather than System32, so no fixed startswith path for it is reliable."
+  - "Non-Microsoft installers or portable deployment tools that are mis-packaged to drop DLLs directly into System32 or SysWOW64 instead of their own Program Files directory, writing through a process outside the msiexec/TrustedInstaller/TiWorker/wusa allowlist."
+  - "Endpoint security, backup or RMM agents that legitimately update helper DLLs placed in System32 or SysWOW64 through their own vendor updater process rather than through Windows Installer or servicing."
+  - "OEM or third-party signed driver package installers that copy .dll or support-file executables into System32 or SysWOW64 during hardware setup, run by the vendor's own setup binary rather than msiexec."
+level: medium

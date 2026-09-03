@@ -1,0 +1,66 @@
+title: Native Windows utility deletes shadow copies or disables recovery
+id: b6eaab79-935e-4c17-8816-43b3e8ee8212
+status: experimental
+description: |
+  AN0933's CommandLinePattern knob names six native utilities together —
+  vssadmin, wbadmin, diskshadow, bcdedit, REAgentC and wmic — and this rule now
+  carries a selector for each of them, including the technique's own textbook
+  example, `vssadmin.exe delete shadows /all /quiet`. The vssadmin, wbadmin,
+  wmic shadowcopy and bcdedit selectors are the same observables the corpus's
+  T1486 rule (data/detections/T1486/rule.yml) matches, because MITRE explains
+  T1490 as augmenting T1485/T1486 rather than standing apart from them — a hit
+  here is deliberately redundant with that rule rather than leaving this
+  technique's own folder blind to its most common real-world execution path.
+  `reagentc /disable` (turns off the Windows Recovery Environment's automatic
+  repair) and `diskshadow.exe` invocation are the two commands unique to this
+  rule; diskshadow's scripted shadow-copy deletion happens inside a script file
+  this process-creation event never shows, so the tool's mere presence on the
+  command line is what this rule can see, not what its script does. Every
+  selection matches on CommandLine alone — the diskshadow leg was moved off
+  Image so the rule stays a single-field OR that all four backends render.
+  Renaming any of these six binaries before invoking it removes the matched
+  substring from CommandLine and evades the corresponding selector entirely,
+  identically to how T1486 is evaded.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0329, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1490
+  - https://attack.mitre.org/detectionstrategies/DET0329
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1490
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_vss_delete:
+    CommandLine|contains|all:
+      - 'vssadmin'
+      - 'delete shadows'
+  selection_wbadmin:
+    CommandLine|contains|all:
+      - 'wbadmin'
+      - 'delete'
+  selection_shadowcopy_wmi:
+    CommandLine|contains|all:
+      - 'shadowcopy'
+      - 'delete'
+  selection_bcdedit_recovery:
+    CommandLine|contains|all:
+      - 'bcdedit'
+      - 'recoveryenabled'
+  selection_reagentc:
+    CommandLine|contains|all:
+      - 'reagentc'
+      - '/disable'
+  selection_diskshadow:
+    CommandLine|contains: 'diskshadow.exe'
+  condition: 1 of selection*
+falsepositives:
+  - "VSS-aware backup software. diskshadow.exe is Microsoft's own tool for scripting application-consistent shadow copies, and commercial backup agents and SQL Server backup jobs invoke it and vssadmin routinely — on a backup server this can be the loudest match here by a wide margin, since the rule sees the tool's launch and not which script it was handed."
+  - "Windows servicing. The setup process for a major Windows feature update runs `reagentc /disable` to free the recovery partition before it applies the update and re-enables WinRE afterward, so any host on a normal patch cadence produces this command line during its update window without anything malicious happening."
+  - "OS deployment and imaging pipelines that disable WinRE with reagentc, clear shadow copies with vssadmin, or reset bcdedit recovery flags as documented steps before capturing or laying down a reference image."
+  - "Administrators freeing disk space with vssadmin, retiring an old system state backup with wbadmin, or disabling the automatic repair loop with bcdedit while troubleshooting a boot problem, or running diskshadow.exe interactively to inspect or create a shadow copy."
+  - "OEM factory-recovery-partition utilities (Dell SupportAssist OS Recovery, HP Recovery Manager, Lenovo OneKey Recovery) and AV/EDR post-incident remediation tooling that call `reagentc /disable` while rebuilding or reimaging the recovery partition."
+level: low

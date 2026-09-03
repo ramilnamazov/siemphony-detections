@@ -1,0 +1,1 @@
+index=* (user_agent="*compatible; MSIE *" OR user_agent="*Mozilla/4.0*")

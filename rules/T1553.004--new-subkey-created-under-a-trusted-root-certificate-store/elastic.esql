@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(registry.path) LIKE "*\\\\systemcertificates\\\\root\\\\certificates\\\\*" OR TO_LOWER(registry.path) LIKE "*\\\\systemcertificates\\\\authroot\\\\certificates\\\\*" OR TO_LOWER(registry.path) LIKE "*\\\\enterprisecertificates\\\\root\\\\certificates\\\\*") AND NOT (TO_LOWER(process.executable) == "c:\\windows\\system32\\svchost.exe"))

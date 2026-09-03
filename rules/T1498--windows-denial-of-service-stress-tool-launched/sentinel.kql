@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\loic.exe" or FolderPath endswith "\\hoic.exe" or FolderPath endswith "\\hoic2.exe" or FolderPath endswith "\\xoic.exe") or ((FolderPath endswith "\\python.exe" or FolderPath endswith "\\pythonw.exe") and (ProcessCommandLine contains "goldeneye.py" or ProcessCommandLine contains "slowloris.py" or ProcessCommandLine contains "hulk.py")))

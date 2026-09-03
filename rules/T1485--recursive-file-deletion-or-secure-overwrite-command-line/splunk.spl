@@ -1,0 +1,1 @@
+index=* ((CommandLine="*del *" AND CommandLine="*/s*" AND CommandLine="*/q*") OR (CommandLine="*rmdir *" AND CommandLine="*/s*" AND CommandLine="*/q*") OR (CommandLine="*cipher*" AND CommandLine="*/w*") OR (CommandLine="*sdelete.exe*" OR CommandLine="*sdelete64.exe*") OR (CommandLine="*Remove-Item*" AND CommandLine="*-Recurse*" AND CommandLine="*-Force*"))

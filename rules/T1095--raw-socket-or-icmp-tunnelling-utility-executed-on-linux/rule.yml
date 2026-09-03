@@ -1,0 +1,63 @@
+title: Raw-socket or ICMP tunnelling utility executed on Linux
+id: 37cb66b0-400b-4f49-a934-8a58967310f2
+status: experimental
+description: |
+  AN1255's tool-execution leg: an auditd SYSCALL record whose `exe` is one of
+  the utilities that craft raw ICMP or raw-socket packets by hand — hping and
+  hping3, the nmap suite's nping, and the ptunnel / ptunnel-ng / pingtunnel /
+  icmptunnel family that carries a TCP session inside ICMP echo payloads.
+  MITRE's `RawSocketExecutionPath` knob names "uncommon programs using raw
+  sockets" as the thing to baseline; the binary list here is authored, not
+  MITRE's, and covers compiled tools only.
+  What this rule deliberately does not do is look at traffic. Every
+  packet-level observable the strategy describes is a statistic: AN1254's
+  `ByteTransferAnomalyThreshold` is a sent/received ratio, AN1258's
+  `ProtocolEntropyThreshold` and `SessionDurationThreshold` are an entropy
+  measure and a duration comparison, and `ProtocolUsageBaseline` is a per-host
+  baseline. lib/sigma has no aggregation, no numeric comparison and no
+  timeframe, so none of them can be stated, and a per-event rule over the Zeek
+  legs would reduce to "an ICMP flow exists", which every ping and every
+  monitoring probe satisfies. The Windows arm is in worse shape than it looks:
+  Sysmon EventID 3 records TCP and UDP connections only and never emits an ICMP
+  event at all, so the ICMP half of AN1254 has no Windows telemetry behind it —
+  which is why this rule sits on the Linux source.
+  Two blind spots inside the source it does use. auditd's `exe` names the file
+  that was executed, so an implant that opens a raw socket from scapy or a
+  Python script records `/usr/bin/python3` and never matches, and a renamed or
+  dropped-in copy of hping3 matches nothing either. Prerequisite: auditd
+  records none of this by default — the rule returns zero rows until a syscall
+  rule such as `-a always,exit -F arch=b64 -S execve -k exec` is loaded, and
+  zero rows reads as quiet when it actually means blind. If the loaded ruleset
+  audits more than execve, one run of these tools emits several matching
+  SYSCALL records rather than one.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0457, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1095
+  - https://attack.mitre.org/detectionstrategies/DET0457
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1095
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_raw_socket_tools:
+    type: 'SYSCALL'
+    exe|endswith:
+      - '/hping'
+      - '/hping2'
+      - '/hping3'
+      - '/nping'
+      - '/ptunnel'
+      - '/ptunnel-ng'
+      - '/pingtunnel'
+      - '/icmptunnel'
+  condition: selection_raw_socket_tools
+falsepositives:
+  - "Network and firewall engineers running hping3 from a jump host to test an ACL, probe path MTU or reproduce a packet-loss report. It is the same binary with the same arguments as the abuse case, separated only by who ran it and on which host."
+  - "Scanning and availability monitoring built on the nmap suite, which ships nping. A scheduled discovery or reachability check makes this the steadiest source of matches in most estates, and the scanner hosts should be excluded before the rule is promoted above medium."
+  - "Load, latency and failover test harnesses that call hping3 in a loop to measure packet loss or flood a link, producing bursts of matching records on the lab or staging hosts that run them."
+  - "Authorised penetration tests and security CI pipelines that install hping3 or the ptunnel family onto ephemeral hosts as part of a scheduled exercise, which is exactly the tooling this rule was written to find."
+level: medium

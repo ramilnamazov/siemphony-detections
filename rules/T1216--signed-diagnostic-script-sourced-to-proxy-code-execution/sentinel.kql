@@ -1,0 +1,2 @@
+Event
+| where (EventID == 4104 and ((ScriptBlockText contains "CL_Invocation.ps1" or ScriptBlockText contains "CL_LoadAssembly.ps1" or ScriptBlockText contains "CL_Mutexverifiers.ps1" or ScriptBlockText contains "UtilityFunctions.ps1") or (ScriptBlockText contains "SyncInvoke" or ScriptBlockText contains "LoadAssemblyFromPath" or ScriptBlockText contains "LoadAssemblyFromNS" or ScriptBlockText contains "runAfterCancelProcess" or ScriptBlockText contains "RegSnapin")))

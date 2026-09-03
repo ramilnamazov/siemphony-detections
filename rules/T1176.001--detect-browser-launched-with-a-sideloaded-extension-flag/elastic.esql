@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*--load-extension=*" OR TO_LOWER(process.command_line) LIKE "*--disable-extensions-except=*" OR TO_LOWER(process.command_line) LIKE "*--pack-extension=*" OR TO_LOWER(process.command_line) LIKE "*--install-chrome-app=*")

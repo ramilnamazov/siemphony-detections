@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "\\bcdedit.exe" or FolderPath endswith "\\bootcfg.exe") and ProcessCommandLine contains "safeboot") or ProcessCommandLine contains "CurrentControlSet\\Control\\SafeBoot")

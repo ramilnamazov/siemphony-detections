@@ -1,0 +1,64 @@
+title: PowerShell history saving disabled via Set-PSReadLineOption
+id: 81636d9f-bb72-4455-b584-85c66c4b1305
+status: experimental
+description: |
+  AN1557 names `Set-PSReadLineOption` with `SaveNothing` or an altered
+  `HistorySavePath` as the observable, and PowerShell script block logging is
+  the one feed in the brief that can carry the cmdlet's arguments verbatim.
+  Script block logging is off by default and requires the "Turn on
+  PowerShell Script Block Logging" Group Policy (or the equivalent
+  `HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging`
+  registry key) enabled before EventID 4104 exists at all; without it this
+  rule is blind, not quiet. This rule matches the cmdlet name together with
+  either the `SaveNothing`
+  save-style value or a `HistorySavePath` argument pointed at a null
+  destination (`$null`, `NUL`, or `/dev/null`, the forms available under
+  Windows PowerShell and PowerShell 7). It is deliberately narrower than
+  matching `HistorySavePath` alone, since that argument also appears in
+  benign scripts that read or display the current path without redirecting
+  it anywhere. AN1555 (Linux) and AN1556 (macOS) are not authored under this
+  technique. AN1555's own log source is `auditd:SYSCALL::execve` matching
+  `unset`/`export` of `HISTFILE`/`HISTCONTROL` — but `unset` and `export` are
+  bash builtins with no external binary of that name, so they never reach
+  `execve()` and this selector could never fire, the same class of dead
+  selector AUTHORING.md documents for Java/Python wrappers on this same log
+  source. AN1556's macOS unifiedlog leg gives no field or message pattern at
+  all, only the prose "Set or unset HIST* variables in shell environment."
+  T1070.003's published rule for this corpus explicitly declines
+  `Set-PSReadLineOption -HistorySaveStyle SaveNothing` as out of scope for
+  clearing console history and reserves it for this technique — this rule is
+  that reservation being claimed. It does not see history suppressed through
+  `$env:PSReadLineHistorySaveStyle` set before the module loads, through a
+  compiled or C#-hosted PowerShell runspace with no script block to log, or
+  through direct deletion/truncation of the underlying history file, which is
+  T1070.003's ground, not this one's.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0563, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1690
+  - https://attack.mitre.org/detectionstrategies/DET0563
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1690
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_event:
+    EventID: 4104
+  selection_cmdlet:
+    ScriptBlockText|contains: 'Set-PSReadLineOption'
+  selection_savenothing:
+    ScriptBlockText|contains: 'SaveNothing'
+  selection_nullpath:
+    ScriptBlockText|contains:
+      - 'HistorySavePath $null'
+      - 'HistorySavePath NUL'
+      - 'HistorySavePath /dev/null'
+  condition: selection_event and selection_cmdlet and (selection_savenothing or selection_nullpath)
+falsepositives:
+  - "Security-hardening baselines for shared jump hosts and PAM bastions that deliberately set SaveNothing at profile load to stop credentials typed during a privileged session from persisting into a shared history file — a legitimate control that produces the identical script block."
+  - "Self-hosted CI/CD runner initialization scripts (Azure DevOps, GitHub Actions Windows runners) that disable PSReadLine history at session start so secrets echoed during a pipeline run are never written to disk on a reused runner."
+  - "Detection-engineering and atomic-test validation runs that execute this exact cmdlet and argument to demonstrate or self-test the analytic rather than to conceal anything."
+level: low

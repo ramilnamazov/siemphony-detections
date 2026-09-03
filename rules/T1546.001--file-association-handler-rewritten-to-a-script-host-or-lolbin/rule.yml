@@ -1,0 +1,63 @@
+title: File association handler rewritten to a script host or LOLBin
+id: d3cf5408-f80e-4e07-b143-b9480b1c033a
+status: experimental
+description: |
+  Matches the registry half of AN0170: the command that Windows runs when a file
+  type is opened being set to an interpreter or a user-writable path. The handler
+  lives at `<handler>\shell\<action>\command`, where `command` is a subkey and the
+  command line sits in its default value, so a Sysmon EventID 13 record reads
+  `...\shell\open\command\(Default)` — the terms therefore use `contains` and not
+  `endswith`, and no hive prefix is matched because HKCR is a merged view that
+  Sysmon never reports literally, writing instead `HKLM\SOFTWARE\Classes\...` or
+  `HKU\<SID>_Classes\...`. The `Details` gate is MITRE's
+  `SuspiciousHandlerPathRegex` knob, which names powershell.exe and rundll32.exe
+  as examples and is populated here with the wider script-host and LOLBin set plus
+  two user-writable directories; `\AppData\` as a whole is deliberately left out,
+  since per-user installs of chat, editor and conferencing clients legitimately
+  register handlers there and would swamp everything else. The execution half of
+  the analytic — the hijacked handler spawning a child when a user opens a file —
+  needs a correlation across MITRE's `TimeWindow` knob that Sigma cannot express,
+  and Sysmon logs registry writes only for the paths its configuration allowlists,
+  so confirm the Classes subtree is in yours before treating silence as clean.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0061, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/001
+  - https://attack.mitre.org/detectionstrategies/DET0061
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.001
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_command_value:
+    TargetObject|contains:
+      - '\shell\open\command'
+      - '\shell\edit\command'
+      - '\shell\print\command'
+      - '\shell\printto\command'
+      - '\shell\explore\command'
+      - '\shell\runas\command'
+  selection_handler:
+    Details|contains:
+      - 'powershell'
+      - 'pwsh.exe'
+      - 'cmd.exe'
+      - 'wscript'
+      - 'cscript'
+      - 'mshta'
+      - 'rundll32'
+      - 'regsvr32'
+      - 'certutil'
+      - '\Users\Public\'
+      - '\AppData\Local\Temp\'
+  condition: selection_command_value and selection_handler
+falsepositives:
+  - "Windows setup, cumulative updates and the 'reset to the recommended defaults' apps operation, all of which rewrite the built-in handlers for script and control-panel file types. Those handlers genuinely name wscript.exe, mshta.exe and rundll32.exe — .vbs opens in WScript, .hta in mshta, .cpl and .inf through rundll32 — so this is the loudest source of matches and it arrives as a burst at image build time and after servicing."
+  - "Application installers and MSI self-healing claiming an extension with a launcher that shells through cmd.exe or rundll32.exe, which rewrite the command value on every repair cycle rather than only at first install."
+  - "Administrative baselines and Group Policy preferences that set associations fleet-wide, for instance forcing .ps1 and .vbs to open in an editor instead of executing, which writes a handler naming powershell.exe on every policy refresh."
+  - "Portable applications and installers running from an extracted temporary directory that register their associations while still in that directory, producing a handler path under the user's Temp folder."
+level: medium

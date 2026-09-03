@@ -1,0 +1,66 @@
+title: Service enumeration via sc query, net start, WMI or Get-Service
+id: 3b4ea06f-1570-4df8-b597-91fe241c2480
+status: experimental
+description: |
+  Matches the command shapes AN1325 names for reading the registered service
+  table: `sc query`, `tasklist /svc`, a bare `net start`, `wmic service`, and the
+  PowerShell/CIM equivalents. Each leg pairs the binary with the argument that
+  makes it an enumeration, so `sc.exe create` and `net start <ServiceName>` —
+  which write rather than read — stay outside it; the `net` leg anchors on the
+  command line ending at the verb, which is what excludes starting a named
+  service and also what makes it miss a redirected `net start > out.txt`. The
+  brief offers Security EventID 4688 for this analytic but maps it onto the
+  Sysmon-shaped `process_creation` category, and the rule is written in that
+  vocabulary (`Image`, `CommandLine`); a 4688 feed needs `NewProcessName` mapped
+  onto `Image` and `ProcessCommandLine` onto `CommandLine` before it can match,
+  and 4688 itself requires *Audit Process Creation* plus the separate *Include
+  command line in process creation events* policy, neither of which is enabled by
+  a default install or by the MS/CIS baselines. AN1325's other log source, the
+  PowerShell 4103/4104 channel, is not used, so the cmdlet leg only sees
+  `Get-Service` and the CIM/WMI equivalents when they are carried on a new
+  process's command line; the same cmdlet typed into a session already running,
+  or called from inside a script, creates no process and is invisible here — a
+  quiet result is not evidence that nothing enumerated the services. MITRE's
+  `CommandLineMatch` knob is what the argument gates implement, populated here
+  with the verbs above.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0483, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1007
+  - https://attack.mitre.org/detectionstrategies/DET0483
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1007
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_sc:
+    Image|endswith: '\sc.exe'
+    CommandLine|contains: 'query'
+  selection_tasklist:
+    Image|endswith: '\tasklist.exe'
+    CommandLine|contains|windash: '/svc'
+  selection_net:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+    CommandLine|endswith: ' start'
+  selection_wmic:
+    Image|endswith: '\wmic.exe'
+    CommandLine|contains: 'service'
+  selection_ps_cmdlet:
+    CommandLine|contains:
+      - 'Get-Service'
+      - 'Get-CimInstance -ClassName Win32_Service'
+      - 'Get-CimInstance Win32_Service'
+      - 'Get-WmiObject -Class Win32_Service'
+      - 'Get-WmiObject Win32_Service'
+  condition: 1 of selection*
+falsepositives:
+  - "Monitoring, inventory and RMM agents polling service state on a schedule — a configuration-management run, a Nagios or Zabbix check, or a health script calling Get-Service or sc query on every host every few minutes. This is the highest-volume match by a wide margin and is why the rule is not rated above low; MITRE's ParentProcess knob is the place to suppress it, keyed on the agent that spawns the check."
+  - "Software installers, updaters and MSI custom actions running sc query <ServiceName> to test whether their own service already exists before installing, repairing or upgrading it."
+  - "Backup, antivirus and asset-discovery products enumerating Win32_Service over WMI or CIM as part of a routine inventory sweep."
+  - "Helpdesk and administrator troubleshooting during an incident, where tasklist /svc and net start are typed interactively to work out which service owns a hung process."
+level: low

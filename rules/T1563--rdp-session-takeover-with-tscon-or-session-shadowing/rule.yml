@@ -1,0 +1,57 @@
+title: RDP session takeover with tscon or session shadowing
+id: f339e12c-a958-4cf7-ba2b-21dcaaff90e9
+status: experimental
+description: |
+  Detects the two command-line forms of taking over an existing Windows remote
+  desktop session: tscon.exe attaching another session to a terminal, and
+  mstsc.exe shadowing a live session. tscon is matched on the binary alone
+  because `tscon 2` with no further arguments already connects the target
+  session to the caller's own — a complete hijack that a /dest: gate would miss,
+  leaving only the longer variant that appears in write-ups. The shadow arm
+  matches /shadow: on its own for the same reason: where the shadowing policy
+  has already been set to view or control without consent, /noConsentPrompt is
+  unnecessary and `mstsc /shadow:2 /control` takes the session silently, so a
+  command line carrying both switches is the higher-confidence variant to triage
+  first rather than the gate. Both are the observable MITRE's AN0216 describes as
+  a session takeover with no matching logon event — the hijack produces no 4624
+  for the hijacker, which is why the logon events in the strategy cannot carry
+  this detection on their own and the process creation source is used instead.
+  The event says nothing about whose session was taken, so corroborate every hit
+  with 4778 (session reconnected), 4779 (session disconnected) and 4624 with
+  logon type 10 on the same host around the same time; the analytic's
+  ExpectedUserSessionMap knob is the per-user baseline Sigma cannot hold.
+  Classic tscon abuse runs as SYSTEM through a service the adversary created, so
+  a parent of services.exe on a match is corroborating rather than exculpatory.
+  Scope is the Windows RDP leg of DET0079 only, which is the mechanism ATT&CK
+  files as T1563.002 — AN0217's Linux screen/tmux attach and PTY reuse and
+  AN0218's macOS VNC and TTY takeover are not covered here. Where this is run
+  against Security 4688 rather than Sysmon Event ID 1, Audit Process Creation
+  and the separate "Include command line in process creation events" policy both
+  have to be enabled or the shadow arm has no CommandLine to read and only the
+  tscon arm survives.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0079, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1563
+  - https://attack.mitre.org/detectionstrategies/DET0079
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1563
+  - attack.t1563.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tscon:
+    Image|endswith: '\tscon.exe'
+  selection_shadow:
+    Image|endswith: '\mstsc.exe'
+    CommandLine|contains|windash: '/shadow:'
+  condition: 1 of selection*
+falsepositives:
+  - "Remote Desktop Connection Broker and Remote Desktop Session Host policy handling on an RDS farm, which reattach disconnected sessions programmatically on reconnect, session-limit and idle-timeout events; on any RDS deployment this is the highest-volume match by a wide margin and it carries no operator identity to triage against."
+  - "Terminal server administration. Moving a disconnected session back to the console with tscon is a documented recovery step, and an administrator reattaching their own session after a network drop produces the same event as a takeover of someone else's."
+  - "Help desk support tooling. Remote support and monitoring products wrap mstsc shadowing, and estates that have set the shadowing policy to no-consent for unattended servers will match on every support connection. Whether consent was possible is a policy question, not something this event answers."
+  - "Session brokers, kiosk and thin-client management scripts that reassign sessions on logoff or on a schedule, which call tscon as part of normal operation."
+level: medium

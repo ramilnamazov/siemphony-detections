@@ -1,0 +1,78 @@
+title: PAM configuration or MFA module file touched under /etc/pam.d
+id: 2c4659e4-1d18-4e01-b47c-86d9462498c9
+status: experimental
+description: |
+  Matches the Linux leg of AN0546 on the single log source it offers: an
+  auditd PATH record naming either a file directly under /etc/pam.d/ (the
+  stack of config files an admin edits to remove or reorder an MFA
+  requirement) or one of a short list of well-known open-source MFA PAM
+  module .so files. The pam.d selection is MITRE's own log source, taken
+  verbatim ("open/write to /etc/pam.d/*"); the module-file selection
+  populates MITRE's MFAHooks knob ("paths to organization-specific PAM
+  modules enforcing MFA") with pam_google_authenticator.so, pam_duo.so,
+  pam_oath.so, pam_yubico.so, pam_u2f.so and pam_radius_auth.so -- a list
+  this pipeline assembled from common open-source MFA integrations, not a
+  set of values MITRE supplied. Both selections are on the PATH record type
+  because that is the established shape for "a specific file path was
+  touched" elsewhere in this corpus (T1547.006, T1561.001); neither can tell
+  a write from a read, since access-mode (O_WRONLY vs O_RDONLY) lives in the
+  paired SYSCALL record's flags argument and no rule in this corpus decodes
+  that field, so "removal of an MFA hook" and "cat /etc/pam.d/sshd" produce
+  the identical event here. AN0546's own correlation half -- joining this
+  with "successful authentications lacking MFA prompts" -- is not attempted:
+  that is a second event type with no shared key this corpus's Sigma models
+  a join across.
+  Two other legs of this strategy are not attempted. AN0543 (Windows) offers
+  Security EventCode 4739 and a PowerShell operational-log cmdlet pairing,
+  but neither is usable: 4739 is Domain Policy Changed, and its own fields
+  (DomainPolicyChanged, DomainValue) cover password length, lockout and
+  Kerberos policy generically -- nothing in the brief names a bit or value
+  that is MFA-specific, so a bare EventCode=4739 selection would match every
+  routine password-policy edit in the domain, not this technique. The
+  PowerShell leg names Set-ADUser and Set-ADAuthenticationPolicy but no AD
+  attribute for "MFA disabled" -- Active Directory carries no native MFA
+  flag, which is exactly why the CISA advisory this technique's own
+  description cites (Russians Exploit Default MFA Protocol, March 2022)
+  describes attackers editing a fail-open policy in the Azure MFA NPS
+  extension's own config file instead, a log source this brief's AN0543
+  does not offer. AN0547 (macOS) offers only macos:unifiedlog, which has no
+  field vocabulary anywhere in this corpus -- the same blocker recorded
+  against T1553.001 and T1556's own parent-technique decline.
+  Prerequisite: raw auditd watches nothing by default. This returns zero
+  rows until watches such as `-w /etc/pam.d -p wa -k pam_config` and one per
+  module path (e.g. `-w /lib/x86_64-linux-gnu/security/pam_google_authenticator.so
+  -p wa -k pam_mfa`) are loaded, and zero rows reads as quiet when it
+  actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0190, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1556/006
+  - https://attack.mitre.org/detectionstrategies/DET0190
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.credential-access
+  - attack.t1556.006
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_pamd_config:
+    type: 'PATH'
+    name|contains: '/etc/pam.d/'
+  selection_mfa_module:
+    type: 'PATH'
+    name|endswith:
+      - '/pam_google_authenticator.so'
+      - '/pam_duo.so'
+      - '/pam_oath.so'
+      - '/pam_yubico.so'
+      - '/pam_u2f.so'
+      - '/pam_radius_auth.so'
+  condition: 1 of selection*
+falsepositives:
+  - "Configuration-management agents (Ansible, Puppet, Chef, SaltStack) that rewrite or re-check /etc/pam.d/common-auth or /etc/pam.d/sshd on every scheduled run as part of routine, sanctioned MFA provisioning -- on an estate with a short CM interval this is the loudest source of matches by a wide margin."
+  - "Package management rewriting the PAM stack during normal maintenance: apt/dnf upgrading libpam-google-authenticator or a similar package runs pam-auth-update or authconfig, which opens and rewrites every file under /etc/pam.d/ regardless of whether MFA was touched."
+  - "Compliance and vulnerability scanners (Lynis, OpenSCAP, CIS-CAT) that read every file under /etc/pam.d/ during a routine audit pass, which this rule cannot distinguish from a write since access-mode is not part of the selection."
+level: low

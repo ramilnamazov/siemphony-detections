@@ -1,0 +1,46 @@
+title: HTML Help spawns a script host or command interpreter
+id: 2c9b6d39-7aee-491a-b3a9-294810f92c1e
+status: experimental
+description: |
+  Matches process creation where hh.exe — the Microsoft HTML Help viewer that
+  opens .chm files — is the parent of a script host or command interpreter,
+  the shape AN0968 describes as "hh.exe followed by suspicious child processes
+  or script engine invocation". hh.exe is invoked directly when a user opens a
+  .chm file, so it is the process actually recorded on EID 1, not a wrapper
+  that proxies to something else. The analytic's file-creation, module-load
+  and network legs (Sysmon 11, 7, 3/22) describe a correlation across separate
+  events and a TimeWindow Sigma cannot express, so only the single-event
+  parent-child pair is authored. This is a distinct binary and a distinct
+  parent-child shape from the rest of the T1218 family already in this corpus
+  (cmstp.exe, regsvcs/regasm.exe, verclsid.exe, mavinject.exe, mmc.exe,
+  Electron launcher switches), none of which key on hh.exe.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0342, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/001
+  - https://attack.mitre.org/detectionstrategies/DET0342
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent:
+    ParentImage|endswith: '\hh.exe'
+  selection_child:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+  condition: selection_parent and selection_child
+falsepositives:
+  - "Vendor or internal help systems that use the CHM ShortCut/Exec macro feature to add a 'Run Diagnostic' or 'Open Command Prompt' button inside the help window, which spawns cmd.exe or rundll32.exe directly from hh.exe as designed CHM functionality."
+  - "Helpdesk or troubleshooting-wizard CHM files that invoke cscript.exe or wscript.exe to collect system information when a user clicks a button inside the help viewer, a pattern some enterprise support tooling ships deliberately."
+  - "Third-party software installers that bundle an interactive CHM wizard whose embedded macro calls powershell.exe or cmd.exe to perform a post-install configuration step from within the help viewer."
+level: high

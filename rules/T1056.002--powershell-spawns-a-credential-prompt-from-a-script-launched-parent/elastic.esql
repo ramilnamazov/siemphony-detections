@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (((TO_LOWER(process.executable) LIKE "*\\\\powershell.exe" OR TO_LOWER(process.executable) LIKE "*\\\\pwsh.exe") AND (TO_LOWER(process.command_line) LIKE "*promptforcredential*" OR TO_LOWER(process.command_line) LIKE "*get-credential*" OR TO_LOWER(process.command_line) LIKE "*enter your password*" OR TO_LOWER(process.command_line) LIKE "*credentialrequired*")) AND (TO_LOWER(process.parent.executable) LIKE "*\\\\cmd.exe" OR TO_LOWER(process.parent.executable) LIKE "*\\\\wscript.exe" OR TO_LOWER(process.parent.executable) LIKE "*\\\\cscript.exe"))

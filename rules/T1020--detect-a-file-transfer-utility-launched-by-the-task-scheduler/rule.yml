@@ -1,0 +1,56 @@
+title: Detect a file-transfer utility launched by the task scheduler
+id: c82b492b-5aee-4bd3-b35b-f136456f695a
+status: experimental
+description: |
+  Matches process creation where a dedicated file-transfer binary is started by
+  a scheduled-task host — svchost.exe running the Schedule service on current
+  Windows, taskeng.exe on the older builds that still have it. That parentage is
+  the only part of AN1113 a single event carries: the analytic is about tools or
+  scripts transmitting data to external destinations on a recurring interval,
+  and Sigma expresses neither recurrence nor destination reputation, so MITRE's
+  TimeWindow and DestinationIP knobs have no form here. What the rule can say is
+  that the transfer was launched by automation rather than by a person, which is
+  what separates automated exfiltration from the interactive case. Interpreters
+  are deliberately absent from the child list — scheduled tasks legitimately run
+  powershell.exe and cmd.exe constantly, and including them would bury the
+  signal. Two telemetry caveats: the analytic's source is Security 4688, which
+  requires the Audit Process Creation subcategory to be enabled, and the parent
+  process name it reads is only populated on Windows 8.1 and Server 2012 R2 and
+  later, so on older hosts the rule cannot match at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0397, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1020
+  - https://attack.mitre.org/detectionstrategies/DET0397
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.exfiltration
+  - attack.t1020
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_scheduler_parent:
+    ParentImage|endswith:
+      - '\svchost.exe'
+      - '\taskeng.exe'
+  selection_transfer_tool:
+    Image|endswith:
+      - '\curl.exe'
+      - '\wget.exe'
+      - '\bitsadmin.exe'
+      - '\ftp.exe'
+      - '\rclone.exe'
+      - '\scp.exe'
+      - '\sftp.exe'
+      - '\pscp.exe'
+      - '\psftp.exe'
+      - '\winscp.com'
+      - '\winscp.exe'
+  condition: selection_scheduler_parent and selection_transfer_tool
+falsepositives:
+  - "Sanctioned scheduled transfers. Nightly backups pushed with rclone or WinSCP, log shipping over SFTP and finance or EDI batch jobs using ftp.exe are the same event on the same schedule as the behaviour the analytic describes, and volume is the only thing that separates them — which this rule cannot see. Expect these to be the majority of hits and to need allow-listing by task and account before deployment."
+  - "Monitoring and health-check tasks that curl an endpoint every few minutes, which reproduce the recurring outbound pattern of MITRE's TimeWindow element exactly while moving almost no data."
+  - "Software distribution and patching, where a task started by the scheduler calls bitsadmin or curl to fetch a package. The direction is inbound rather than outbound, but process creation does not record it, so these match as readily as an upload does."
+  - "svchost.exe hosts far more than the Schedule service, so any Windows service that shells out to one of these binaries matches the parent selection too. The rule says automated, not specifically scheduled; confirm the launching task or service before treating a hit as exfiltration."
+level: medium

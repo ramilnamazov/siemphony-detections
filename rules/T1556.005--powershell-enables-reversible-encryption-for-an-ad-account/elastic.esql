@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (((event.code == 4104 AND TO_LOWER(powershell.file.script_block_text) LIKE "*set-aduser*") AND TO_LOWER(powershell.file.script_block_text) LIKE "*allowreversiblepasswordencryption*") AND TO_LOWER(powershell.file.script_block_text) LIKE "*$true*")

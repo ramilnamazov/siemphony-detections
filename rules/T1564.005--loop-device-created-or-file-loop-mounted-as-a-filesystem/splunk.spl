@@ -1,0 +1,1 @@
+index=* ((type="EXECVE" AND a0="*losetup") OR ((type="EXECVE" AND (a0="mount" OR a0="/bin/mount" OR a0="/usr/bin/mount")) AND (a1="*loop*" OR a2="*loop*" OR a3="*loop*" OR a4="*loop*" OR a5="*loop*")))

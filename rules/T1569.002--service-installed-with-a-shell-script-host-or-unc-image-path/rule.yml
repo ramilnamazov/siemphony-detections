@@ -1,0 +1,55 @@
+title: Service installed with a shell, script host or UNC image path
+id: 0f71c25c-8f8a-41f3-b8c2-7ef8c67a9d1c
+status: experimental
+description: |
+  AN1185 anchored on the service-creation record itself rather than on the
+  process tree, which is what keeps it distinct from the DCOM and WMI execution
+  rules already in this corpus: those match a child process on the target, this
+  matches the moment Security 4697 registers a new service whose image is a
+  command interpreter, a script host, a signed proxy binary, a PsExec-style
+  temporary service, or a path on another machine. That is the common
+  denominator of `sc create` with a command line for a binary, the Impacket
+  service-execution family, and PsExec — all of them have to name something
+  executable in ServiceFileName, and none of them can name a normal service
+  binary. Only creation is in scope: an adversary who starts a service that
+  already exists produces no 4697 at all and is invisible here, and the
+  registry and network legs of AN1185 need MITRE's
+  ParentProcessCorrelationWindow, which Sigma cannot express. 4697 requires
+  Audit Security System Extension (Success), which is off in a default install
+  — with it off this rule is blind rather than quiet. System log event 7045
+  carries the same facts without an audit policy, but it is a different log
+  source than the one the brief names for this analytic.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0421, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1569/002
+  - https://attack.mitre.org/detectionstrategies/DET0421
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1569.002
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4697
+    ServiceFileName|contains:
+      - '\cmd.exe'
+      - '%COMSPEC%'
+      - 'powershell'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - 'PSEXESVC'
+      - '\\\\'
+  condition: selection
+falsepositives:
+  - "Sanctioned remote administration. Helpdesk and deployment teams run PsExec and its equivalents legitimately, and the temporary service they leave behind is the same service an intruder creates — MITRE's RemoteExecutionHosts knob exists for exactly this, and until it is populated with the approved management servers the account and source host are the only things separating the two."
+  - "Software installers and update agents that register a service pointing at a wrapper script or at a stub that shells out, which is common in packaged line-of-business applications and produces a burst of hits during a deployment window."
+  - "Monitoring, backup and endpoint-security products whose service image is a PowerShell-hosted agent, matching the powershell term on every install and every version upgrade across the estate."
+  - "Services installed from a software distribution share, where the image path is genuinely a UNC path and matches the last term without anything unusual having happened."
+level: high

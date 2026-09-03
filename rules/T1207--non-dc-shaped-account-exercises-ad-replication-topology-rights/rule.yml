@@ -1,0 +1,86 @@
+title: Non-DC-shaped account exercises AD replication topology rights
+id: 59c0e624-79e6-4fab-b327-5f62de9ca43f
+status: experimental
+description: |
+  AN0770 is a four-stage chain — nTDSDSA/server object creation, DRS-SPN usage,
+  replication RPCs (DrsAddEntry, DrsReplicaAdd, GetNCChanges) from a non-DC
+  host, and Kerberos auth against those SPNs — and this rule reaches two of the
+  four stages with the three Security event IDs the brief actually supplies.
+  The first arm matches 4928 and 4929 (a replication naming-context link was
+  established or removed) on EventID alone: this corpus already has a rule for
+  T1003.006/DCSync built on 4662 with the Get-Changes/Get-Changes-All extended
+  rights, and its description explains why 4929 was left unused there — it is
+  topology administration, not a secret pull. That is exactly the signal
+  DCShadow needs instead: registering a rogue DC means creating a *new*
+  replication partner, which is what 4928/4929 record. No field beyond EventID
+  is used on this arm, because the Microsoft-documented schema for these two
+  events (Naming Context, Source DRA, Destination DRA) was not confidently
+  verifiable while authoring this rule, and AUTHORING.md is explicit that an
+  unverified field name should not be guessed into a selector — so this arm
+  cannot be narrowed to a specific naming context or partner, and fires on
+  every legitimate topology change too.
+  The second arm reuses T1003.006's 4662/AccessMask/Properties shape but with a
+  different, deliberately non-overlapping GUID pair: DS-Replication-Manage-Topology
+  (1131f6ac-9c07-11d1-f79f-00c04fc2dcd2) and DS-Replication-Synchronize
+  (1131f6ab-9c07-11d1-f79f-00c04fc2dcd2), the rights that let a principal add
+  itself as a replication partner and push a sync (DrsAddEntry/DrsReplicaAdd),
+  rather than the Get-Changes pair that only pulls (DCSync). A principal or
+  tool holding Get-Changes without Manage-Topology cannot register a rogue DC,
+  which is why this arm does not fire on the Entra Connect/DSInternals
+  false positives T1003.006 documents. This arm carries T1003.006's
+  machine-account filter too (SubjectUserName not ending in '$'): unlike
+  Get-Changes, which only Entra Connect and similar tools exercise under a
+  user account, Synchronize is the right every real DC checks on essentially
+  every routine replication pull from every partner, so leaving it
+  unfiltered would make ordinary intra-site replication traffic — not any of
+  the four false positives below — the rule's dominant, unlisted source of
+  matches, firing under every DC's own machine account on every replication
+  cycle. That filter is also the rule's blind spot, same as T1003.006's: a
+  rogue DC registered under a stolen or spoofed computer account, or
+  DCShadow launched from a machine context rather than a compromised
+  admin user, is filtered out by design and this arm goes silent for it.
+  The SuspiciousSPNs knob (the DRS SPN
+  E3514235-4B06-11D1-AB04-00C04FC2DCD2) and the object-creation and Kerberos
+  stages have no logsource in the brief that carries them — 5136/5137 (object
+  creation) and 4769 (Kerberos service ticket) are absent from AN0770's
+  logSources — and MITRE's TimeWindow (300s) correlation between object
+  creation and replication traffic is a cross-event join lib/sigma cannot
+  express, so a match here is one topology or rights event, not a confirmed
+  DCShadow chain. Prerequisite: 4928/4929 need the *Directory Service
+  Replication* audit subcategory; 4662 needs *Audit Directory Service Access*
+  for Success plus an audit ACE on the domain naming context covering the two
+  replication extended rights, matching T1003.006's prerequisite note — DS
+  Access auditing is in the domain-controller baseline, but the SACL is worth
+  confirming before trusting a quiet result.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0276 (AN0770), not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1207
+  - https://attack.mitre.org/detectionstrategies/DET0276
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1207
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_topology_change:
+    EventID:
+      - 4928
+      - 4929
+  selection_replication_management:
+    EventID: 4662
+    AccessMask: '0x100'
+    Properties|contains:
+      - '1131f6ac-9c07-11d1-f79f-00c04fc2dcd2'
+      - '1131f6ab-9c07-11d1-f79f-00c04fc2dcd2'
+  filter_machine_account:
+    SubjectUserName|endswith: '$'
+  condition: selection_topology_change or (selection_replication_management and not filter_machine_account)
+falsepositives:
+  - "Legitimate domain controller promotion or demotion (dcpromo / Install-ADDSDomainController / Uninstall-ADDSDomainController), which establishes or removes a naming-context replication link for the schema, configuration, domain and any application partitions as a normal, expected part of standing up or retiring a real DC — this is the highest-volume source for the topology-change arm and the reason it is not scored high on its own."
+  - "The Knowledge Consistency Checker (KCC) recalculating replication topology on its own schedule (roughly every 15 minutes intra-site, longer inter-site) in response to a site, subnet or bridgehead-server change, which can establish or remove naming-context links with no administrator action at all."
+  - "AD migration and forest-restructuring tooling (Quest Migration Manager, ADMT with SID-history migration, and similar products) that is temporarily granted Manage-Topology and Synchronize rights on a non-machine service account for the duration of a cutover, exercising the replication-management arm in sustained bursts and surviving the machine-account filter."
+  - "AD-aware backup and disaster-recovery agents (system-state backup/restore tooling) that request elevated directory-service rights, including replication management, under a non-machine service account to perform an authoritative or non-authoritative restore of the directory."
+level: medium

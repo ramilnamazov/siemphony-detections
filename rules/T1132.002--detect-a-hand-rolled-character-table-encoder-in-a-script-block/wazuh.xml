@@ -1,0 +1,13 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4104$</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz|abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ|ABCDEFGHIJKLMNOPQRSTUVWXYZ234567|0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ|0123456789abcdefghijklmnopqrstuvwxyz)</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(-bxor|-band|-shr|-shl|\.IndexOf\(|ToCharArray\(\))</field>
+    <description>Detect a hand-rolled character-table encoder in a script block</description>
+    <mitre>
+      <id>T1132.002</id>
+    </mitre>
+  </rule>
+</group>

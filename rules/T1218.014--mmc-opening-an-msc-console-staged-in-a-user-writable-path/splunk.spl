@@ -1,0 +1,1 @@
+index=* ((Image="*\\mmc.exe" AND CommandLine="*.msc*") AND (CommandLine="*\\Users\\*" OR CommandLine="*\\AppData\\*" OR CommandLine="*\\Downloads\\*" OR CommandLine="*\\Desktop\\*" OR CommandLine="*\\ProgramData\\*" OR CommandLine="*\\Temp\\*" OR CommandLine="*\\\\*"))

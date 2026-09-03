@@ -1,0 +1,70 @@
+title: Safe mode boot armed from a command line
+id: 8262cec8-a024-4048-9e3d-47e8d12fa29d
+status: experimental
+description: |
+  AN0323 pairs boot-configuration changes with registry edits under the SafeBoot
+  keys, and this rule matches the command-line form of both. The first arm is
+  bcdedit.exe or bootcfg.exe with `safeboot` anywhere on the line, which covers
+  `/set {default} safeboot minimal`, the `safeboot network` variant that keeps
+  networking available for a remote operator, and `/deletevalue safeboot` — the
+  removal is kept in deliberately, because an adversary reverting the change
+  after the payload has run is as much of the behaviour as arming it, and
+  excluding it would only hide the second half of the chain. The second arm keys
+  on a command line naming `CurrentControlSet\Control\SafeBoot`, which is where a
+  service or driver has to be registered for it to start in a limited boot; that
+  string matches reg.exe and the PowerShell `HKLM:\SYSTEM\...` path form in one
+  selection, since both spell the key the same way. MITRE's
+  `SafeBootRegistryPaths` and `AllowedAdminTools` knobs are what the key string
+  and the image list implement, populated here from the analytic's prose rather
+  than taken from MITRE. Its `TimeWindow` knob — correlate the registry write
+  with the boot-configuration command a few minutes either side — is a
+  cross-event join with a timeframe, and lib/sigma models neither, so the two
+  arms are ORed and either fires alone.
+  The limit that matters most here is not a field problem. This rule sees the
+  host being *armed* for safe mode; it cannot see the safe-mode session itself,
+  because that boot is exactly when Sysmon, the EDR agent and the log shipper
+  this telemetry depends on are the services that do not start. Whatever the
+  adversary does after the reboot is likely to produce no events at all, so a
+  single match here should be treated as the last thing you will see rather than
+  as one signal among many. Vocabulary and prerequisites. AN0323 gives Security
+  EventID 4688 for this leg and the brief maps it onto the Sigma
+  `process_creation` category, which is Sysmon-EventID-1-shaped; this rule is
+  written in that vocabulary (`Image`, `CommandLine`), so an estate feeding raw
+  4688 needs `NewProcessName` mapped onto `Image` first, and 4688 needs both
+  *Audit Process Creation* and the separate *Include command line in process
+  creation events* policy before `CommandLine` exists at all — neither is on in a
+  default install or in the Microsoft and CIS baselines. The analytic's other
+  three log sources (Sysmon EventID 12, 13 and 14 on `registry_add`,
+  `registry_set` and `registry_rename`) are separate logsources and are not
+  authored here; the consequence is that a SafeBoot value written through
+  RegSetValueEx by an implant, imported with `regedit /s safeboot.reg` where the
+  key sits inside the file, or set by msconfig — whose Safe boot checkbox edits
+  the BCD store through the API and spawns no bcdedit — produces no match at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0116, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1688
+  - https://attack.mitre.org/detectionstrategies/DET0116
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1688
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_boot_config_tool:
+    Image|endswith:
+      - '\bcdedit.exe'
+      - '\bootcfg.exe'
+    CommandLine|contains: 'safeboot'
+  selection_safeboot_key:
+    CommandLine|contains: 'CurrentControlSet\\Control\\SafeBoot'
+  condition: 1 of selection*
+falsepositives:
+  - "Endpoint security and cleanup tooling that forces a limited boot on purpose. Anti-malware removal utilities, rootkit cleaners and vendor uninstall tools shell out to bcdedit /set {default} safeboot minimal to strip a stubborn infection and then bcdedit /deletevalue safeboot to put the host back, which is the same pair of commands this rule selects and is its loudest benign source."
+  - "Vendor support scripts making a service usable in safe mode by hand. The documented remediation for installing or repairing a product from a limited boot is reg add HKLM\\SYSTEM\\CurrentControlSet\\Control\\SafeBoot\\Minimal\\MSIServer /ve /t REG_SZ /d Service /f, and backup, encryption and antivirus vendors publish the same reg add for their own service, so a technician following the KB or running the batch file it ships in produces a match."
+  - "Inventory, audit and support diagnostics reading the key rather than writing it. Compliance scripts and vendor support bundles run reg query HKLM\\SYSTEM\\CurrentControlSet\\Control\\SafeBoot or the Get-ItemProperty equivalent to record which services are safe-mode capable, and the selection matches the key name wherever it appears on a command line, so a read is indistinguishable from a write."
+  - "Desktop support recovering a machine. Booting to safe mode to back out a bad driver or roll back an update is standard practice, and both halves of it — bcdedit /set {default} safeboot minimal and the bcdedit /deletevalue safeboot that follows the fix — match this rule identically to the adversary's use."
+  - "Build, imaging and driver-qualification automation. OS deployment task sequences, driver-signing and hardware-validation labs and automated test rigs script bcdedit safeboot changes as part of a reboot cycle, producing bursts of matches from a service account with nobody at the keyboard."
+level: medium

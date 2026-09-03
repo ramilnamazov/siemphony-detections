@@ -1,0 +1,1 @@
+index=* ((Provider_Name="Service Control Manager" AND EventID="7045") AND (ImagePath="*tscon*" OR ImagePath="*rdp-tcp#*"))

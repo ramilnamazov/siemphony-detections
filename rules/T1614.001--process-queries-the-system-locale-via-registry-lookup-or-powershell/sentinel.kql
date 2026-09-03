@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\reg.exe" and ProcessCommandLine contains "Nls\\Language") or ((FolderPath endswith "\\powershell.exe" or FolderPath endswith "\\pwsh.exe") and (ProcessCommandLine contains "Get-WinSystemLocale" or ProcessCommandLine contains "Get-UICulture" or ProcessCommandLine contains "Get-Culture" or ProcessCommandLine contains "Get-WinUserLanguageList")))

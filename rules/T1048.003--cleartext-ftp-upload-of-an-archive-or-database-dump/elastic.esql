@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(command) == "stor" OR TO_LOWER(command) == "stou" OR TO_LOWER(command) == "appe") AND (TO_LOWER(arg) LIKE "*.zip" OR TO_LOWER(arg) LIKE "*.rar" OR TO_LOWER(arg) LIKE "*.7z" OR TO_LOWER(arg) LIKE "*.tar" OR TO_LOWER(arg) LIKE "*.gz" OR TO_LOWER(arg) LIKE "*.tgz" OR TO_LOWER(arg) LIKE "*.cab" OR TO_LOWER(arg) LIKE "*.bak" OR TO_LOWER(arg) LIKE "*.sql" OR TO_LOWER(arg) LIKE "*.dmp" OR TO_LOWER(arg) LIKE "*.pst" OR TO_LOWER(arg) LIKE "*.csv"))

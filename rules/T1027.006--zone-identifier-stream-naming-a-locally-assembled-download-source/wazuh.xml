@@ -1,0 +1,12 @@
+<group name="sigma,windows,create_stream_hash,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetFilename" type="pcre2">(?i)(\.exe:Zone\.Identifier$|\.dll:Zone\.Identifier$|\.msi:Zone\.Identifier$|\.scr:Zone\.Identifier$|\.pif:Zone\.Identifier$|\.hta:Zone\.Identifier$|\.js:Zone\.Identifier$|\.jse:Zone\.Identifier$|\.vbs:Zone\.Identifier$|\.vbe:Zone\.Identifier$|\.wsf:Zone\.Identifier$|\.ps1:Zone\.Identifier$|\.bat:Zone\.Identifier$|\.cmd:Zone\.Identifier$|\.lnk:Zone\.Identifier$|\.iso:Zone\.Identifier$|\.img:Zone\.Identifier$|\.vhd:Zone\.Identifier$|\.vhdx:Zone\.Identifier$|\.zip:Zone\.Identifier$|\.rar:Zone\.Identifier$|\.7z:Zone\.Identifier$)</field>
+    <field name="Contents" type="pcre2">(?i)(HostUrl=about:internet|HostUrl=about:blank|HostUrl=blob:|HostUrl=data:|ReferrerUrl=blob:|ReferrerUrl=data:)</field>
+    <description>Zone identifier stream naming a locally assembled download source</description>
+    <mitre>
+      <id>T1027.006</id>
+    </mitre>
+  </rule>
+</group>

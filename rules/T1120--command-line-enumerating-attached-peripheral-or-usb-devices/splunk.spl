@@ -1,0 +1,1 @@
+index=* (CommandLine="*Get-PnpDevice*" OR CommandLine="*Win32_USBController*" OR CommandLine="*Win32_PnPEntity*")

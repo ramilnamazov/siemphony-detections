@@ -1,0 +1,83 @@
+title: mount executed with a bind flag targeting a /proc path
+id: 681175ca-7c26-4d7f-8606-bb352266fee7
+status: experimental
+description: |
+  Matches step (1) of AN1196's three-part behaviour chain -- "execution of
+  mount with -o bind or -B flags" -- on an auditd EXECVE record, tightened
+  with the technique's own specific target: MITRE's worked example is
+  `mount -o bind /proc/benign-process /proc/malicious-process`, where both
+  the source and the destination of the bind are themselves /proc paths, so
+  this rule requires the executed command to carry both a bind flag and a
+  /proc/ path among its arguments, on the same EXECVE record as the mount
+  invocation itself. This mirrors the EXECVE argv-position pattern already
+  published for T1564.005 (losetup/mount for loop-device hiding): mount's
+  binary name is not fixed to one path (`mount`, `/bin/mount`,
+  `/usr/bin/mount` are all matched as `a0`), and because `-o bind`,
+  `--bind`, `-B` and the source/target paths can each land in a different
+  argv slot depending on what else is on the command line, both the bind
+  flag and the /proc/ path are matched anywhere across a1-a6 rather than
+  pinned to one position. Steps (2) and (3) of AN1196 -- a /proc entry whose
+  contents no longer match its own process's actual lineage, and subsequent
+  anomalous activity from the masked process -- are not attempted: both are
+  comparisons against a process's own prior or expected state, which is an
+  aggregation/correlation this corpus's Sigma models has no operator for,
+  and no single auditd record carries "what /proc/<pid> used to show" for a
+  later event to compare against.
+  This selection also has a real gap in the other direction: a bind mount
+  performed by calling mount(2) directly from a statically linked or
+  interpreted program, without ever exec'ing the `mount` binary, produces no
+  EXECVE record at all and is invisible here -- the same class of miss noted
+  against T1611's namespace-entry rule for setns()/unshare() called
+  in-process. The brief's second auditd source, a PATH record for "mount
+  target path within /proc/*", was considered and set aside: on its own it
+  cannot distinguish a bind mount's target from the enormous ordinary
+  traffic of processes simply opening files under /proc (ps, top, every
+  /proc/self/ read), and auditd's PATH record for a mount syscall does not
+  carry the syscall's flags, so it cannot narrow to "bind" without the
+  EXECVE leg already used here. The third source, linux:osquery process-vs-
+  /proc metadata mismatch, has no established Sigma field vocabulary
+  anywhere in this corpus, the same blocker recorded against linux/osquery
+  in the T1036.004 decline.
+  Prerequisite: raw auditd does not record execve by default, so this
+  returns zero rows until a rule such as
+  `-a always,exit -F arch=b64 -S execve -k exec` is loaded, and zero rows
+  reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0428, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/013
+  - https://attack.mitre.org/detectionstrategies/DET0428
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1564.013
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_mount_exec:
+    type: 'EXECVE'
+    a0:
+      - 'mount'
+      - '/bin/mount'
+      - '/usr/bin/mount'
+  selection_bind_flag:
+    - a1|contains: ['bind', '-B']
+    - a2|contains: ['bind', '-B']
+    - a3|contains: ['bind', '-B']
+    - a4|contains: ['bind', '-B']
+    - a5|contains: ['bind', '-B']
+    - a6|contains: ['bind', '-B']
+  selection_proc_target:
+    - a1|contains: '/proc/'
+    - a2|contains: '/proc/'
+    - a3|contains: '/proc/'
+    - a4|contains: '/proc/'
+    - a5|contains: '/proc/'
+    - a6|contains: '/proc/'
+  condition: selection_mount_exec and selection_bind_flag and selection_proc_target
+falsepositives:
+  - "Container runtimes and orchestration tooling (runc, containerd, Kubernetes kubelet, LXC) that bind-mount host /proc entries or a masked /proc/<pid> into a container's mount namespace as a routine part of container start-up and cgroup/PID isolation -- on a busy container host this is the loudest and most frequent source of matches."
+  - "chroot and jail-style service sandboxing (BIND9, vsftpd and similar daemons run in a chroot, or manually built jails) that bind-mounts /proc into the jail root with `mount --bind /proc <jail>/proc` so jailed tools like `ps` continue to function -- a documented, legitimate systems-administration pattern rather than an evasion attempt."
+  - "Diagnostic and forensic tooling (process-namespace inspectors, `nsenter`-adjacent debugging scripts, some APM/observability agents) that bind-mounts a specific process's /proc/<pid> directory elsewhere to inspect it out-of-band without disturbing the running process."
+level: low

@@ -1,0 +1,12 @@
+<group name="sigma,linux,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^SYSCALL$</field>
+    <field name="syscall" type="pcre2">(?i)(^chmod$|^fchmod$|^fchmodat$|^chown$|^fchown$|^fchownat$|^lchown$|^setxattr$|^lsetxattr$|^fsetxattr$|^removexattr$|^lremovexattr$|^fremovexattr$)</field>
+    <description>Linux syscall changes a file's permissions, owner, or xattrs</description>
+    <mitre>
+      <id>T1222.002</id>
+    </mitre>
+  </rule>
+</group>

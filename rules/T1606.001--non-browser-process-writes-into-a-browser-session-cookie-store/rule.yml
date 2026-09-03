@@ -1,0 +1,63 @@
+title: Non-browser process writes into a browser session cookie store
+id: 6429330a-0692-4d34-a7e5-66126802ffcc
+status: experimental
+description: |
+  Matches AN0484's observable: a process outside the browser itself creating a
+  file inside a browser's session-cookie store. That is the forge-and-present
+  half of this technique — a cookie value the adversary generated is injected
+  into the store so the browser presents it as a live session — and it is
+  deliberately a different observable from T1539's rule already in this corpus,
+  which matches a process naming a cookie database on its command line and is
+  the read-and-steal half. MITRE's BrowserCookiePaths knob names the paths to
+  watch; the three fragments matched here are authored from the Chromium layout
+  where the store sits under a per-profile Network directory, the older
+  User Data\Default location, and Firefox's cookies.sqlite. The ProcessWhitelist
+  knob maps onto the browser filter, which is where an approved profile-migration
+  or backup agent belongs. Two limits are structural rather than tunable. Sysmon
+  EventID 11 is file *creation*, so an in-place SQLite update of an existing
+  Cookies file raises nothing by itself; what makes the write visible is the
+  journal and WAL sidecars the engine creates alongside it, which is why the
+  fragments are substrings rather than exact paths. And the store's own filename
+  has no extension, so the FileCreate section of most shipped Sysmon
+  configurations — which include by extension — will not record it unless a path
+  rule for these directories is added first; without that this rule returns zero
+  rows while looking healthy. This rule is written in the Sysmon-shaped
+  file_event vocabulary (TargetFilename, Image). AN0485's Linux leg was not used:
+  its only Linux log source is raw auditd, where the accessed path arrives on a
+  PATH record and the accessing binary on the paired SYSCALL record, so "a
+  process outside the browser" cannot be expressed within one record and the rule
+  would fire on the browser itself on every launch.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0171, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1606/001
+  - https://attack.mitre.org/detectionstrategies/DET0171
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1606.001
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_cookie_store:
+    TargetFilename|contains:
+      - '\Network\Cookies'
+      - '\User Data\Default\Cookies'
+      - 'cookies.sqlite'
+  filter_browser:
+    Image|endswith:
+      - '\chrome.exe'
+      - '\msedge.exe'
+      - '\firefox.exe'
+      - '\brave.exe'
+      - '\opera.exe'
+      - '\vivaldi.exe'
+      - '\chromium.exe'
+  condition: selection_cookie_store and not filter_browser
+falsepositives:
+  - "Profile-roaming and folder-redirection agents that write a user profile back onto disk at logon — FSLogix, OneDrive known-folder move, VDI profile containers and roaming-profile services all recreate the cookie store and its journal under their own service binary, and on a managed fleet this is the largest source of hits by a wide margin."
+  - "Backup, restore and endpoint-DLP agents that walk the user profile by absolute path, plus antivirus quarantine-restore, all of which create the same files under a vendor binary rather than under the browser."
+  - "Browser automation and test harnesses that seed a profile directory before a run — the store is written by chromedriver.exe, node.exe or the test runner, never by the browser image the filter excludes, so an ordinary CI build matches."
+  - "Enterprise browser deployment and migration tooling that imports an existing profile when a user is moved between browsers or between machines, which is exactly a non-browser process populating a cookie store."
+level: low

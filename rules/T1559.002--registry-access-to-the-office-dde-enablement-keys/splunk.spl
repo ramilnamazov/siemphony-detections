@@ -1,0 +1,1 @@
+index=* (((((EventID="4656" OR EventID="4670") AND ObjectType="Key") AND ObjectName="*\\Microsoft\\Office\\*") AND (ObjectName="*\\Word\\Security*" OR ObjectName="*\\Excel\\Security*")) AND NOT (ObjectName="*\\Policies\\Microsoft\\Office*"))

@@ -1,0 +1,2 @@
+Event
+| where ((EventID == 4104 and (ScriptBlockText contains "Add-MpPreference" or ScriptBlockText contains "Set-MpPreference")) and (ScriptBlockText contains "-ExclusionPath" or ScriptBlockText contains "-ExclusionExtension" or ScriptBlockText contains "-ExclusionProcess" or ScriptBlockText contains "-ExclusionIpAddress"))

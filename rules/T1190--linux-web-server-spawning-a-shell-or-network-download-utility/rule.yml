@@ -1,0 +1,70 @@
+title: Linux web server spawning a shell or network download utility
+id: d9fb5e8f-d07d-4fbe-823d-e50942988825
+status: experimental
+description: |
+  Detects the post-exploitation step of AN0220 on Linux: a web server or an
+  application server that answers requests from the Internet executing a shell,
+  a download utility or a scripting interpreter. A daemon that serves HTTP has
+  no ordinary reason to launch `sh` or `curl`, so this is the strongest single
+  event in MITRE's chain; the request pattern, the 5xx or WAF burst and the
+  outbound callback that bracket it are rate and correlation conditions Sigma
+  cannot state, and no web access log is offered under this analytic in any
+  case, so what is authored here is one link and not the chain. Two shaping
+  notes. The parent match is split because php-fpm installs its binary with the
+  version appended — `/usr/sbin/php-fpm8.2` — so an `endswith` term for it would
+  never fire; that arm uses `contains` instead. And gunicorn and comparable
+  Python-hosted servers are deliberately absent from MITRE's WebProcList as
+  populated here: on an execve record the executable is the interpreter, so such
+  a parent is reported as `/usr/bin/python3` and a name-based term for it is a
+  selector that can never match. The same feed limits the rule elsewhere — the
+  brief's source is auditd SYSCALL execve, which carries the parent as a pid
+  only, so this rule needs a pipeline that resolves the parent's path into
+  ParentImage before it can return anything at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0080, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1190
+  - https://attack.mitre.org/detectionstrategies/DET0080
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.t1190
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_web_parent:
+    ParentImage|endswith:
+      - '/apache2'
+      - '/httpd'
+      - '/nginx'
+      - '/lighttpd'
+      - '/caddy'
+      - '/node'
+      - '/uwsgi'
+  selection_phpfpm_parent:
+    ParentImage|contains: '/php-fpm'
+  selection_post_exploit_child:
+    Image|endswith:
+      - '/sh'
+      - '/bash'
+      - '/dash'
+      - '/zsh'
+      - '/ksh'
+      - '/curl'
+      - '/wget'
+      - '/nc'
+      - '/ncat'
+      - '/netcat'
+      - '/socat'
+      - '/perl'
+      - '/ruby'
+      - '/python'
+      - '/python3'
+  condition: (selection_web_parent or selection_phpfpm_parent) and selection_post_exploit_child
+falsepositives:
+  - "PHP applications that shell out by design — `shell_exec` and `proc_open` calls into ImageMagick, ffmpeg, sendmail, git or a queue worker — which appear as php-fpm launching /bin/sh and are by a wide margin this rule's dominant volume. The exclusion has to be made per application rather than by dropping php-fpm from the parent list, because php-fpm is also where a PHP webshell runs."
+  - "Node applications using `child_process` for the same purposes, plus build and asset pipelines that a long-running node server invokes on demand."
+  - "Web server lifecycle scripting: CGI endpoints, `mod_cgi` and Server Side Includes, log rotation and health-check hooks run as a child of the server process, and certificate renewal jobs that invoke curl or a shell wrapper on a schedule. MITRE names an AllowedChildList knob for these; the entries in it are the estate's own, since which hooks exist is a per-deployment fact."
+  - "Container images where the web server is PID 1 and also supervises the workload, so every helper process in the container is a child of it and matches on the parent term alone."
+level: medium

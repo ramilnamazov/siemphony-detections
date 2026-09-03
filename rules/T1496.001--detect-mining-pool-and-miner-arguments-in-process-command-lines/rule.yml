@@ -1,0 +1,46 @@
+title: Detect mining pool and miner arguments in process command lines
+id: d61c99a5-3dd7-40da-abb6-f73c320da66b
+status: experimental
+description: |
+  Matches process creation whose command line carries a cryptocurrency mining
+  configuration: a `stratum://` pool URL, the donation, rig-identity and NiceHash
+  switches that miner families expose, or a RandomX/Monero algorithm selection.
+  MITRE names `Image` as a mutable element for this analytic — campaigns rename and
+  masquerade the binary — so the logic sits entirely on `CommandLine`, which the
+  pool configuration cannot be stripped from and still mine. Sustained CPU
+  consumption and the persistent pool connection are the analytic's real
+  discriminators; neither a resource threshold nor a duration is expressible in
+  Sigma, so this catches the launch rather than the sustained load.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0540, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1496/001
+  - https://attack.mitre.org/detectionstrategies/DET0540
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1496.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'stratum+tcp://'
+      - 'stratum+ssl://'
+      - 'stratum1+tcp://'
+      - 'stratum2+tcp://'
+      - '--donate-level'
+      - '--nicehash'
+      - '--rig-id'
+      - '--algo=rx/0'
+      - '--algo=randomx'
+      - '--coin=monero'
+      - 'xmrig'
+      - 'minerd'
+  condition: selection
+falsepositives:
+  - "Hosts where mining is intentional — a research, blockchain-development or benchmarking machine, or a workstation whose owner mines out of hours. The command line is identical to the malicious case; only the asset's purpose separates them, so scope this rule by host group rather than by term."
+  - "Security tooling handling the sample rather than running it. Detonation sandboxes, EDR scanners and an analyst pasting a miner config into a console all put these strings on a legitimate parent's command line. MITRE lists `ParentProcessName` as the mutable element for exactly this — filter on the known-good launcher."
+  - "Wrapper and orchestration scripts that pass a miner configuration through without being the miner, such as a container entrypoint or a scheduled task whose argument string is logged verbatim. The same launch then re-alerts on every scheduled run."
+level: high

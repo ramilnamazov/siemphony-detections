@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)\\explorer\.exe$</field>
+    <field name="Image" type="pcre2">(?i)(^D:\\|^E:\\|^F:\\|^G:\\|^H:\\)</field>
+    <description>Explorer launches a process from a non-system drive letter</description>
+    <mitre>
+      <id>T1091</id>
+    </mitre>
+  </rule>
+</group>

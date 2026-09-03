@@ -1,0 +1,2 @@
+SecurityEvent
+| where (EventID == 4720 and (TargetUserName contains "admin" or TargetUserName contains "help" or TargetUserName contains "root" or TargetUserName contains "backup" or TargetUserName contains "service" or TargetUserName contains "adm1n" or TargetUserName contains "backup_help"))

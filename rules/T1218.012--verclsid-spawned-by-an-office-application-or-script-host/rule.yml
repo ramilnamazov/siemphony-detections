@@ -1,0 +1,56 @@
+title: Verclsid spawned by an Office application or script host
+id: d297a8fe-2912-4ec8-b9aa-d3bd1b9a8824
+status: experimental
+description: |
+  Matches verclsid.exe created by a parent that has no reason to be verifying a
+  shell extension — an Office application, a script host, or an interactive
+  shell — which is MITRE's ParentProcessFilter knob applied as the whole of the
+  logic, with winword.exe and excel.exe from MITRE's own text and the rest of
+  the parent list authored here. The documented /S /C {CLSID} switches are
+  deliberately not used as a gate, because Explorer passes the same switches
+  during ordinary shell-extension verification and they therefore separate
+  nothing; the parent does. Verclsid started through COM activation is
+  attributed to svchost.exe under DcomLaunch and will not match, and the
+  analytic's module-load and outbound-connection elements are separate events
+  that a single process-creation record cannot carry. The rule is written in the
+  Sysmon EventID 1 vocabulary the analytic supplies for this category, meaning
+  Image and ParentImage; a Security 4688 feed holds the same facts under
+  NewProcessName and ParentProcessName and needs that field mapping, plus Audit
+  Process Creation enabled, before it can match at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0042, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/012
+  - https://attack.mitre.org/detectionstrategies/DET0042
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.012
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+    Image|endswith: '\verclsid.exe'
+  selection_parent:
+    ParentImage|endswith:
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\powerpnt.exe'
+      - '\outlook.exe'
+      - '\msaccess.exe'
+      - '\visio.exe'
+      - '\onenote.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wmiprvse.exe'
+  condition: selection_image and selection_parent
+falsepositives:
+  - "Software deployment that registers a shell extension and then validates it. Installer and packaging scripts driven from cmd.exe or powershell.exe can call verclsid.exe against the CLSID they have just written, and the shell parents are the widest arm of this rule."
+  - "Adversary-simulation and control-validation tooling. Atomic Red Team's test for this technique, and equivalent purple-team scripts, launch verclsid.exe from a shell with exactly the documented switches, so anywhere those tests are scheduled they are a recurring benign match."
+  - "An administrator running verclsid.exe by hand from a command prompt while debugging a broken context-menu or preview handler, which is the supported way to reproduce a shell-extension verification failure."
+level: high

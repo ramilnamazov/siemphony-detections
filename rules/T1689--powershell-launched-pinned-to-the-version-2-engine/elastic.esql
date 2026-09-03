@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\powershell.exe" OR TO_LOWER(process.executable) LIKE "*\\\\powershell_ise.exe") AND (TO_LOWER(process.command_line) LIKE "*-version 2*" OR TO_LOWER(process.command_line) LIKE "*-versio 2*" OR TO_LOWER(process.command_line) LIKE "*-versi 2*" OR TO_LOWER(process.command_line) LIKE "*-vers 2*" OR TO_LOWER(process.command_line) LIKE "*-ver 2*" OR TO_LOWER(process.command_line) LIKE "*-ve 2*"))

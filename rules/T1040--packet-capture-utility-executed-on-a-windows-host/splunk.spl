@@ -1,0 +1,1 @@
+index=* ((Image="*\\dumpcap.exe" OR Image="*\\tshark.exe" OR Image="*\\rawshark.exe" OR Image="*\\windump.exe" OR Image="*\\tcpdump.exe" OR Image="*\\rawcap.exe" OR Image="*\\netcap.exe" OR Image="*\\nmcap.exe" OR Image="*\\smsniff.exe" OR Image="*\\pktmon.exe") OR (Image="*\\netsh.exe" AND (CommandLine="*trace start*" AND CommandLine="*capture=yes*")))

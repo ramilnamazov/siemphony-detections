@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "/bash" or FolderPath endswith "/sh" or FolderPath endswith "/dash") and (ProcessCommandLine contains "base64" or ProcessCommandLine contains "gzip" or ProcessCommandLine contains "xxd" or ProcessCommandLine contains "uuencode" or ProcessCommandLine contains "b64encode")) and (ProcessCommandLine contains "curl" or ProcessCommandLine contains "wget" or ProcessCommandLine contains "netcat" or ProcessCommandLine contains " nc "))

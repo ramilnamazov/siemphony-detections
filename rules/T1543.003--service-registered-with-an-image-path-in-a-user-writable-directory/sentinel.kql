@@ -1,0 +1,2 @@
+SecurityEvent
+| where (EventID == 4697 and (ServiceFileName contains "\\Users\\" or ServiceFileName contains "\\Temp\\" or ServiceFileName contains "\\ProgramData\\" or ServiceFileName contains "\\$Recycle.Bin\\"))

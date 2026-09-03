@@ -1,0 +1,1 @@
+index=* ((IntegrityLevel="High" OR IntegrityLevel="System") AND (Image="*\\AppData\\Local\\Temp\\*" OR Image="*:\\Windows\\Temp\\*"))

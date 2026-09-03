@@ -1,0 +1,69 @@
+title: Account created with a name mimicking a trusted or default account
+id: 6e8509b2-8e45-4fb5-a4fc-e78834dcf685
+status: experimental
+description: |
+  AN1077's real ask is a Levenshtein or visual-distance comparison against
+  MonitoredAccountList — lib/sigma has no string-distance function and no
+  lookup-table construct, so neither knob can be computed here. What survives
+  is literal-string matching against the example names MITRE itself supplies
+  in two places: the technique's own prose, which names "admin", "help" and
+  "root" as the generic, trustworthy names adversaries reach for, and the
+  analytic's own description, which names three concrete near-miss patterns
+  verbatim — "admin1", "adm1n" and "backup_help". "backup" and "service" are
+  added to the same contains list because the technique text separately calls
+  out masquerading as accounts "associated with legitimate software, data
+  backups, or container cluster management" — still MITRE's framing, not this
+  pipeline's invention, just generalised from prose to a substring. This is a
+  precision trade the rule accepts on purpose: `TargetUserName|contains:
+  'admin'` also matches any ordinary account whose name happens to contain
+  that substring, and MITRE's own MonitoredAccountList knob is the intended
+  fix — a real deployment must supply the set of legitimate accounts this
+  pipeline has no way to know, so the false-positive list below is long and
+  the level is set accordingly. TimeWindow, which would raise severity only
+  when creation follows a discovery or deletion event, needs a cross-event
+  join this corpus cannot express, so every match here carries the same
+  weight regardless of what preceded it.
+  The Linux leg, AN1078, is not attempted in this file: lib/sigma renders one
+  logsource per rule, and 4720 is the cleaner single-event signal of the two.
+  For the record, its two auditd legs are real but weaker — the account name
+  lands in EXECVE's `a1` (or later, depending on options placed before it)
+  rather than at a fixed position, the same positional uncertainty already
+  accepted for systemctl and hping in this corpus's T1569.003 and T1499.001
+  rules — and its third leg, {product: linux, service: osquery} listing
+  /etc/passwd, has no standardised Sigma field vocabulary anywhere in this
+  corpus.
+  Prerequisite: 4720 is written by the Audit User Account Management
+  subcategory (Success), on by default and in both the Microsoft and CIS
+  baselines, but a host whose audit policy was rewritten can still be blind —
+  confirm with auditpol rather than assuming.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0383, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1036/010
+  - https://attack.mitre.org/detectionstrategies/DET0383
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1036.010
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_account_created:
+    EventID: 4720
+  selection_trusted_name_pattern:
+    TargetUserName|contains:
+      - 'admin'
+      - 'help'
+      - 'root'
+      - 'backup'
+      - 'service'
+      - 'adm1n'
+      - 'backup_help'
+  condition: selection_account_created and selection_trusted_name_pattern
+falsepositives:
+  - "Routine IT and helpdesk account provisioning using role-based naming that happens to contain one of these substrings — accounts such as helpdesk_l2, it_admin_jdoe, svc_backup or backup_svc_sql created by ordinary onboarding, not by an adversary. On an estate with such a naming convention this is the loudest source by a wide margin and is why the level here is low rather than high."
+  - "Software and appliance installers creating a dedicated local service account as part of setup — backup agents, monitoring agents, and database engines routinely name their own service account with 'service', 'admin' or 'backup' in it, on every host the package is deployed to."
+  - "Documented break-glass or emergency-access accounts deliberately named to resemble a built-in, such as admin_breakglass or local_admin_dr, created once and then left dormant until an actual outage."
+  - "Training, lab and onboarding environments where a demo or coursework account named admin, helpdesk or similar is created intentionally and repeatedly as part of the exercise."
+level: low

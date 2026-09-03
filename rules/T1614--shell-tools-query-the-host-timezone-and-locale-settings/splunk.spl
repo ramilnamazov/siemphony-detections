@@ -1,0 +1,1 @@
+index=* ((Image="*/timedatectl" OR Image="*/localectl" OR Image="*/locale") OR (CommandLine="*/etc/timezone*" OR CommandLine="*/etc/localtime*" OR CommandLine="*/usr/share/zoneinfo*"))

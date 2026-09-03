@@ -1,0 +1,11 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)(\\Environment\\COR_ENABLE_PROFILING$|\\Environment\\COR_PROFILER$|\\Environment\\COR_PROFILER_PATH$|\\Environment\\COR_PROFILER_PATH_32$|\\Environment\\COR_PROFILER_PATH_64$|\\Environment\\CORECLR_ENABLE_PROFILING$|\\Environment\\CORECLR_PROFILER$|\\Environment\\CORECLR_PROFILER_PATH$|\\Environment\\CORECLR_PROFILER_PATH_32$|\\Environment\\CORECLR_PROFILER_PATH_64$)</field>
+    <description>CLR profiler environment variable set in the registry</description>
+    <mitre>
+      <id>T1574.012</id>
+    </mitre>
+  </rule>
+</group>

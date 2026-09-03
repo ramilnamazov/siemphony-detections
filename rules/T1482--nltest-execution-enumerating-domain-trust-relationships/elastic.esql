@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) LIKE "*\\\\nltest.exe" AND (TO_LOWER(process.command_line) LIKE "*/domain_trusts*" OR TO_LOWER(process.command_line) LIKE "*/trusted_domains*" OR TO_LOWER(process.command_line) LIKE "*/all_trusts*"))

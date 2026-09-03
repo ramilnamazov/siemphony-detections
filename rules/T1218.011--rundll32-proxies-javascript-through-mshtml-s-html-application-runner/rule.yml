@@ -1,0 +1,37 @@
+title: Rundll32 proxies JavaScript through mshtml's HTML application runner
+id: e25f958c-4fb5-434f-9302-b01f0a9f89fa
+status: experimental
+description: |
+  AN1308 lists rundll32.exe invoked with a javascript: argument and
+  RunHTMLApplication among its suspicious-invocation indicators. The rule
+  requires both terms together, matching the published LOLBAS chain
+  rundll32.exe javascript:"\..\mshtml,RunHTMLApplication ";... — a syntax with
+  no ordinary Windows or application workflow behind it, unlike a bare
+  rundll32.exe DLL,Function invocation which is far too common to use alone.
+  This is one analytic among a family of rundll32 subtechniques already in
+  this corpus (Regsvcs/Regasm, Verclsid, Mavinject, MMC, Electron, Compiled
+  HTML); none of them share this mshtml script-proxy mechanism.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0475, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/011
+  - https://attack.mitre.org/detectionstrategies/DET0475
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.011
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_img:
+    Image|endswith: '\rundll32.exe'
+  selection_js:
+    CommandLine|contains: 'javascript:'
+  selection_html:
+    CommandLine|contains: 'RunHTMLApplication'
+  condition: selection_img and selection_js and selection_html
+falsepositives:
+  - "Atomic Red Team, Caldera or similar purple-team frameworks replaying the published T1218.011 test case verbatim, which uses this exact command line."
+  - "Security-awareness or detection-engineering training labs that reproduce the public LOLBAS proof-of-concept command as a teaching example."
+level: high

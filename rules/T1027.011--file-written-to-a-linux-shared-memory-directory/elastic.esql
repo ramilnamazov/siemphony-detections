@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*/dev/shm/*" OR TO_LOWER(name) LIKE "*/run/shm/*")) OR TO_LOWER(key) == "shm_write")

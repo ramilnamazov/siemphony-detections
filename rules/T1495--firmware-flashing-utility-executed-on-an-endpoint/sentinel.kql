@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\flashrom.exe" or FolderPath endswith "\\afuwin.exe" or FolderPath endswith "\\afuwinx64.exe" or FolderPath endswith "\\afuwingui.exe" or FolderPath endswith "\\fpt.exe" or FolderPath endswith "\\fptw.exe" or FolderPath endswith "\\fptw64.exe" or FolderPath endswith "\\flash64w.exe" or FolderPath endswith "\\winflash.exe" or FolderPath endswith "\\winflash64.exe" or FolderPath endswith "\\nvflash.exe" or FolderPath endswith "\\nvflash64.exe" or FolderPath endswith "\\amdvbflash.exe" or FolderPath endswith "\\atiflash.exe")

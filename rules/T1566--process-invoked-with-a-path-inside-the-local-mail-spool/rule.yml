@@ -1,0 +1,55 @@
+title: Process invoked with a path inside the local mail spool
+id: 5dd9f853-d6cd-4b1d-9a4d-fd9503f4331e
+status: experimental
+description: |
+  Takes the Linux leg of AN0189 (DET0070) rather than the Windows or Office-app
+  legs, because those two are already the mechanism of a published sibling:
+  T1566.001 keys on the Outlook secure-temp cache path and T1566.003 keys on a
+  messaging-client Image list, and both are Windows-only artefacts that a Linux
+  host never produces; AN0191's Office-spawns-a-script-host pattern is also out
+  of scope here, since the T1566.001 rule in this corpus already notes that
+  pattern belongs to T1203/T1204. What is left, and what no sibling covers, is
+  a process launched with a path under the local mail spool or a user's Maildir
+  on its command line — evidence that something was run straight out of a
+  delivered message rather than through a mail client's own attachment handler.
+  `/var/spool/mail/` is added here alongside MITRE's `/var/mail` and `~/Maildir`
+  examples because it is the RHEL-family spool location and MITRE names only the
+  Debian-family one; that value is authored, not sourced. Mail delivery agents
+  write to this same path on every message received, which would otherwise
+  dominate the result set, so `filter_mda` excludes procmail, dovecot, sendmail
+  and postfix by Image name — MITRE's `MonitoredMailPaths` knob is populated
+  with the two directories, `AttachmentHashBaseline` has no equivalent Sigma
+  construct and is not attempted. auditd does not record execve out of the box;
+  without an explicit `-a always,exit -F arch=b64 -S execve` rule this rule is
+  blind, not quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0070, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1566
+  - https://attack.mitre.org/detectionstrategies/DET0070
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.t1566
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection:
+    CommandLine|contains:
+      - '/var/mail/'
+      - '/var/spool/mail/'
+      - '/Maildir/'
+  filter_mda:
+    Image|endswith:
+      - '/procmail'
+      - '/dovecot'
+      - '/sendmail'
+      - '/postfix'
+  condition: selection and not filter_mda
+falsepositives:
+  - "IMAP or POP retrieval tools such as fetchmail or getmail, which run as ordinary processes and reference the local spool or Maildir path on their command line on every scheduled sync, and are not covered by the MDA filter because their binary names differ from it."
+  - "Mail scanning and antivirus integrations such as amavisd or ClamAV milters that open and inspect messages in place inside the spool directory as part of normal delivery-time filtering, producing a hit for every message that passes through the host."
+  - "Backup, archival and mailbox-migration jobs that tar, rsync or copy a user's Maildir on a schedule, matching the path on every run without anything having been executed from it."
+  - "System administration and troubleshooting, where an operator runs ls, find or grep against a spool directory to diagnose a delivery problem and the path lands on the command line without any attachment being run."
+level: medium

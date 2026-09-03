@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (event.code == 6416 AND (TO_LOWER(ClassName) == "hidclass" OR TO_LOWER(ClassName) == "net" OR TO_LOWER(ClassName) == "diskdrive" OR TO_LOWER(ClassName) == "scsiadapter"))

@@ -1,0 +1,51 @@
+title: User account created from a SYSTEM or machine account context
+id: 089a3b9b-3dc5-430c-aea4-7ea97e0f2550
+status: experimental
+description: |
+  AN1604 asks for Security EventID 4720 paired with process lineage and user
+  context. The lineage half needs a join this corpus cannot express, so this rule
+  keeps the account-creation event and applies the analytic's UserContext knob
+  instead, populated here with the one context that is almost never a person:
+  a Subject account name ending in a dollar sign, which is how a computer account
+  and the LOCAL SYSTEM token are rendered in the Subject fields of a 4720. An
+  operator creating an account from a management console appears as a named user;
+  malware, a service, or a scheduled task running as SYSTEM appears as HOST$.
+  This deliberately sits at the parent technique rather than under a child,
+  because 4720 is emitted for a local SAM account on a member host and for a
+  domain account on a domain controller with the same event ID and the same
+  fields — the record itself does not say which, so it cannot be attributed to
+  T1136.001 or T1136.002 without knowing the role of the machine that logged it.
+  Two caveats before deploying. 4720 comes from the Audit User Account Management
+  subcategory (Success); it is present in the shipped defaults and in the
+  Microsoft and CIS baselines, unlike 4688's command line, but a host whose audit
+  policy has been rewritten can still be blind, so confirm with auditpol rather
+  than assuming. More important, the SubjectUserName clause is the whole of this
+  rule's selectivity and it depends on how the collector renders the SYSTEM
+  token: check one known-good 4720 from a SYSTEM-run installer and confirm the
+  field carries the machine account rather than the literal string SYSTEM, or
+  this rule returns zero rows and the silence will read as an absence of account
+  creation. An operator who wants the raw audit trail instead should drop that
+  clause and accept every account creation in the environment.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0583, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1136
+  - https://attack.mitre.org/detectionstrategies/DET0583
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.t1136
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4720
+    SubjectUserName|endswith: '$'
+  condition: selection
+falsepositives:
+  - "Software installation that creates a local service account. MSI custom actions, SQL Server, database and monitoring agents, and anything deployed through SCCM, Intune or an RMM tool run as SYSTEM, so the local account they create is logged with the machine account as subject. During a deployment window this is the loudest source here and the reason the level is medium rather than high."
+  - "Operating-system imaging and unattended setup. Sysprep, MDT and Autopilot task sequences create the initial local administrator and the temporary autologon account from a SYSTEM context, so every machine built produces at least one match on its first boot, in a burst whenever a build wave runs."
+  - "Identity provisioning connectors on domain controllers. Joiner automation, HR-driven provisioning and directory synchronisation connectors that run as LOCAL SYSTEM or under a machine account create domain users in bulk on a nightly schedule, which can produce dozens of matches within a few minutes on a single DC."
+  - "Cluster, backup and virtualisation products that manage their own accounts. Failover clustering, backup agents and hypervisor tools create and recreate service accounts as SYSTEM during setup, patching and node repair, so routine maintenance on those roles matches without any human account involved."
+level: medium

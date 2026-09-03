@@ -1,0 +1,1 @@
+index=* (TargetFilename="*:\\Program.exe" OR TargetFilename="*:\\Program Files.exe" OR TargetFilename="*:\\Documents.exe" OR TargetFilename="*\\Program Files\\Common.exe" OR TargetFilename="*\\Program Files (x86)\\Common.exe")

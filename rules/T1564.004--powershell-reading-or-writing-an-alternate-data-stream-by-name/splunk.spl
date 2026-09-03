@@ -1,0 +1,1 @@
+index=* ((Image="*\\powershell.exe" OR Image="*\\pwsh.exe") AND (CommandLine="*-stream*" OR CommandLine="*/stream*" OR CommandLine="*–stream*" OR CommandLine="*—stream*" OR CommandLine="*―stream*"))

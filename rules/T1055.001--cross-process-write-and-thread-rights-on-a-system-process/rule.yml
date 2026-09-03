@@ -1,0 +1,64 @@
+title: Cross-process write and thread rights on a system process
+id: d72673ee-fcf2-4ee9-9659-61942d44f2b2
+status: experimental
+description: |
+  AN1095 describes an allocate, write, then remote-thread sequence that loads a
+  DLL into another process, and Sysmon EventID 10 is the one log source in the
+  brief that carries the whole sequence on a single event: VirtualAllocEx needs
+  PROCESS_VM_OPERATION, WriteProcessMemory needs PROCESS_VM_WRITE and
+  CreateRemoteThread needs PROCESS_CREATE_THREAD, all three on the same handle,
+  so the GrantedAccess mask on the handle acquisition already states the intent
+  before any of the calls are made. TargetImage is pinned to MITRE's
+  TargetProcessList knob, populated here with the shell, session and service
+  hosts that are the usual injection destinations; the GrantedAccess list is
+  authored, not MITRE's, and covers both PROCESS_ALL_ACCESS forms and the
+  minimal write-plus-create-thread combinations a tool that asks only for what
+  it needs will present. lsass.exe is deliberately absent because the same
+  target and mask pair is already published in this corpus at T1003.001, where
+  it means credential access rather than injection. Limits: the LoadLibrary call
+  or reflective loader that follows is a separate event with no join available
+  in lib/sigma, and reflective injection never touches disk so it produces no
+  image_load record at all. Sysmon is not present in a default install, and most
+  published Sysmon configurations restrict the ProcessAccess section to lsass
+  and winlogon, so this rule returns nothing until the config is widened to the
+  targets below — zero rows here means blind, not quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0389, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1055/001
+  - https://attack.mitre.org/detectionstrategies/DET0389
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1055.001
+logsource:
+  category: process_access
+  product: windows
+detection:
+  selection:
+    TargetImage|endswith:
+      - '\explorer.exe'
+      - '\winlogon.exe'
+      - '\services.exe'
+      - '\svchost.exe'
+      - '\dwm.exe'
+    GrantedAccess:
+      - '0x1FFFFF'
+      - '0x1F3FFF'
+      - '0x1F2FFF'
+      - '0x1F1FFF'
+      - '0x1F0FFF'
+      - '0x147A'
+      - '0x143A'
+      - '0x47A'
+      - '0x43A'
+      - '0x42A'
+      - '0x2A'
+  condition: selection
+falsepositives:
+  - "Endpoint protection and EDR agents, which open a full-access handle to a process in order to inject their own user-mode hooking DLL — benign DLL injection, performed on every host at every process start, and the highest-volume match this rule produces by a wide margin until a SourceImage exclusion is built for whichever agent the estate runs. This is what sets the level."
+  - "Accessibility and input tooling — screen readers, IME hosts, on-screen keyboards and window managers — which install hooks by writing into explorer.exe and dwm.exe with exactly these rights."
+  - "Application-compatibility shims, licence-enforcement and DRM wrappers, and remote-support or screen-sharing products that load a helper DLL into explorer.exe to extend the shell UI."
+  - "Debuggers, profilers and crash-reporting agents attached to a service host by a developer or by an automated hang investigation, all of which request allocate, write and create-thread rights against the process being analysed."
+level: medium

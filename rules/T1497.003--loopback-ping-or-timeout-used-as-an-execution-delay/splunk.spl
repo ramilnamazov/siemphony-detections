@@ -1,0 +1,1 @@
+index=* ((Image="*\\ping.exe" AND (CommandLine="*127.0.0.1*" OR CommandLine="*localhost*" OR CommandLine="*::1*")) OR (Image="*\\timeout.exe" AND (CommandLine="*-nobreak*" OR CommandLine="*/nobreak*" OR CommandLine="*–nobreak*" OR CommandLine="*—nobreak*" OR CommandLine="*―nobreak*")))

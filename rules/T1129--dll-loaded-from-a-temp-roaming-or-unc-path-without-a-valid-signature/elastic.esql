@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(file.path) LIKE "*\\\\appdata\\\\local\\\\temp\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\appdata\\\\roaming\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\windows\\\\temp\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\users\\\\public\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\programdata\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\\\\\*") AND NOT (TO_LOWER(file.code_signature.status) == "valid"))

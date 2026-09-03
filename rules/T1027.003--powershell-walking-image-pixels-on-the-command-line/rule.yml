@@ -1,0 +1,70 @@
+title: PowerShell walking image pixels on the command line
+id: fed5e59a-008e-4c19-a4be-37c5480589e8
+status: experimental
+description: |
+  Matches a process creation where a PowerShell host is launched with both a
+  media filename and a pixel-level extraction construct on the same command
+  line, which is the observable half of AN0331 — the Invoke-PSImage shape, where
+  a .png is opened not to display it but to reassemble script or shellcode out
+  of its pixels. Neither term alone is worth alerting on, so both selections are
+  required: a media extension without a pixel construct is ordinary image
+  handling, and a decoder without a media file is generic base64 work that
+  belongs to the obfuscation parent T1027. The construct list is deliberately
+  narrow. `System.Drawing`, `Bitmap`, `ReadAllBytes` and `FromBase64String` were
+  removed because branding, wallpaper, thumbnailing and installer scripts use
+  them on media files constantly, and `certutil -decode` with them, because
+  unwrapping a base64 asset is the parent technique rather than steganography.
+  What is left is per-pixel access, which ordinary scripts have little reason to
+  do. The blind spot is large and structural: Sysmon EventID 1 and Security 4688
+  record only what was typed on the invocation line, so the same decode logic run
+  as `powershell -File decode.ps1 logo.png`, or wrapped in `-EncodedCommand`,
+  puts none of these tokens on the command line and is invisible here even
+  though PowerShell 4104 ScriptBlockText would show it in full — no PowerShell
+  log source appears in this brief (AN0331 names Sysmon EventID 1, 3 and 22 and
+  Security 4663/4670/4656 only), so that rebuild cannot be done without inventing
+  a logsource. Treat this as a hunting lead for inline one-liners, not as
+  coverage of the technique. Nothing here inspects the file either, so a genuine
+  carrier image and a corporate logo are indistinguishable to it, and a compiled
+  loader reading a PNG from its own resources puts nothing on a command line at
+  all. Prerequisite: this is written in the Sysmon EventID 1 process-creation
+  vocabulary (`Image`, `CommandLine`), and Sysmon is not present in a default
+  Windows install; an estate with only Security 4688 needs the
+  Image-to-NewProcessName mapping first, plus Audit Process Creation and the
+  separate policy that includes the command line in those events.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0119, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/003
+  - https://attack.mitre.org/detectionstrategies/DET0119
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1027.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_host:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_media_file:
+    CommandLine|contains:
+      - '.png'
+      - '.jpg'
+      - '.jpeg'
+      - '.bmp'
+      - '.gif'
+      - '.ico'
+      - '.wav'
+  selection_pixel_construct:
+    CommandLine|contains:
+      - 'GetPixel'
+      - 'LockBits'
+      - 'Invoke-PSImage'
+  condition: selection_host and selection_media_file and selection_pixel_construct
+falsepositives:
+  - "Screenshot and UI-regression helpers on build agents, which compare a captured .png against a baseline by walking it with GetPixel or LockBits from a PowerShell one-liner invoked by the pipeline — on a host that runs visual tests this is the most likely match of the three entries here."
+  - "Administrative and packaging one-liners that sample a colour out of a logo or wallpaper .png with GetPixel, for example to derive a theme or accent colour during provisioning, where the whole operation is short enough to be typed on the invocation line rather than kept in a script file."
+  - "Image-processing utilities driven from a scheduled task, such as OCR, barcode or QR pre-processing that calls LockBits on a .bmp or .png for fast pixel access and is launched with the file path as an argument."
+level: medium

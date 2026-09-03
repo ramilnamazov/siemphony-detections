@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(file.path) LIKE "*.scf" OR TO_LOWER(file.path) LIKE "*.url" OR TO_LOWER(file.path) LIKE "*.library-ms" OR TO_LOWER(file.path) LIKE "*.searchconnector-ms") AND (TO_LOWER(file.path) LIKE "*\\\\desktop\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\downloads\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\users\\\\public\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\start menu\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\templates\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\appdata\\\\local\\\\temp\\\\*"))

@@ -1,0 +1,75 @@
+title: Shell history file access recorded by auditd on Linux
+id: 2e1bb5d0-6091-427b-8931-b4c24d08af0c
+status: experimental
+description: |
+  Matches the file-access leg of AN1085: an auditd PATH record naming one of
+  the per-user shell history files, which is the object this technique is
+  after — a plaintext record of every command a user typed, including the ones
+  where a password was passed as an argument. The names are anchored on the
+  filename rather than on an absolute path because auditd records `name=`
+  exactly as it was handed to the syscall, so `cat .bash_history` run from
+  inside a home directory logs a bare `.bash_history` with no directory part at
+  all. The list of file names — bash, zsh, ksh/sh, ash and fish — is assembled
+  here and is not MITRE's; MITRE's `ProcessNamePatterns` knob is about something
+  else entirely, the set of CLI utilities used to *read* the history, and it
+  cannot be applied in this rule at all for the reason immediately below. Three
+  limits are structural, and the first
+  decides how this rule must be read. auditd emits PATH and SYSCALL as separate
+  records for one event, and the accessing process's `exe`, `uid` and `auid`
+  live only on the SYSCALL side — so the analytic's central idea, that the
+  reader is a process *outside* an interactive shell context, cannot be tested
+  inside this selection, and neither can MITRE's `UserContext` or
+  `ProcessNamePatterns` knobs. Every
+  interactive login shell reads its own history file at startup and appends to
+  it at exit, and those events are indistinguishable here from an adversary
+  reading the same file; that is not a tuning detail but the dominant content
+  of this rule's output, and it is what sets the level. The analytic's second
+  log source, an EXECVE record for `cat`/`less`/`grep`, is not used: on a raw
+  auditd stream the arguments sit in `a0`/`a1` on a separate EXECVE record from
+  the `exe` on SYSCALL, so no single record carries both the tool and the file
+  it was pointed at, and selecting on `/cat` or `/grep` alone would match every
+  use of two of the most-used binaries on the system. MITRE's `TimeWindow` knob,
+  which would fire only on access shortly after an su/sudo transition, needs a
+  cross-event join lib/sigma does not model. The macOS arm AN1086 is not
+  attempted, because its endpointsecurity and unifiedlog sources have no
+  standardised Sigma field names and inventing them would produce a rule that
+  parses everywhere and matches nothing; the Windows PSReadline history file
+  named in the technique text has no log source in this brief at all.
+  Prerequisite: auditd watches none of these paths by default, so this rule
+  returns zero rows until a read watch such as
+  `-w /home/<user>/.bash_history -p r -k histaccess` is loaded for each home
+  directory and for /root, and zero rows reads as quiet when it means blind.
+  The `r` permission is what makes the technique visible and is also what makes
+  the rule loud — a `wa` watch is quiet but blind to reading, which is the
+  whole behaviour here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0385, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1552/003
+  - https://attack.mitre.org/detectionstrategies/DET0385
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1552.003
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_history_file:
+    type: 'PATH'
+    name|endswith:
+      - '.bash_history'
+      - '.zsh_history'
+      - '.sh_history'
+      - '.ash_history'
+      - '.ksh_history'
+      - '.histfile'
+      - 'fish_history'
+  condition: selection_history_file
+falsepositives:
+  - "The user's own shell. bash, zsh and fish read the history file when an interactive session starts and write it back when the session ends, so with the read watch this rule needs, every single interactive login, su, sudo -i and terminal tab on the host produces matching records. This is the highest-volume match by an enormous margin, it cannot be separated from an adversary's read inside one PATH record, and it is the only reason this rule is low rather than high."
+  - "Backup, sync and imaging jobs that walk home directories — restic, borg, rsync, Duplicati, an NFS or cloud home-directory sync agent — each of which opens every dotfile in every home on its schedule, producing one burst of matches per run per user."
+  - "Endpoint security and compliance scanning. Antivirus on-access and scheduled scans, DLP content inspection, Lynis, OpenSCAP, osquery file packs and backup-verification passes all read history files as ordinary files while walking the filesystem, from a service account, on every host in scope."
+  - "Administrators and support staff reading their own or a colleague's history to reconstruct what was run during an incident or a failed change, which is the same read this rule is built to catch, separated from an intrusion only by who did it and why."
+  - "Terminal multiplexers and remote development tooling — tmux and screen panes, the VS Code Remote and JetBrains Gateway integrated terminals, and CI runners that start a login shell per job step — each of which spawns a fresh interactive shell that reads the history file on startup, so one ordinary working session from one user produces dozens of matches on one host."
+level: low

@@ -1,0 +1,56 @@
+title: Common system utility name executed from a non-standard directory
+id: 0ee1d7d9-b266-48dd-be5c-9fbd261d33c9
+status: experimental
+description: |
+  Search order hijacking works because some launcher calls a utility by name
+  rather than full path, so the OS resolves it from whatever directory it finds
+  first — AN1560 frames this as a binary named after a legitimate system
+  utility running from a non-standard or application-specific directory. This
+  rule catches only that half: a process whose Image ends in one of a small
+  set of frequently-hijacked utility names, launched from outside the
+  directories Windows and mainstream installers actually keep them in. AN1560
+  also asks for a correlated file-write (Sysmon EID 11/15) that placed the
+  planted binary and for parent-lineage deviation from a baseline; neither is
+  attempted here, because joining a file_event to a later process_creation
+  event on a shared path and time window is a cross-event correlation
+  lib/sigma cannot express, and "deviates from ParentProcessBaseline" needs a
+  per-environment baseline this corpus has no source for. MITRE's
+  SuspiciousBinaryList knob is populated here with net.exe, net1.exe,
+  findstr.exe, cmd.exe and python.exe — utilities commonly invoked without a
+  full path by other programs — and MonitoredDirectories becomes its inverse:
+  an allowlist of System32, SysWOW64 and the two Program Files roots. A binary
+  under either of those five listed names running from anywhere else, such as
+  a user profile, a temp folder or an unrelated application directory, is what
+  this rule flags; it says nothing about why the file got there.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0564, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/008
+  - https://attack.mitre.org/detectionstrategies/DET0564
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.008
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_binary:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+      - '\findstr.exe'
+      - '\cmd.exe'
+      - '\python.exe'
+  filter_legit_dir:
+    Image|startswith:
+      - 'C:\Windows\System32\'
+      - 'C:\Windows\SysWOW64\'
+      - 'C:\Program Files\'
+      - 'C:\Program Files (x86)\'
+  condition: selection_binary and not filter_legit_dir
+falsepositives:
+  - "Portable or vendor-bundled copies of net.exe, findstr.exe or python.exe shipped inside an application's own install directory — backup agents, RMM tools and embedded Python runtimes routinely keep a private copy of these names outside System32 and Program Files."
+  - "Developers or CI runners launching a per-project python.exe from a virtual environment or a user-profile toolchain path such as AppData\\Local\\Programs\\Python instead of an approved Program Files install."
+level: medium

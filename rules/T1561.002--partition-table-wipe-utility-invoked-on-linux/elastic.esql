@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(type) == "syscall" AND (TO_LOWER(exe) LIKE "*/sgdisk" OR TO_LOWER(exe) LIKE "*/sfdisk" OR TO_LOWER(exe) LIKE "*/wipefs"))

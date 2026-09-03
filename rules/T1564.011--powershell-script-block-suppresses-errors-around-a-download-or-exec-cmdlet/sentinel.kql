@@ -1,0 +1,2 @@
+Event
+| where ((EventID == 4104 and (ScriptBlockText contains "-ErrorAction SilentlyContinue" or ScriptBlockText contains "-ErrorAction Ignore" or ScriptBlockText contains "-EA SilentlyContinue" or ScriptBlockText contains "-EA Ignore")) and (ScriptBlockText contains "Invoke-Expression" or ScriptBlockText contains "Invoke-WebRequest" or ScriptBlockText contains "Invoke-RestMethod" or ScriptBlockText contains "Net.WebClient" or ScriptBlockText contains "DownloadString" or ScriptBlockText contains "Start-BitsTransfer"))

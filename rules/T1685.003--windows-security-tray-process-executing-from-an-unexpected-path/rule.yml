@@ -1,0 +1,52 @@
+title: Windows Security tray process executing from an unexpected path
+id: 2067d343-d9b7-46a4-8b83-495ad66d911a
+status: experimental
+description: |
+  AN0868 is written as a correlation — the Defender tray UI reporting healthy
+  while WinDefend/MsMpEng are actually stopped — but neither log source in its
+  brief can carry "what the UI displayed": System 7036 only records a service's
+  own start/stop transitions, and it fires constantly for normal service
+  management across the whole machine, not just Defender, so a rule built on it
+  cannot tell an adversary's stop from an admin's `net stop`. What the Sysmon
+  process-creation leg can carry is the other half of AN0868's own
+  `FakeUIProcessPatterns` knob: a masquerading binary that borrows the filename
+  of the two processes that actually render the Windows Security tray icon,
+  `SecurityHealthSystray.exe` and `SecurityHealthService.exe`, run from outside
+  the directories Windows ships them in. This rule matches on that name-and-path
+  mismatch and is a masquerading detection, not a health/UI-mismatch detection —
+  it catches a dropped or renamed fake UI executed as a new process, not a
+  legitimate SecurityHealthSystray.exe whose rendering has been hooked or
+  patched in place, which leaves the recorded Image path untouched and is
+  invisible here. AN0869 (Linux) and AN0870 (macOS) are not authored: both
+  briefs describe the same behaviour in prose only — "execution of processes
+  mimicking Apple Security & Privacy GUIs" — with no process name, path, or
+  message pattern given, so any predicate for those platforms would be
+  authored from nothing rather than derived from the brief.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0311, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1685/003
+  - https://attack.mitre.org/detectionstrategies/DET0311
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1685.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_names:
+    Image|endswith:
+      - '\SecurityHealthSystray.exe'
+      - '\SecurityHealthService.exe'
+  filter_legit_path:
+    Image|startswith:
+      - 'C:\Windows\System32\'
+      - 'C:\Windows\SysWOW64\'
+  condition: selection_names and not filter_legit_path
+falsepositives:
+  - "Windows servicing and feature-update staging, where these binaries execute momentarily from a Windows Update or WinSxS staging directory before being placed in System32 as part of a build upgrade."
+  - "Detection-engineering and atomic-test validation runs that deliberately place a same-named test binary outside System32 to exercise this rule rather than to impersonate the security UI."
+  - "Portable diagnostic or repair toolkits that repackage a renamed copy of these executables into a technician's USB or troubleshooting bundle for legitimate support work, run from a Downloads or removable-media path."
+  - "Third-party software that happens to name an unrelated component SecurityHealthSystray.exe or SecurityHealthService.exe and installs it under Program Files rather than System32; the filename match alone cannot distinguish this from impersonation."
+level: medium

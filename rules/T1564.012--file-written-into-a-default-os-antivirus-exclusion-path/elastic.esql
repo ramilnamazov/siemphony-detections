@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(file.path) LIKE "*\\\\windows\\\\softwaredistribution\\\\datastore\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\windows\\\\softwaredistribution\\\\download\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\windows\\\\security\\\\database\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\system volume information\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\$recycle.bin\\\\*")

@@ -1,0 +1,14 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4624$</field>
+    <field name="LogonType" type="pcre2">(?i)^9$</field>
+    <field name="LogonProcessName" type="pcre2">(?i)^seclogo$</field>
+    <field name="AuthenticationPackageName" type="pcre2">(?i)^Negotiate$</field>
+    <description>New-credentials logon created by the secondary logon service</description>
+    <mitre>
+      <id>T1550.002</id>
+    </mitre>
+  </rule>
+</group>

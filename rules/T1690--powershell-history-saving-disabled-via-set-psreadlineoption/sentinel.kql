@@ -1,0 +1,2 @@
+Event
+| where ((EventID == 4104 and ScriptBlockText contains "Set-PSReadLineOption") and (ScriptBlockText contains "SaveNothing" or (ScriptBlockText contains "HistorySavePath $null" or ScriptBlockText contains "HistorySavePath NUL" or ScriptBlockText contains "HistorySavePath /dev/null")))

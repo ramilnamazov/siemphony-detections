@@ -1,0 +1,1 @@
+index=* ((CommandLine="*findstr*" OR CommandLine="*Select-String*") AND (CommandLine="*password*" OR CommandLine="*passwd*" OR CommandLine="*pwd=*" OR CommandLine="*credential*" OR CommandLine="*secret*" OR CommandLine="*apikey*" OR CommandLine="*api_key*" OR CommandLine="*accesskey*" OR CommandLine="*connectionstring*"))

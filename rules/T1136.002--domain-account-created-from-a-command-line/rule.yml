@@ -1,0 +1,81 @@
+title: Domain account created from a command line
+id: 0fe9cf2f-ef16-4a6d-a86a-c5893ce4db55
+status: experimental
+description: |
+  AN0006 describes a domain user being created with built-in tooling and names
+  `net user /add /domain` and PowerShell as the examples; this rule is the
+  process-creation half of that analytic. Three ways of asking a domain
+  controller to create a principal are covered. The net leg wants `net.exe` or
+  `net1.exe` as the image — either can be the logged one, because net.exe
+  re-executes itself as net1.exe with the same arguments — plus a ` user `
+  subcommand, an `/add` or `-add` switch and a `/domain` switch. That last
+  switch is required rather than optional and is the whole discriminator
+  against the local sibling T1136.001, whose rule excludes it: without
+  `/domain`, `net user /add` writes to the local SAM. The second leg is the
+  Active Directory module's `New-ADUser` cmdlet typed inline, and the third is
+  `dsadd.exe` with a `user` object type, which is how a lot of in-house AD
+  housekeeping still provisions accounts. The cmdlet and switch spellings are
+  authored here rather than taken from MITRE, which supplies the behaviour and
+  the tuning knobs but no query logic.
+  Four limits are structural. Creation through the directory API rather than a
+  shell — `New-ADUser` inside a .ps1, a module or a here-string, an ADSI or
+  `System.DirectoryServices` call from compiled code, an LDAP add from a
+  non-Windows host, or an identity-management connector talking to LDAP
+  directly — produces no matching command line, and the LDAP-add and Kerberos
+  legs of DET0003's other analytics are different log sources this rule does not
+  attempt. MITRE's `HostRole` knob asks that this be restricted to domain
+  controllers to cut workstation noise, but a single process-creation event
+  carries no field saying the host is a DC, so that has to be applied as a host
+  filter at deployment time rather than in the rule. Its `TimeWindow` and
+  `UserContext` knobs — the 4720 account-creation record following the process
+  within about two minutes, and whether the caller holds domain admin or only a
+  helpdesk role — are a cross-event join and a per-identity baseline that Sigma
+  models neither of, so the 4720 arm of AN0006 is left out and this rule matches
+  the command-line precursor alone. Expect overlap with the published T1087.002
+  rule, whose net leg matches the same ` user ` plus `/domain` shape as
+  enumeration. This rule is written in the Sysmon EventID 1 vocabulary (`Image`,
+  `CommandLine`) that AN0006 names; an estate feeding Security 4688 instead
+  needs `NewProcessName` mapped onto `Image` first, and 4688 needs both *Audit
+  Process Creation* and the separate *Include command line in process creation
+  events* policy before `CommandLine` exists at all — neither is on in a default
+  install or in the Microsoft and CIS baselines.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0003, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1136/002
+  - https://attack.mitre.org/detectionstrategies/DET0003
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1136.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_net_binary:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+  selection_net_user_verb:
+    CommandLine|contains: ' user '
+  selection_net_add_switch:
+    CommandLine|contains:
+      - ' /add'
+      - ' -add'
+  selection_net_domain_flag:
+    CommandLine|contains:
+      - ' /do'
+      - ' -do'
+  selection_aduser_cmdlet:
+    CommandLine|contains: 'New-ADUser'
+  selection_dsadd_user:
+    Image|endswith: '\dsadd.exe'
+    CommandLine|contains: ' user'
+  condition: (selection_net_binary and selection_net_user_verb and selection_net_add_switch and selection_net_domain_flag) or selection_aduser_cmdlet or selection_dsadd_user
+falsepositives:
+  - "Identity lifecycle automation. Joiner-mover-leaver connectors, HR-system sync jobs and scheduled onboarding scripts call New-ADUser from a management server or a jump host under a service account, one call per new hire and in long bursts on intake days and during bulk imports. This is the highest-volume match by a wide margin, it runs with no human at the keyboard, and it is the reason this rule is scored medium rather than high — excluding that one account and host pair is where tuning starts."
+  - "Directory administrators and service desk staff creating accounts by hand. New-ADUser from an admin workstation, or net user <name> <password> /add /domain from a shell on a domain controller, is ordinary account-management work and produces an event indistinguishable from the adversary's apart from who typed it."
+  - "Service and application account provisioning during software deployment. Product installers, DBA runbooks and cluster build guides create dedicated domain service accounts as a documented prerequisite step, so an install or upgrade window emits matches with no operator intent behind them."
+  - "Legacy and migration tooling built on dsadd. AD consolidations, forest migrations and in-house housekeeping scripts still provision users with dsadd user, typically in bulk inside a maintenance window."
+  - "Test, training and lab environments. Scripts that seed a domain with hundreds of accounts for a demo, a course, a load test or a purple-team exercise will match on every account they create."
+level: medium

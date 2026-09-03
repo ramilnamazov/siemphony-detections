@@ -1,0 +1,52 @@
+title: Detect job scheduling through the legacy at utility
+id: e0ef56ca-da0b-4599-858e-8ac73495d6d2
+status: experimental
+description: |
+  MITRE's Windows analytic names two routes to the legacy job queue — running
+  at.exe and driving the Win32_ScheduledJob WMI class — so the rule carries one
+  selection for each: the image path for the binary, and two command-line forms
+  of the class, the literal name as PowerShell and wmic path spell it plus the
+  job call create form, because job is wmic's alias for Win32_ScheduledJob and
+  that invocation never contains the class name. at.exe was deprecated in
+  favour of schtasks more than a decade ago, which is what gives a bare
+  execution event its value here; no command-line pattern is required, because
+  on a modern estate the invocation itself is the anomaly and MITRE's
+  CommandLinePattern knob is better used to rank matches than to gate them.
+  Note that the WMI leg only sees the class named on a command line, so a
+  compiled agent or implant calling Win32_ScheduledJob in-process is invisible
+  to it, and the follow-on execution the analytic describes — an anomalous
+  child of svchost.exe or taskeng.exe minutes later — is a timed correlation
+  Sigma cannot express, so this rule is the scheduling step only. The logic is
+  written in the Sysmon EventID 1 process_creation vocabulary; the strategy's
+  other feed, Security 4698, needs the Audit Other Object Access Events
+  subcategory enabled and carries the job definition in TaskContent rather than
+  Image or CommandLine, so it cannot feed this rule without a field mapping
+  first.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0333, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1053/002
+  - https://attack.mitre.org/detectionstrategies/DET0333
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1053.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_binary:
+    Image|endswith: '\at.exe'
+  selection_wmi:
+    CommandLine|contains:
+      - 'Win32_ScheduledJob'
+      - ' job call create'
+  condition: 1 of selection_*
+falsepositives:
+  - "Legacy in-house scripts and old third-party agents — backup, point-of-sale, imaging and industrial software written for XP or Server 2003 — that still schedule their own work with at rather than schtasks. Where one exists it runs on a schedule, so it re-alerts on the same host and account indefinitely until allow-listed."
+  - "Administrator and helpdesk habit: at typed at an elevated prompt to list or clear the legacy queue. Running it with no arguments only prints the queue, but produces a process-creation event indistinguishable from one that schedules a job."
+  - "Audit, inventory and compliance scanners that enumerate the legacy job queue by shelling out to at.exe or by querying Win32_ScheduledJob through wmic or PowerShell during a sweep — these match the WMI half of the rule on every host in scope, on every scan."
+  - "Adversary-simulation and control-validation tooling such as Atomic Red Team, whose T1053.002 tests invoke at.exe exactly as the rule expects."
+level: medium

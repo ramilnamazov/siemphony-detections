@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(registry.path) LIKE "*\\\\outlook\\\\webview\\\\*" OR TO_LOWER(registry.path) LIKE "*\\\\outlook\\\\today\\\\userdefinedurl*" OR TO_LOWER(registry.path) LIKE "*\\\\outlook\\\\security\\\\enableroamingfolderhomepages*")

@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey contains "\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllGetSignedDataMsg\\" or RegistryKey contains "\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllVerifyIndirectData\\")

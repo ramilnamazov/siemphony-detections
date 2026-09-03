@@ -1,0 +1,88 @@
+title: Symbol stripping run against a compiled binary on Linux
+id: cc4c67e1-fdc9-4074-9cdc-950b0ac78ad0
+status: experimental
+description: |
+  The observable this technique is named for is a property of a *file* — no
+  symbol table, no readable strings — and no log source in this brief carries
+  it. Sysmon EventID 1 emits Image, CommandLine and Hashes, EventID 11 emits
+  TargetFilename and the writing process, and Zeek http.log and files.log emit
+  MIME type and size; none of them records whether a binary has a .symtab
+  section, and MITRE's `EntropyThreshold` knob is not a field on any of them.
+  So this rule takes the Linux leg of AN0056 and matches the stripping *act*
+  instead of the stripped artefact: an execution of the binutils strip tool, an
+  objcopy invocation carrying one of the flags that removes symbols, or a Go
+  build whose linker flags discard the symbol table and DWARF data. That is
+  MITRE's `StripFlags` knob — flag combinations indicating symbol table
+  removal — populated here with those specific tools and switches rather than
+  taken from MITRE. Because `endswith` anchors on the tail of the path, the
+  tool list carries both `/strip` and `-strip`, so the prefixed builds of the
+  same binary that are what is actually installed on many hosts —
+  `llvm-strip`, `eu-strip`, `x86_64-linux-gnu-strip`, `aarch64-linux-gnu-strip`
+  — are covered as well as a bare `strip`.
+  Three limits are structural and none of them is fixable from this source.
+  Stripping is overwhelmingly done on the adversary's build host before
+  delivery, or inside a compiler the victim never runs, so the common case
+  produces no event on the victim at all — this rule sees only the unusual
+  case where the payload is built or post-processed in place. `gcc -s` and
+  `ld -s` are deliberately absent: compiler binaries are version-suffixed and
+  target-prefixed (`gcc-12`, `x86_64-linux-gnu-gcc-12`), which defeats an
+  `endswith` on `/gcc`, and a bare ` -s ` on a compiler command line is not
+  specific enough to carry the rule on its own. Packers are also out of scope
+  by design — a UPX-compressed payload is T1027.002, not this. The other three
+  analytics under DET0019 are not attempted: AN0055 (Windows) and AN0058
+  (network) have no field for symbols or strings as described above, and AN0057
+  (macOS), whose real observable is a run-only AppleScript produced by
+  `osacompile -x`, offers only unifiedlog, EndpointSecurity and osquery, none
+  of which has a standardised Sigma field vocabulary — inventing one would
+  produce a rule that parses, renders in four backends and matches nothing.
+  Vocabulary and prerequisite: this rule is written in the Sysmon-for-Linux
+  shaped `process_creation` vocabulary (Image, CommandLine) that the brief maps
+  `auditd:EXECVE::EXECVE` onto. Raw auditd carries the same values as `exe=` on
+  the SYSCALL record and `a0`..`aN` on a separate EXECVE record, so that feed
+  needs a field mapping before this rule applies to it, and auditd records no
+  execve at all until a rule such as
+  `-a always,exit -F arch=b64 -S execve -k exec` is loaded. Until one is, this
+  rule returns zero rows, and zero rows here means blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0019, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/008
+  - https://attack.mitre.org/detectionstrategies/DET0019
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1027.008
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_strip:
+    Image|endswith:
+      - '/strip'
+      - '-strip'
+      - '/sstrip'
+  selection_objcopy:
+    Image|endswith:
+      - '/objcopy'
+      - '-objcopy'
+    CommandLine|contains:
+      - '--strip-all'
+      - '--strip-debug'
+      - '--strip-unneeded'
+      - '--strip-symbol'
+      - '--discard-all'
+  selection_go_build:
+    Image|endswith: '/go'
+    CommandLine|contains: '-ldflags'
+  selection_go_stripflags:
+    CommandLine|contains:
+      - '-s -w'
+      - '-w -s'
+  condition: selection_strip or selection_objcopy or (selection_go_build and selection_go_stripflags)
+falsepositives:
+  - "Ordinary software packaging. Debian helper dh_strip and the RPM find-debuginfo pass run strip or objcopy over every binary and shared object in a package, which is hundreds of executions per build, and make install-strip does the same for hand-built software. On any build server, CI runner or developer workstation this is the dominant match by a very wide margin, and it is why the level is low rather than medium."
+  - "Separate-debuginfo workflows, where the standard recipe is objcopy --only-keep-debug, then objcopy --strip-debug, then objcopy --add-gnu-debuglink. Distribution build systems, Yocto and Buildroot images, and crash-reporting toolchains all run that sequence on every artefact they produce."
+  - "Go release builds. Passing -ldflags with -s and -w is the documented way to shrink a Go binary, so it appears in the Makefile, goreleaser config or Dockerfile of a large share of Go projects and fires on every build and every container image rebuild."
+  - "Kernel and out-of-tree module installation. make modules_install strips debug information from every .ko when INSTALL_MOD_STRIP is set, and DKMS repeats it for third-party drivers after each kernel upgrade."
+  - "Embedded and appliance image builds that strip binaries purely to fit a size budget, including cross-compiled firmware trees where the tool that runs is a target-prefixed strip such as arm-linux-gnueabihf-strip."
+level: low

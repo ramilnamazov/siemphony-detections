@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*/var/lib/sss/db/cache*" OR TO_LOWER(process.command_line) LIKE "*/var/lib/sss/secrets*" OR TO_LOWER(process.command_line) LIKE "*/var/opt/quest/vas/authcache*")

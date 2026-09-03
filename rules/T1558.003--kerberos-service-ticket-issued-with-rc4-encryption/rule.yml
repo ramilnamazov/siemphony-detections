@@ -1,0 +1,55 @@
+title: Kerberos service ticket issued with RC4 encryption
+id: 41b12f88-df7b-4512-a6b4-9b20fbc1752f
+status: experimental
+description: |
+  Matches successful Kerberos TGS issuance (Security 4769) where the ticket was
+  encrypted with RC4-HMAC (`TicketEncryptionType` 0x17), the variant
+  Kerberoasting is easiest against — the RC4 portion of the TGS-REP cracks
+  fastest offline. It is not the only variant: a TGS encrypted with AES
+  (`TicketEncryptionType` 0x12) is crackable too, only far more slowly, so an
+  operator roasting an account configured AES-only, or one whose toolkit does
+  not force an RC4 downgrade, produces no match here at all. That is this
+  rule's largest blind spot, and it is not visible in its output. Machine
+  accounts and `krbtgt` are excluded on `ServiceName` because computer SPNs are
+  backed by a 120-character random password and krbtgt requests belong to the
+  AS/TGT path, so neither is a roasting target and both would otherwise dominate
+  the output. The `TicketOptions: 0x40810000` fingerprint quoted in most public
+  write-ups is deliberately not required here: ordinary Windows clients send the
+  same option set, so it adds little precision while excluding toolkits that ask
+  for different flags. MITRE's AN0444 also counts tickets per account inside a
+  window and compares requested SPNs against a per-account baseline; neither a
+  count nor a baseline is expressible in Sigma, so this fires on one RC4 ticket
+  rather than on a burst, and it cannot distinguish a single roast from a sweep.
+  4769 is written only by domain controllers, under Audit Kerberos Service Ticket
+  Operations (Success) — that subcategory is on in the Default Domain Controllers
+  Policy, but the event is very high volume and is routinely dropped at the
+  forwarder or the SIEM's ingest filter, so confirm the events actually arrive
+  before reading silence as absence of the behaviour.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0157, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1558/003
+  - https://attack.mitre.org/detectionstrategies/DET0157
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1558.003
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4769
+    TicketEncryptionType: '0x17'
+    Status: '0x0'
+  filter_not_roastable:
+    ServiceName|endswith:
+      - '$'
+      - 'krbtgt'
+  condition: selection and not filter_not_roastable
+falsepositives:
+  - "Service accounts whose `msDS-SupportedEncryptionTypes` still permits RC4 — legacy SQL Server, SAP, JBoss and appliance SPNs are the usual set — request an RC4 ticket on every client connection all day long. In a domain that has not enforced AES these few accounts can account for the large majority of matches, which is exactly what MITRE's `AllowedEncryptionTypes` knob, set here to the single value 0x17, exists to be tuned against. It is also why the level sits at the bottom of the scale: until RC4 is off, the ordinary case outnumbers the roast by orders of magnitude."
+  - "Ordinary user logons from hosts whose client-side Kerberos encryption policy is unset or downgraded, which negotiate RC4 for normal file, print and web SPNs. These recur on every logon and every share access and look identical to a roast of the same SPN."
+  - "Attack-surface and AD hygiene scanners — PingCastle, BloodHound collectors, purple-team scripts and some credentialed vulnerability scanners — enumerate every SPN in the domain and request a ticket for each, producing a burst that is Kerberoasting in all but intent. These run on a schedule from a known account, which is where MITRE's `ServiceAccountBaselines` knob applies."
+  - "Cross-forest and legacy-realm trusts configured for RC4 on the trust object itself, so every referral into the other realm issues an RC4 ticket for a perfectly normal user-backed service account."
+level: low

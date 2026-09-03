@@ -1,0 +1,73 @@
+title: Python startup hook file written on Linux
+id: 277bcf8c-7924-4a0c-971e-0f87e0e89978
+status: experimental
+description: |
+  Matches the file-modification leg of AN0713: an auditd PATH record naming one
+  of the files the Python interpreter processes on its own during startup. Two
+  arms cover the two mechanisms MITRE describes. The first requires both a
+  `.pth` suffix and a `site-packages` or `dist-packages` component in the same
+  path, because a `.pth` file only executes its `import` lines when it sits in
+  a site directory — matching `.pth` anywhere would fire on unrelated files and
+  matching the directory alone would fire on every package file installed. The
+  second arm needs no directory constraint: `sitecustomize.py` and
+  `usercustomize.py` are imported from anywhere on `sys.path`, so the filename
+  is the whole signal. Both are anchored on the filename with `endswith` rather
+  than on an absolute path, because auditd records `name=` exactly as it was
+  handed to the syscall, so a write performed from inside the directory logs a
+  bare `sitecustomize.py` with no leading path at all. This is MITRE's
+  `HookFilePathPatterns` knob, populated here with the Debian and RHEL site
+  directory names and the two customize modules rather than taken from MITRE;
+  a site that keeps virtual environments under a fixed root can tighten the
+  first arm to that root and cut most of the noise below.
+  Scope and limits. Only the write is a single event. The analytic's second
+  half — a python3 execve shortly afterwards, with anomalous children or
+  outbound connections, inside MITRE's `TimeWindow` knob — is a cross-event
+  correlation lib/sigma has no way to express, and its `InterpreterWhitelist`
+  knob applies to that execution rather than to this write. MITRE's
+  `UserContext` knob cannot be applied inside this selection either: auditd
+  emits PATH and SYSCALL as separate records for one event and the writing
+  process's `exe`, `uid` and `auid` live only on the SYSCALL side. The
+  technique is listed for Windows and macOS as well, but the brief carries one
+  analytic and it is Linux-only, so neither platform is attempted here.
+  Prerequisite: auditd watches none of these paths by default, so this rule
+  returns zero rows until watches such as
+  `-w /usr/lib/python3/dist-packages -p wa -k python_hooks` and one per
+  additional interpreter or virtual-environment root are loaded — and zero rows
+  reads as quiet when it actually means blind. Virtual environments created in
+  user home directories are the practical gap: they hold their own
+  site-packages and no fleet-wide watch list can enumerate them in advance.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0258, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/018
+  - https://attack.mitre.org/detectionstrategies/DET0258
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1546.018
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_site_dir:
+    type: 'PATH'
+    name|contains:
+      - '/site-packages/'
+      - '/dist-packages/'
+  selection_pth_file:
+    type: 'PATH'
+    name|endswith: '.pth'
+  selection_customize_module:
+    type: 'PATH'
+    name|endswith:
+      - 'sitecustomize.py'
+      - 'usercustomize.py'
+  condition: (selection_site_dir and selection_pth_file) or selection_customize_module
+falsepositives:
+  - "Package installation. pip and setuptools write .pth files into site-packages as a matter of course — distutils-precedence.pth ships with setuptools itself, namespace packages install a -nspkg.pth, and pip install -e writes an __editable__ .pth per editable project. Any pip install on any host can match, which makes this the loudest source by a wide margin and is why the level is low rather than medium."
+  - "Virtual environment creation. venv, virtualenv, tox, poetry and conda each write a _virtualenv.pth or an equivalent into the new environment's site-packages, so every developer workstation and every CI job that builds a fresh environment emits a burst of matches."
+  - "Distribution package upgrades of the interpreter itself. Debian and Ubuntu ship a sitecustomize.py under /usr/lib/python3.x and RHEL ships one alongside its site-packages, so an apt or dnf upgrade of python3 rewrites the exact filename this rule's second arm is anchored on."
+  - "Configuration management and image builds replaying the same environment on every convergence run or every image: an Ansible pip task, a Dockerfile RUN pip install layer, or a Puppet or Chef python resource, all of which reinstall the same packages and rewrite the same .pth files whether or not anything changed."
+  - "Editors and installers writing through a temporary file and renaming it into place, which emits several PATH records for a single logical modification of one hook file."
+level: low

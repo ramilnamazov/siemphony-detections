@@ -1,0 +1,38 @@
+title: Nltest execution enumerating domain trust relationships
+id: eec1a4d7-5b35-49a8-8cec-8c3b5037b672
+status: experimental
+description: |
+  Matches nltest.exe run with a trust-enumeration switch, the CLI leg of AN0016
+  and the one MITRE calls out by name as adversary tradecraft. The rule is
+  written on Sysmon EventID 1 (`Image`, `CommandLine`) rather than the brief's
+  Security 4662 alternative, because 4662 requires a SACL on the directory
+  object and records the access, not the command that made it. This selector
+  cannot see the other two paths the same analytic names: PowerShell's
+  Get-ADTrust/GetAllTrustRelationships cmdlets and a direct
+  DSEnumerateDomainTrusts()/LDAP call from a compiled tool leave no nltest
+  process at all, so a quiet result here says nothing about those.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0007, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1482
+  - https://attack.mitre.org/detectionstrategies/DET0007
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1482
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+    Image|endswith: '\nltest.exe'
+  selection_switch:
+    CommandLine|contains:
+      - '/domain_trusts'
+      - '/trusted_domains'
+      - '/all_trusts'
+  condition: selection_image and selection_switch
+falsepositives:
+  - "Active Directory administrators and helpdesk staff running nltest by hand to troubleshoot a broken trust or confirm a domain controller can reach a trusted forest — the exact switches this rule matches are the ones a runbook tells them to use."
+  - "Scheduled AD health-check and monitoring scripts (SCOM management packs, in-house PowerShell) that shell out to nltest /domain_trusts on a timer to verify trust health across a forest."
+level: medium

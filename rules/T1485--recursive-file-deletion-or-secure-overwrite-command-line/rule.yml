@@ -1,0 +1,56 @@
+title: Recursive file deletion or secure-overwrite command line
+id: 418d91f8-a952-46d8-b5ce-ecafe7b851df
+status: experimental
+description: |
+  Detects the command lines MITRE's AN0411 names for data destruction — recursive
+  quiet deletes, cipher's free-space wipe, SDelete overwrites and forced recursive
+  Remove-Item. Every selection matches on `CommandLine` alone so the rule is a
+  single-field OR that all backends render, and the flag combinations use
+  `contains|all` because operators reorder switches freely. The analytic's actual
+  discriminator is volume — MITRE's VolumeThreshold and TimeWindow knobs count
+  unique files destroyed by one process — which Sigma cannot express, so this rule
+  fires on a single destructive invocation and the burst has to be judged by the
+  analyst or a downstream aggregation.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0146, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1485
+  - https://attack.mitre.org/detectionstrategies/DET0146
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1485
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_del:
+    CommandLine|contains|all:
+      - 'del '
+      - '/s'
+      - '/q'
+  selection_rmdir:
+    CommandLine|contains|all:
+      - 'rmdir '
+      - '/s'
+      - '/q'
+  selection_cipher_wipe:
+    CommandLine|contains|all:
+      - 'cipher'
+      - '/w'
+  selection_sdelete:
+    CommandLine|contains:
+      - 'sdelete.exe'
+      - 'sdelete64.exe'
+  selection_powershell_purge:
+    CommandLine|contains|all:
+      - 'Remove-Item'
+      - '-Recurse'
+      - '-Force'
+  condition: 1 of selection*
+falsepositives:
+  - "Build, packaging and deployment scripts that clear an output directory with \\\"rmdir /s /q\\\" or \\\"Remove-Item -Recurse -Force\\\" on every run. These are the highest-volume match by a wide margin and are best separated by the TargetFilename thinking behind MITRE's tuning knob — scope the path, since a build tree is not %System32%, Documents or a database directory."
+  - "Disk-hygiene and decommissioning routines — \\\"cipher /w\\\" run by an approved sanitisation job before a machine is reimaged or returned, and SDelete used by administrators to shred a specific file. Both are genuine secure-overwrite activity, which is why ProcessCommandLine alone cannot separate them from a wiper; the operator identity and the scheduled window are what distinguish them."
+  - "Installer and uninstaller cleanup, which routinely issues quiet recursive deletes against %TEMP% and its own program directory during a normal software servicing window."
+  - "Log and cache rotation tasks that call \\\"forfiles\\\" or a cmd one-liner ending in \\\"del /s /q\\\" against an application log directory on a fixed schedule."
+level: medium

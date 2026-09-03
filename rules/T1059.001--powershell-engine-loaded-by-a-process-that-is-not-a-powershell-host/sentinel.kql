@@ -1,0 +1,2 @@
+DeviceImageLoadEvents
+| where ((FolderPath endswith "\\System.Management.Automation.dll" or FolderPath endswith "\\System.Management.Automation.ni.dll") and not ((InitiatingProcessFolderPath endswith "\\powershell.exe" or InitiatingProcessFolderPath endswith "\\powershell_ise.exe" or InitiatingProcessFolderPath endswith "\\pwsh.exe" or InitiatingProcessFolderPath endswith "\\wsmprovhost.exe" or InitiatingProcessFolderPath endswith "\\sdiagnhost.exe" or InitiatingProcessFolderPath endswith "\\ServerManager.exe")))

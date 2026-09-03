@@ -1,0 +1,61 @@
+title: Open of another process's /proc mem or maps file on Linux
+id: 05f179ed-6024-40aa-a2c7-73ed88e11c62
+status: experimental
+description: |
+  Matches an auditd PATH record naming `/proc/<pid>/mem` or `/proc/<pid>/maps`
+  for any pid, which is what AN1494 describes: enumerating a target process's
+  memory mappings via `/proc/[pid]/maps` to find gadgets, then overwriting its
+  stack via `/proc/[pid]/mem`. Unlike the static `-w` file watches this corpus
+  uses elsewhere (e.g. T1053.003's cron paths), the pid segment here is dynamic
+  and cannot be named in a `-w` watch, so this rule only matches if the
+  underlying audit configuration is a broad syscall rule on `open`/`openat`
+  rather than a path watch — see the prerequisite note below. The regex is
+  anchored so it only matches the two files under a numeric pid directory, not
+  `/proc/self/...` or `/proc/<pid>/status` and similar metadata files that are
+  read constantly and would swamp the rule.
+  What this cannot see: `write(2)` operates on an already-open file descriptor
+  and carries no path argument, so auditd never attaches a PATH record to it —
+  this rule can only observe the `open`/`openat` of the target file, not the
+  write that follows. That means it cannot distinguish a read-only inspection
+  of `/proc/<pid>/mem` (some debuggers and profilers read it directly instead
+  of using ptrace) from an actual overwrite; the open call's flags argument
+  (`O_RDONLY` vs. `O_WRONLY`/`O_RDWR`) is carried in the SYSCALL record as a
+  raw, unnamed integer this corpus does not decode, so read/write cannot be
+  told apart here — that is a detection limitation, not a false positive.
+  MITRE's `TimeWindowBetweenMapAccessAndMemWrite` and `FileWriteThreshold`
+  knobs both need the write event this rule cannot observe, so they are not
+  applied. The brief's other two logsources are not attempted: the
+  `process_creation` execve logsource covers only the narrower case of `dd` or
+  `sed` invoked directly against these paths, which this open-based selection
+  already subsumes without needing a specific tool list; and `linux:osquery`
+  has no standardised Sigma field vocabulary in this corpus, the same reason
+  `macos:unifiedlog` was skipped for T1027.015's AN0784.
+  Prerequisite: no distribution audits `/proc/*/mem` or `/proc/*/maps` opens by
+  default, and because the path is per-pid, a `-w` watch cannot cover it —
+  this needs a syscall-scoped rule such as `-a always,exit -F arch=b64 -S open
+  -S openat -k procmem_access`, which also logs every other file open on the
+  host and is high-volume by design. Until it is loaded, this rule returns
+  zero rows, meaning blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0541, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1055/009
+  - https://attack.mitre.org/detectionstrategies/DET0541
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1055.009
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: 'PATH'
+    name|re: '^/proc/[0-9]+/(mem|maps)$'
+  condition: selection
+falsepositives:
+  - "Monitoring and APM agents that poll /proc/<pid>/maps to compute RSS and memory-map statistics for every process on the host on a short interval — Datadog, New Relic, Prometheus node/process exporters and similar tools do this continuously and are the highest-volume match by a wide margin, which is why this rule is low rather than medium."
+  - "Diagnostic and profiling tools such as pmap, gcore and the JVM's own memory diagnostics, which read /proc/<pid>/maps (and, for gcore, /proc/<pid>/mem) to produce a heap or memory report against a target process the operator chose deliberately."
+  - "A developer or SRE running gdb or a similar debugger directly against /proc/<pid>/mem instead of through ptrace, which is a supported, documented way to read process memory and is indistinguishable here from the injection case."
+level: low

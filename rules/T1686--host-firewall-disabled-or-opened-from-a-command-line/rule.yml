@@ -1,0 +1,99 @@
+title: Host firewall disabled or opened from a command line
+id: 9236d0be-d5a6-4e45-885a-7825b918cc4d
+status: experimental
+description: |
+  AN0406 names three Windows firewall-tampering behaviours — netsh, the
+  PowerShell Set-NetFirewallProfile cmdlet, and stopping the mpssvc service —
+  and this rule is those three plus the reg.exe spelling of the registry leg the
+  same analytic describes. The netsh arm is split in two because disabling and
+  opening are different acts with different noise: turning a profile off matches
+  the switch text itself (`state off`, the legacy `set opmode disable`, and
+  `advfirewall reset`, which restores the default policy and silently discards
+  every rule an estate had added), while punching a hole requires both
+  `firewall add rule` and `action=allow` on the same line, so a rule addition
+  that only blocks does not match. The cmdlet arm matches the four
+  NetSecurity verbs an adversary would reach for; it deliberately does not try to
+  tell the disabling direction from the enabling one, because `-Enabled False`,
+  `-Enabled:$false` and `-Enabled 0` are all valid spellings and a selector
+  pinned to one of them would look tighter while quietly missing the other two.
+  The service arm gates on the image being sc.exe, net.exe or net1.exe — net.exe
+  re-executes itself as net1.exe, so either can be the logged image — together
+  with the mpssvc service name, which covers `sc stop mpssvc` and the more
+  durable `sc config mpssvc start= disabled` in one selection. MITRE's
+  `MonitoredCommands` knob is what the image and verb lists implement, populated
+  here from the analytic's prose rather than taken from MITRE; its
+  `AlertThreshold` knob — alert only after N firewall changes in a window — is a
+  count over time, which lib/sigma models with neither an aggregation nor a
+  timeframe, so nothing here encodes it and the rule fires on the single event.
+  Vocabulary and limits. AN0406 gives Security EventID 4688 for this leg and the
+  brief maps it onto the Sigma `process_creation` category, which is
+  Sysmon-EventID-1-shaped; this rule is written in that vocabulary (`Image`,
+  `CommandLine`), so an estate feeding raw 4688 needs `NewProcessName` mapped
+  onto `Image` first, and 4688 needs both *Audit Process Creation* and the
+  separate *Include command line in process creation events* policy before
+  `CommandLine` exists at all — neither is on in a default install or in the
+  Microsoft and CIS baselines, and without them this rule returns zero rows,
+  which reads as quiet when it means blind. The analytic's registry legs (Sysmon
+  EventID 13 and 14 on `registry_set` and `registry_rename`) are a different
+  logsource and are not authored here; the only part of them visible from process
+  creation is a command line naming both the FirewallPolicy key and the
+  `EnableFirewall` value, which catches reg.exe and the PowerShell
+  `HKLM:\SYSTEM\...` path form of the profile switch-off. Requiring the value
+  name alongside the key is what keeps that selection to the modification the
+  analytic describes rather than any mention of the key, but it also means writes
+  under the `FirewallRules` subkey are not covered there — the netsh and cmdlet
+  arms are what carry rule addition. Nothing in this rule sees an implant calling
+  RegSetValueEx directly, `regedit /s policy.reg` (the key lives inside the
+  file), or the Group Policy and MDM paths that set the same values through
+  their own service. The Linux arm AN0407 (iptables, nft, firewall-cmd) and the
+  macOS arm AN0408 (pfctl, socketfilterfw) are separate log sources; AN0408's
+  `macos/unifiedlog` has no standardised Sigma field vocabulary in this corpus,
+  so its fields would have to be invented.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0145, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1686
+  - https://attack.mitre.org/detectionstrategies/DET0145
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1686
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_netsh_disable:
+    Image|endswith: '\netsh.exe'
+    CommandLine|contains:
+      - 'state off'
+      - 'set opmode disable'
+      - 'advfirewall reset'
+  selection_netsh_allow_rule:
+    Image|endswith: '\netsh.exe'
+    CommandLine|contains|all:
+      - 'firewall add rule'
+      - 'action=allow'
+  selection_netsecurity_cmdlet:
+    CommandLine|contains:
+      - 'Set-NetFirewallProfile'
+      - 'New-NetFirewallRule'
+      - 'Disable-NetFirewallRule'
+      - 'Remove-NetFirewallRule'
+  selection_mpssvc_service:
+    Image|endswith:
+      - '\sc.exe'
+      - '\net.exe'
+      - '\net1.exe'
+    CommandLine|contains: 'mpssvc'
+  selection_firewallpolicy_key:
+    CommandLine|contains|all:
+      - 'SharedAccess\\Parameters\\FirewallPolicy'
+      - 'EnableFirewall'
+  condition: 1 of selection*
+falsepositives:
+  - "Software installation. Server products, database engines, hypervisor and backup agents, line-of-business applications and driver packages open their own ports from an MSI custom action or a setup script, almost always with netsh advfirewall firewall add rule action=allow or New-NetFirewallRule. Every install, repair and upgrade across the estate produces a match, this is the highest-volume source here by a wide margin, and it is why the rule is scored low rather than medium."
+  - "Configuration management and endpoint tooling reapplying firewall policy on a schedule. Ansible win_firewall_rule, DSC, Chef, Puppet, Configuration Manager compliance baselines and Intune remediation scripts call New-NetFirewallRule and Set-NetFirewallProfile on every convergence run whether or not the resulting policy actually changed, from a service account, on every host in scope."
+  - "Service desk troubleshooting a connectivity problem. Turning a profile off with netsh advfirewall set allprofiles state off to prove the firewall is the cause, or stopping mpssvc for the same reason, is ordinary first-line work and emits an event indistinguishable from the adversary's."
+  - "Remote administration and monitoring being enabled on purpose. Turning on WinRM, RDP, SQL Browser, file and printer sharing or an RMM agent through their documented setup steps adds an allow rule for the port, and the same commands appear in image build, cloud instance bootstrap and Packer provisioning output for every machine built."
+  - "Third-party endpoint security products taking over the host firewall. Their installers disable the Windows Defender Firewall profiles or reset the policy so their own filtering driver owns the traffic, which produces exactly the netsh disable and mpssvc events this rule selects."
+level: low

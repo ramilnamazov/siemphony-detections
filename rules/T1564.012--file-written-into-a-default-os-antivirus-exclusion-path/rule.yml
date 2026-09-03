@@ -1,0 +1,64 @@
+title: File written into a default OS antivirus exclusion path
+id: 498332a4-6bf7-499e-acfb-a75bf16c82ca
+status: experimental
+description: |
+  AN0139's `ExcludedPaths` knob is explicitly org-customizable — the brief
+  cannot supply what a given estate has excluded — so this rule cannot detect
+  a site's actual AV configuration. What it can detect is the narrower and
+  still-real case the technique's own citation names: adversaries dropping
+  payloads into directories Microsoft documents as default or commonly
+  recommended antivirus exclusions on Windows, on the assumption that most
+  estates leave those defaults untouched. The path list here is deliberately
+  short and checked against Microsoft's own current documentation rather than
+  general folklore: `SoftwareDistribution\Datastore` and `Security\Database`
+  are confirmed Microsoft Defender **built-in** exclusions (Microsoft Learn,
+  "Exclusions in Microsoft Defender Antivirus" — the individual `*.edb`/
+  `*.chk`/`*.log` files under those folders are excluded automatically on
+  every Windows version, with no configuration); `SoftwareDistribution\Download`
+  and `System Volume Information`/`$Recycle.Bin` are commonly recommended
+  exclusions in AV vendor and IT-forum guidance but are not themselves in
+  Microsoft's built-in list for an ordinary client, so they are weaker
+  evidence and are kept only because they are still real, frequently-cited
+  candidates. An earlier draft of this scaffold also included
+  `System32\catroot2`, on the same "commonly excluded" assumption — that was
+  checked against Microsoft's own "Exclusions to avoid in Microsoft Defender
+  Antivirus and Defender for Endpoint" page and is wrong: Microsoft lists
+  `C:\Windows\System32\CatRoot2` explicitly as a folder **not** to exclude,
+  precisely because attackers abuse it, and it has been removed from the
+  selection below rather than left in on a false premise. The
+  analytic's `ProcessAllowlist` knob is not applied, because the OS processes
+  that legitimately write to these paths (`TrustedInstaller.exe`,
+  `svchost.exe`, `MoUsoCoreWorker.exe`) are also exactly the processes an
+  adversary would need to impersonate or inject into to blend in, so gating
+  on `Image` would suppress the interesting case along with the noise; the
+  brief's other AN0139 leg (Security 4663/4670/4656) is a separate
+  `ObjectName`/`ProcessName` feed with its own field names and is not
+  combined here. Sysmon is not installed by default, and a shipped
+  configuration has to include these paths under a `file_event` rule or the
+  rule returns zero rows.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0051, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/012
+  - https://attack.mitre.org/detectionstrategies/DET0051
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1564.012
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection:
+    TargetFilename|contains:
+      - '\Windows\SoftwareDistribution\Datastore\'
+      - '\Windows\SoftwareDistribution\Download\'
+      - '\Windows\Security\Database\'
+      - '\System Volume Information\'
+      - '\$Recycle.Bin\'
+  condition: selection
+falsepositives:
+  - "Windows Update writing update payloads, catalog data and driver packages into SoftwareDistribution\\Datastore and \\Download during every routine patch cycle, which is the highest-volume source of matches here on any host with automatic updates enabled."
+  - "System Restore and the Volume Shadow Copy service writing restore points and change journals into System Volume Information on every volume that has System Protection enabled, on a schedule independent of any single file operation."
+  - "Ordinary users and applications deleting files through Explorer or the recycle API, which relocates the deleted file into $Recycle.Bin and is the single most common non-adversarial source of file-creation events in this path list."
+level: low

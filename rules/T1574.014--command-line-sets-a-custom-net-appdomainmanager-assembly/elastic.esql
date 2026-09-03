@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*appdomain_manager_asm*" OR TO_LOWER(process.command_line) LIKE "*appdomain_manager_type*" OR TO_LOWER(process.command_line) LIKE "*appdomainmanagerassembly*" OR TO_LOWER(process.command_line) LIKE "*appdomainmanagertype*")

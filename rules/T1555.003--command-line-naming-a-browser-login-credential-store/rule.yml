@@ -1,0 +1,45 @@
+title: Command line naming a browser login-credential store
+id: 8cace3cd-7371-4165-bd5e-833c92180b2f
+status: experimental
+description: |
+  AN0105's copy-and-carry leg: a process created with a browser login-credential
+  database named on its command line — Chrome/Chromium's `Login Data` SQLite
+  file, Firefox's `logins.json`, and the `key4.db` NSS key store Firefox needs
+  to decrypt those logins. This is deliberately the same shape as the published
+  T1539 rule for browser session cookies, but a disjoint file set: Login Data,
+  logins.json and key4.db hold usernames and passwords, never the session
+  tokens T1539 keys on, so the two rules alert on different theft techniques
+  even when the same stealer tooling triggers both in one run. AN0105's other
+  legs — a correlated `CryptUnprotectData` API call or a Sysmon EventID 10
+  process-access read of the browser's memory — are separate events from
+  process creation and are not expressed here; a stealer that reads the file
+  through the Win32 API or inspects browser memory directly writes no command
+  line at all and this rule will not see it. Security 4688 is off by default
+  and needs Audit Process Creation, plus the separate Include command line in
+  process creation events policy for CommandLine to be populated — without
+  both, this rule returns nothing because nothing is being collected.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0037, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1555/003
+  - https://attack.mitre.org/detectionstrategies/DET0037
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1555.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - '\Login Data'
+      - 'logins.json'
+      - 'key4.db'
+  condition: selection
+falsepositives:
+  - "Backup, endpoint-DLP and profile-migration agents that walk the user profile by absolute path. When one of them names Login Data or logins.json on its command line the event is byte-for-byte what a stealer produces, and only the parent process and the schedule tell them apart."
+  - "Browser import/export utilities and password-manager migration tools that a user runs deliberately to move saved logins from one browser to another, which put the source browser's Login Data or logins.json path directly on the command line as an argument."
+  - "Forensic and incident-response tooling run by the security team itself, which reads the same files for entirely legitimate reasons and is a likely source of the first hits this rule ever produces in an environment with an active IR function."
+  - "Roaming-profile and VDI logoff scripts that clear or reset a corrupted credential store as part of routine profile teardown, recurring at predictable times across the whole estate rather than on a single suspicious host."
+level: high

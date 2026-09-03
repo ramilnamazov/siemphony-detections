@@ -1,0 +1,1 @@
+index=* ((Image="*\\reg.exe" AND CommandLine="*Nls\\Language*") OR ((Image="*\\powershell.exe" OR Image="*\\pwsh.exe") AND (CommandLine="*Get-WinSystemLocale*" OR CommandLine="*Get-UICulture*" OR CommandLine="*Get-Culture*" OR CommandLine="*Get-WinUserLanguageList*")))

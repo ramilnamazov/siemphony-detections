@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*--gpu-launcher=*" OR TO_LOWER(process.command_line) LIKE "*--renderer-cmd-prefix=*" OR TO_LOWER(process.command_line) LIKE "*--utility-cmd-prefix=*" OR TO_LOWER(process.command_line) LIKE "*--browser-subprocess-path=*")

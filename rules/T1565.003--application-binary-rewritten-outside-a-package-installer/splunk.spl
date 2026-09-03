@@ -1,0 +1,1 @@
+index=* (((TargetFilename="*\\Program Files\\*" OR TargetFilename="*\\Program Files (x86)\\*") AND (TargetFilename="*.exe" OR TargetFilename="*.dll")) AND NOT ((Image="*\\msiexec.exe" OR Image="*\\TrustedInstaller.exe" OR Image="*\\TiWorker.exe" OR Image="*\\wusa.exe" OR Image="*\\setup.exe")))

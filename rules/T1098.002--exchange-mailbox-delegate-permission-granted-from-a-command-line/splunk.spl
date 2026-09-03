@@ -1,0 +1,1 @@
+index=* (CommandLine="*Add-MailboxPermission*" OR CommandLine="*Add-RecipientPermission*" OR CommandLine="*Add-MailboxFolderPermission*" OR CommandLine="*Set-MailboxFolderPermission*" OR CommandLine="*Add-ADPermission*")

@@ -1,0 +1,13 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\cscript\.exe$|\\wscript\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i)pubprn</field>
+    <field name="CommandLine" type="pcre2">(?i)(script:http|script:ftp|script:\\\\)</field>
+    <description>Remote scriptlet proxied through PubPrn.vbs</description>
+    <mitre>
+      <id>T1216.001</id>
+    </mitre>
+  </rule>
+</group>

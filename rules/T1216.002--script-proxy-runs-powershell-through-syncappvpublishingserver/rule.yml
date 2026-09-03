@@ -1,0 +1,66 @@
+title: Script proxy runs PowerShell through SyncAppvPublishingServer
+id: d418c33d-b5bc-4b3c-a18f-29044d977dd7
+status: experimental
+description: |
+  AN1220 describes SyncAppvPublishingServer.vbs being driven through a script
+  interpreter with PowerShell embedded in the command line, so that a
+  Microsoft-signed VBScript carries the payload instead of a direct
+  powershell.exe invocation. The rule reproduces that shape on Sysmon EventID 1
+  in three parts: the interpreter, the script name, and a payload indicator in
+  the same command line. The payload list is authored, not MITRE's — MITRE names
+  the `CommandLineRegex` knob and gives `{powershell -nop -enc ...}` as its one
+  example, and the list here is populated with the semicolon the script uses to
+  split its argument plus the PowerShell verbs and encoders an operator reaches
+  for after it. The interpreter list follows MITRE's `ScriptInterpreter` knob,
+  which names wscript.exe, cscript.exe and cmd.exe; powershell.exe is
+  deliberately not in it, because an administrator hashing or enumerating the
+  script from a PowerShell line would then satisfy every leg on its own. Two
+  gaps are worth stating rather than hiding: a renamed copy of the script
+  defeats the name match, and the separate compiled SyncAppvPublishingServer.exe
+  is out of scope for this technique and this rule. The other three sources in
+  AN1220 are not used — PowerShell 4103/4104 sees the payload only after it has
+  already been handed off, with nothing tying it back to the proxy, and Sysmon
+  EventID 7 and EventID 10 carry no command line at all, so the abuse is simply
+  not expressible there. Prerequisite: Sysmon is not present in a default
+  install; where this category is fed by Security 4688 instead, both *Audit
+  Process Creation* and the separate *Include command line in process creation
+  events* policy must be on, and the field names differ — an empty result means
+  blind, not quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0440, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1216/002
+  - https://attack.mitre.org/detectionstrategies/DET0440
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1216.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_interpreter:
+    Image|endswith:
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\cmd.exe'
+  selection_script:
+    CommandLine|contains: 'SyncAppvPublishingServer.vbs'
+  selection_payload:
+    CommandLine|contains:
+      - ';'
+      - 'powershell'
+      - 'pwsh'
+      - '-enc'
+      - 'IEX'
+      - 'Invoke-Expression'
+      - 'Net.WebClient'
+      - 'DownloadString'
+      - 'DownloadFile'
+      - 'FromBase64String'
+  condition: selection_interpreter and selection_script and selection_payload
+falsepositives:
+  - "Application Virtualization administration scripts. An App-V operator troubleshooting publishing refresh may chain the sync call with another command on one cmd.exe line, and the semicolon in the payload list is satisfied by that chaining alone."
+  - "LOLBAS hardening, software inventory and baseline-compliance jobs that walk System32 from a cmd.exe wrapper and name SyncAppvPublishingServer.vbs explicitly while checking whether it is present, blocked or removed."
+  - "Atomic Red Team, Caldera and similar purple-team frameworks replaying the published T1216.002 test case, which uses this command line verbatim, and detection-engineering lab hosts reproducing the same public proof of concept."
+level: high

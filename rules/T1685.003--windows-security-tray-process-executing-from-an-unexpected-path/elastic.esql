@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\securityhealthsystray.exe" OR TO_LOWER(process.executable) LIKE "*\\\\securityhealthservice.exe") AND NOT ((TO_LOWER(process.executable) LIKE "c:\\\\windows\\\\system32\\\\*" OR TO_LOWER(process.executable) LIKE "c:\\\\windows\\\\syswow64\\\\*")))

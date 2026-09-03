@@ -1,0 +1,39 @@
+title: Shortcut file written into a Startup folder
+id: e9a69a65-b72e-41f9-b129-9196286903b7
+status: experimental
+description: |
+  Matches Sysmon EventID 11 for a `.lnk` file landing in either Startup
+  location — the per-user and all-users paths share the
+  `\Microsoft\Windows\Start Menu\Programs\Startup\` suffix, so one contains
+  term covers both. This stands in for AN0510's separate file-modification leg
+  (Sysmon EventID 2) too, since that event only fires on a timestamp change
+  and would miss a content edit that leaves it alone, while EventID 11 fires
+  on the create-or-recreate pattern most shortcut editors use. What it cannot
+  do is MITRE's own qualifier — anomalous lineage or an unsigned target —
+  because Sysmon 11 names the shortcut file, never what it points to, so a
+  malicious placement is indistinguishable here from a benign one.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0180, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/009
+  - https://attack.mitre.org/detectionstrategies/DET0180
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.009
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_lnk:
+    TargetFilename|endswith: '.lnk'
+  selection_startup_path:
+    TargetFilename|contains: '\Microsoft\Windows\Start Menu\Programs\Startup\'
+  condition: selection_lnk and selection_startup_path
+falsepositives:
+  - "Application installers and updaters that place a Startup shortcut so their tray helper or update checker launches at logon — this is standard practice for cloud-storage clients, chat apps, printer utilities, VPN clients and update agents, and is the highest-volume match on any managed fleet by a wide margin."
+  - "Group Policy Preferences shortcut items reapplied on every Group Policy refresh (roughly every 90 minutes plus jitter) and at every logon, rewriting the same .lnk file in the Startup folder on every in-scope host regardless of whether anything actually changed."
+  - "A user manually dragging a shortcut into their own per-user Startup folder for convenience, which this rule cannot distinguish from an adversary doing the same thing with a malicious target — nothing in Sysmon 11 carries who initiated the write or what the link resolves to."
+  - "Package managers, imaging tools and endpoint-management platforms (Chocolatey, SCCM/Intune application deployment) staging Startup shortcuts as a standard step of application rollout across the fleet."
+level: low

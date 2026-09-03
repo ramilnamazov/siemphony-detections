@@ -1,0 +1,1 @@
+index=* ((TargetObject="*\\NetworkProvider\\ProviderPath" AND NOT ((Details="*\\System32\\*" OR Details="*\\SysWOW64\\*"))) OR (TargetObject="*\\NetworkProvider\\Order\\ProviderOrder" OR TargetObject="*\\NetworkProvider\\HwOrder\\ProviderOrder"))

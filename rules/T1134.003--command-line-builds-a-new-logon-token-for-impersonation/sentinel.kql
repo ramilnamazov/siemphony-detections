@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\runas.exe" and ProcessCommandLine contains "/netonly") or ((ProcessCommandLine contains "LogonUser" or ProcessCommandLine contains "LsaLogonUser") and (ProcessCommandLine contains "SetThreadToken" or ProcessCommandLine contains "ImpersonateLoggedOnUser")))

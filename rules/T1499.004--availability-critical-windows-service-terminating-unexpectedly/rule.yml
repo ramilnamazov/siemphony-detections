@@ -1,0 +1,68 @@
+title: Availability-critical Windows service terminating unexpectedly
+id: 8566a296-824e-4277-beb1-27dd4dfa0a3d
+status: experimental
+description: |
+  AN0850 describes exploitation followed by a service crash, restart or repeated
+  failure, and only the last part of that has an observable in the brief's log
+  sources. This rule takes the System channel leg: the Service Control Manager
+  reporting that a service died without having been sent a control request
+  (EventID 7031 and 7034), scoped by display-name fragment to the web, database
+  and remote-access tiers whose loss is the denial of availability this
+  sub-technique is about. The other two legs cannot carry the behaviour. Sysmon
+  EventID 1 is a launch record with no crash, fault or resource field, and
+  Application EventID 1000 exposes the faulting binary only through unnamed Data
+  elements with no field vocabulary this corpus can rely on. Note what the SCM
+  does not see: a worker process killed by an exploit is not a service
+  termination. An IIS application pool dying takes w3wp.exe with it and is
+  reported by WAS on this same System channel under the
+  Microsoft-Windows-WAS provider, not by the Service Control Manager, so the two
+  IIS fragments below match only if the W3SVC or IISADMIN host process itself
+  dies — the commonest web-exploitation crash on this platform is invisible
+  here, and the same holds for any engine that isolates work in child
+  processes. MITRE's
+  TargetApplication knob names the tier to watch and is populated here with a
+  generic starter list that every site must replace with its own service display
+  names; MITRE's TimeWindow knob asks for repetition (for example five crashes
+  in an hour), and lib/sigma models no aggregation, no timeframe and no near, so
+  the repetition that would separate a re-exploited persistent DoS from one bad
+  afternoon is not expressed. A single match therefore means one critical
+  service died uncommanded, not that anything was exploited. This is the same
+  SCM signal the published T1687 rule uses; the two differ only in which
+  services they name, T1687 watching defensive agents being degraded and this
+  rule watching availability of the service tier, and their name lists do not
+  overlap. Unlike the process-creation legs elsewhere in this brief, 7031 and
+  7034 need no audit policy — the SCM writes them by default.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0304, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1499/004
+  - https://attack.mitre.org/detectionstrategies/DET0304
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1499.004
+logsource:
+  product: windows
+  service: system
+detection:
+  selection:
+    Provider_Name: 'Service Control Manager'
+    EventID:
+      - 7031
+      - 7034
+    param1|contains:
+      - 'World Wide Web Publishing'
+      - 'IIS Admin'
+      - 'SQL Server'
+      - 'MySQL'
+      - 'PostgreSQL'
+      - 'Apache'
+      - 'Routing and Remote Access'
+      - 'Remote Desktop Services'
+  condition: selection
+falsepositives:
+  - "Ordinary software faults in the service host itself. A database engine or an Apache service dies on its own from memory exhaustion, a corrupt configuration file, a full disk or a driver conflict after a patch, and the SCM records exactly this event with no adversary present — across any server fleet these are the majority of matches. Nothing in a single 7031 distinguishes a bug from an induced crash, which is why this rule is scored low."
+  - "Abrupt power transitions and infrastructure operations. Forced shutdowns, hypervisor snapshot restores, live-migration failures and storage path flaps make the SCM record running services as terminated unexpectedly, usually several at once and often in scheduled maintenance windows."
+  - "Product upgrades and patch installs that stop a service by killing it rather than through the control interface, so the SCM sees a termination it never asked for. A rollout across the fleet produces a burst of these within the same change window."
+  - "Any service whose display name merely contains one of these fragments. Matching on Apache or SQL Server picks up unrelated third-party products that embed those words, including bundled instances a site does not consider availability-critical."
+level: low

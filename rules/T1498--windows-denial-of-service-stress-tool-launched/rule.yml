@@ -1,0 +1,57 @@
+title: Windows denial-of-service stress tool launched
+id: 7b08fdb0-a663-4d22-a67b-a7b378e3e762
+status: experimental
+description: |
+  AN1434's Windows leg is "an executable or script generating large outbound
+  network traffic," which needs a packets-per-second aggregation MITRE's own
+  ThresholdEventVolume and DestinationDiversity knobs name and Sigma cannot
+  compute — no `| count() by`, no timeframe. What a single Sysmon EventID 1
+  event can carry instead is the launch of a tool whose only purpose is
+  generating that traffic: the Windows GUI flood clients (LOIC, HOIC, XOIC)
+  descended from the Low Orbit Ion Cannon family, and the Python HTTP/slow-read
+  flood scripts (GoldenEye, Slowloris, Hulk) run through python.exe. This is
+  deliberately a different tool set from the published T1498.001 rule, which
+  matches Linux packet-crafting binaries (hping3, nping, t50, mausezahn) and
+  `ping -f`: that rule's tools are raw-socket generators with everyday
+  diagnostic uses on Linux, these are single-purpose attack clients with no
+  Windows administrative role, which is also why this rule can sit at a
+  comparable severity despite matching on presence alone. As with the Linux
+  rule, a match means only that a flood-capable tool was started, never that
+  outbound volume became abnormal, and a compiled dropper or a hand-rolled
+  socket loop that doesn't match one of these names produces no event here at
+  all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0518, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1498
+  - https://attack.mitre.org/detectionstrategies/DET0518
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1498
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_gui_tool:
+    Image|endswith:
+      - '\loic.exe'
+      - '\hoic.exe'
+      - '\hoic2.exe'
+      - '\xoic.exe'
+  selection_python_parent:
+    Image|endswith:
+      - '\python.exe'
+      - '\pythonw.exe'
+  selection_python_flood_script:
+    CommandLine|contains:
+      - 'goldeneye.py'
+      - 'slowloris.py'
+      - 'hulk.py'
+  condition: selection_gui_tool or (selection_python_parent and selection_python_flood_script)
+falsepositives:
+  - "Authorised load or resilience testing and red-team engagements that use one of these same publicly available tools against a system the organisation owns, which is the only routine legitimate use of any of them."
+  - "Security-awareness labs, CTF hosts and training VMs where LOIC or HOIC is installed and run deliberately as coursework, so every student workstation in the class produces matches for the exercise's duration."
+  - "Breach-and-attack-simulation or detection-engineering platforms that execute a real, unmodified copy of one of these tools to validate that this exact class of alert fires."
+  - "A downloaded copy of a Python flood script kept for reference or static analysis and executed once, harmlessly, against localhost or a lab target rather than a real destination — the command line alone cannot see the target address."
+level: medium

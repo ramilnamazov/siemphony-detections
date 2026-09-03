@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "trap " and (ProcessCommandLine contains ".bashrc" or ProcessCommandLine contains ".bash_profile" or ProcessCommandLine contains ".bash_login" or ProcessCommandLine contains ".profile" or ProcessCommandLine contains ".zshrc" or ProcessCommandLine contains ".zprofile" or ProcessCommandLine contains ".zlogin" or ProcessCommandLine contains "/etc/profile" or ProcessCommandLine contains "/etc/bash.bashrc"))

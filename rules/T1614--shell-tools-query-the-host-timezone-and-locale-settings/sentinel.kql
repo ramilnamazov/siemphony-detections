@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "/timedatectl" or FolderPath endswith "/localectl" or FolderPath endswith "/locale") or (ProcessCommandLine contains "/etc/timezone" or ProcessCommandLine contains "/etc/localtime" or ProcessCommandLine contains "/usr/share/zoneinfo"))

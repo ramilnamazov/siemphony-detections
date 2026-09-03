@@ -1,0 +1,42 @@
+title: Process opens a raw Linux input device under /dev/input
+id: f602ff4f-f5ff-4790-9206-5f3a2082fc69
+status: experimental
+description: |
+  AN0283 is the one leg of this technique with an observable T1056.001
+  doesn't already cover: instead of the Windows registry keyboard filter
+  driver, this is a Linux userspace process reading raw keystroke and pointer
+  events off `/dev/input/*` (evdev), with no driver-installation step at all.
+  The match is on the auditd PATH record's own `name` field, because auditd
+  emits PATH and SYSCALL as separate records for the same event and the
+  accessing process's `exe`/`comm` live only on the SYSCALL side, so they
+  cannot be joined into this selection — a real limitation, not a choice.
+  AN0282's Windows leg (SetWindowsHookEx, GetAsyncKeyState) is not attempted:
+  those are message-hook and global-state calls that never open a handle to
+  another process, so Sysmon Process Access — the log source the brief lists
+  for it — has no field that could ever carry that behaviour. Prerequisite:
+  this needs an explicit auditd watch on `/dev/input/`, absent from a default
+  configuration on any mainstream distribution.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0102, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1056
+  - https://attack.mitre.org/detectionstrategies/DET0102
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.credential-access
+  - attack.t1056
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: 'PATH'
+    name|startswith: '/dev/input/'
+  condition: selection
+falsepositives:
+  - "Xorg, Wayland compositors, systemd-logind and libinput, which open every /dev/input/event* node as their core function of delivering keyboard and pointer input to the desktop session — on any host running a GUI this is the overwhelming majority of matches and dominates the rule by a wide margin."
+  - "evtest, libinput debug-events and similar diagnostic tools an administrator runs interactively to test a keyboard, touchpad or gamepad after a driver or hardware change."
+  - "Accessibility software — on-screen keyboards, switch-access and screen-reader input handlers — that reads raw input events to implement an alternate input method."
+  - "Game controller and joystick daemons (jstest, SDL-based games and emulators) polling /dev/input/event* or /dev/input/js* for gamepad input during normal use."
+level: low

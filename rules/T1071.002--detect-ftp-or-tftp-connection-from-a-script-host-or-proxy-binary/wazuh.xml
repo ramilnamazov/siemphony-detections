@@ -1,0 +1,13 @@
+<group name="sigma,windows,network_connection,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Initiated" type="pcre2">(?i)^true$</field>
+    <field name="DestinationPort" type="pcre2">(?i)(^20$|^21$|^69$|^989$|^990$)</field>
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\rundll32\.exe$|\\regsvr32\.exe$|\\certutil\.exe$|\\curl\.exe$|\\tftp\.exe$)</field>
+    <description>Detect FTP or TFTP connection from a script host or proxy binary</description>
+    <mitre>
+      <id>T1071.002</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\powershell.exe" or FolderPath endswith "\\pwsh.exe") and (ProcessCommandLine contains "-stream" or ProcessCommandLine contains "/stream" or ProcessCommandLine contains "–stream" or ProcessCommandLine contains "—stream" or ProcessCommandLine contains "―stream"))

@@ -1,0 +1,11 @@
+<group name="sigma,windows,driver_load,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Signed" type="pcre2">(?i)^false$</field>
+    <description>Unsigned kernel driver loaded</description>
+    <mitre>
+      <id>T1014</id>
+    </mitre>
+  </rule>
+</group>

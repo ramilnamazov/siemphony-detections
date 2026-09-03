@@ -1,0 +1,11 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)((\\Windows Defender\\DisableAntiSpyware|\\Windows Defender\\DisableAntiVirus|\\Windows Defender\\DisableRoutinelyTakingAction|\\Windows Defender\\Real-Time Protection\\DisableRealtimeMonitoring|\\Windows Defender\\Real-Time Protection\\DisableBehaviorMonitoring|\\Windows Defender\\Real-Time Protection\\DisableOnAccessProtection|\\Windows Defender\\Real-Time Protection\\DisableIOAVProtection|\\Windows Defender\\Real-Time Protection\\DisableScanOnRealtimeEnable|\\Windows Defender\\Spynet\\SpynetReporting|\\Windows Defender\\Spynet\\SubmitSamplesConsent|\\Windows Defender\\Reporting\\DisableEnhancedNotifications|\\Windows Defender\\Exclusions\\Paths\\|\\Windows Defender\\Exclusions\\Extensions\\|\\Windows Defender\\Exclusions\\Processes\\)|(\\Services\\WinDefend\\Start|\\Services\\WdFilter\\Start|\\Services\\WdBoot\\Start|\\Services\\WdNisSvc\\Start|\\Services\\Sense\\Start|\\Services\\SecurityHealthService\\Start|\\Services\\wscsvc\\Start|\\Services\\SysmonDrv\\Start|\\Services\\Sysmon\\Start|\\Services\\Sysmon64\\Start|\\Services\\EventLog\\Start)|\\Services\\SysmonDrv\\Parameters\\|(\\Control\\WMI\\Autologger\\EventLog-|\\Control\\WMI\\Autologger\\DefenderApiLogger|\\Control\\WMI\\Autologger\\DefenderAuditLogger|\\Control\\WMI\\Autologger\\SysmonDrv))</field>
+    <description>Security tooling disabled via registry policy or service keys</description>
+    <mitre>
+      <id>T1685</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,66 @@
+title: Packet flood tool launched with a continuous-send argument
+id: aed598e4-9696-499c-b5ed-e473bd692669
+status: experimental
+description: |
+  Matches the launch of a raw-packet generator either whose only purpose is
+  saturation traffic, or which was given an argument that requests continuous or
+  rate-driven transmission — `hping3 --flood`, `nping --rate`, `ping -f` — which
+  is the only part of AN0970 that a single event can carry. It does not detect a
+  flood, and should not be read as though it did: Sigma has no aggregation, so
+  MITRE's SyscallBurstCount and packet-rate knobs cannot be expressed at all, and
+  a match means only that a tool capable of flooding was started with flooding
+  options, never that outbound volume actually became abnormal. Coverage is
+  correspondingly weak in the other direction too — a flood driven by a compiled
+  dropper, a shell loop around a socket, or a botnet in which each host sends
+  very little produces no matching command line, so silence from this rule is no
+  evidence that the estate is not being used as a source. Written against the
+  `process_creation` category for Linux, whose `CommandLine` field is a
+  normalised join of the auditd SYSCALL and EXECVE records; a raw auditd feed
+  keeps the arguments in a separate EXECVE record and needs that mapping applied
+  before any of the argument selections can match.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0343, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1498/001
+  - https://attack.mitre.org/detectionstrategies/DET0343
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1498.001
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_dos_tool:
+    Image|endswith:
+      - '/t50'
+      - '/mz'
+      - '/mausezahn'
+      - '/slowhttptest'
+      - '/hyenae'
+  selection_packet_crafter:
+    Image|endswith:
+      - '/hping'
+      - '/hping2'
+      - '/hping3'
+      - '/nping'
+  selection_flood_arg:
+    CommandLine|contains:
+      - '--flood'
+      - '--rand-source'
+      - '--faster'
+      - '--rate '
+      - ' -i u'
+  selection_ping:
+    Image|endswith:
+      - '/ping'
+      - '/ping6'
+  selection_ping_flood_arg:
+    CommandLine|contains: ' -f '
+  condition: selection_dos_tool or (selection_packet_crafter and selection_flood_arg) or (selection_ping and selection_ping_flood_arg)
+falsepositives:
+  - "Network and platform engineers running ping -f to test link quality, path MTU or NIC throughput during a fault investigation or a hardware burn-in. This is ordinary operations work, it is the highest-volume branch of the rule by a wide margin, and nothing in the event distinguishes it from a deliberate flood."
+  - "Booked load and resilience testing, where a performance team points slowhttptest or nping at the organisation's own service. The command line is identical to an attack launched from the same host and only the schedule and the target separate them."
+  - "Authorised penetration tests and red-team engagements that include availability testing in scope, which is where hping3 --flood is most often seen legitimately."
+  - "Lab, training and CTF hosts, where these packages are installed on purpose and exercised as coursework, so every student produces matches for the duration of a course."
+level: medium

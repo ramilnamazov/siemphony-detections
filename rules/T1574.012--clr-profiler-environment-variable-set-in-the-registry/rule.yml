@@ -1,0 +1,80 @@
+title: CLR profiler environment variable set in the registry
+id: 29c9f303-2b12-46b8-8a26-19806545969a
+status: experimental
+description: |
+  Matches the registry half of AN1319: a value written to one of the CLR
+  profiling environment variables under an `Environment` key, which is how a
+  system-wide or user-wide COR_PROFILER is made persistent. Setting
+  COR_ENABLE_PROFILING to 1 and pointing COR_PROFILER at a CLSID (or, from
+  .NET Framework 4 onward, pointing COR_PROFILER_PATH straight at a DLL on
+  disk) causes the runtime to load that unmanaged DLL into every process that
+  starts the CLR, which is the hijack this technique performs. Only the
+  registry-backed scopes are visible here by definition — a process-scope
+  COR_PROFILER set in memory by the parent that spawns the target never touches
+  the registry and leaves no matching event. The value names are anchored with
+  `endswith` beneath `\Environment\`, which covers the two scopes where
+  `Environment` is a registry *key* and the COR_ name is a value beneath it:
+  the machine-wide
+  `HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment`, and the
+  per-user `Environment` key that Sysmon writes as HKU followed by the account
+  SID. The per-service scope is deliberately not covered and cannot be: under a
+  Services key, `Environment` is itself a single REG_MULTI_SZ *value* whose data
+  holds `COR_ENABLE_PROFILING=1` and friends, so `TargetObject` ends at
+  `\Environment` with no COR_ name in it at all, and Sysmon renders multi-string
+  data as binary rather than as readable text in `Details`. Catching that scope
+  needs a separate rule against the value data, not another term here. MITRE
+  names COR_ENABLE_PROFILING, COR_PROFILER and COR_PROFILER_PATH; the
+  bitness-suffixed COR_PROFILER_PATH_32/_64 forms and the CORECLR_ equivalents
+  that .NET Core and .NET 5+ read instead were added here, not taken from the
+  analytic, because a modern host runs the CoreCLR names and a rule listing
+  only the Framework ones would miss it entirely.
+  Vocabulary, scope and prerequisites. The brief maps Security EventID 4657
+  onto the Sigma `registry_set` category, but that category is Sysmon-shaped:
+  this rule is written in the Sysmon vocabulary, where `TargetObject` carries
+  the full key-plus-value path in one field. Security 4657 splits the same
+  information across `ObjectName` and `ObjectValueName`, so that feed needs a
+  field mapping before this rule can match on it and enabling Audit Registry
+  with a SACL on the Environment keys will not by itself make this rule fire.
+  The analytic's other two halves are out of reach: correlating the registry
+  write with the profiler DLL then loading into a .NET process, within MITRE's
+  `TimeWindow` knob, is a Sysmon EventID 7 record and a cross-event join, and
+  MITRE's `AllowedProfilers` and `ProfilerDllPaths` knobs would have to be
+  applied against the `Details` field, which is left unconstrained here so a
+  profiler DLL in any location is caught. Prerequisite: registry monitoring in
+  a Sysmon configuration is an explicit allowlist of paths, and the Session
+  Manager Environment key and the per-user Environment keys are not in every
+  shipped configuration, so confirm they are in scope before reading an empty
+  result as an absence of this technique.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0479, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/012
+  - https://attack.mitre.org/detectionstrategies/DET0479
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.012
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_profiler_env:
+    TargetObject|endswith:
+      - '\Environment\COR_ENABLE_PROFILING'
+      - '\Environment\COR_PROFILER'
+      - '\Environment\COR_PROFILER_PATH'
+      - '\Environment\COR_PROFILER_PATH_32'
+      - '\Environment\COR_PROFILER_PATH_64'
+      - '\Environment\CORECLR_ENABLE_PROFILING'
+      - '\Environment\CORECLR_PROFILER'
+      - '\Environment\CORECLR_PROFILER_PATH'
+      - '\Environment\CORECLR_PROFILER_PATH_32'
+      - '\Environment\CORECLR_PROFILER_PATH_64'
+  condition: selection_profiler_env
+falsepositives:
+  - "Application performance monitoring agents, which use this exact mechanism as their supported installation method and set the same values machine-wide at install time. Dynatrace OneAgent, the AppDynamics and New Relic .NET agents, the Datadog .NET tracer and Elastic APM all do this. On an estate rolling an APM agent out, this is the highest-volume source by a wide margin — one or more matches on every server in the wave — and is why the level is medium rather than high; allowlisting the agents' CLSIDs against MITRE's AllowedProfilers knob is what would justify raising it."
+  - "Developer workstations running profiling and diagnostic tools that write a user-scope profiler: Visual Studio's performance profiler, JetBrains dotTrace and dotMemory, the Application Insights Profiler and the IIS diagnostics tooling. These fire under the interactive user's own SID whenever a profiling session is configured."
+  - "Build agents running .NET code coverage, where OpenCover, altcover and the legacy Coverlet collector set CORECLR_ENABLE_PROFILING and CORECLR_PROFILER for the test run. On a shared agent this repeats on every pipeline execution."
+  - "Uninstall and repair of any of the above, which rewrites the same values to clear them. A COR_ENABLE_PROFILING set back to 0 is a normal teardown and matches this rule identically to the enabling write."
+level: medium

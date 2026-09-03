@@ -1,0 +1,89 @@
+title: Package manager spawning a shell or interpreter on Linux
+id: ed52b230-1c45-48ad-a289-dc616f4eb252
+status: experimental
+description: |
+  Matches AN0698's Linux leg: a pip, npm, poetry or gem install spawning a
+  shell or interpreter, the step MITRE describes as an install-time or
+  startup-linked payload running. The prior selector matched ParentImage
+  directly against '/pip', '/npm', '/gem' and similar — but none of those
+  tools are their own process image on Linux. pip/pip3 and poetry are Python
+  console-script entry points whose file opens with a shebang line, npm/npx
+  are JS files shebanged '#!/usr/bin/env node', and gem is a Ruby script
+  shebanged to ruby: the kernel loads the interpreter named on the shebang
+  line as the process's actual image, so ParentImage is always python3 (or
+  python), node, or ruby — never the tool name itself, regardless of how
+  well the parent link is resolved. This rule instead matches the interpreter
+  as ParentImage together with the package-manager entry point appearing in
+  ParentCommandLine, the shape a shebang re-exec actually produces, e.g.
+  `/usr/bin/python3 /usr/bin/pip3 install <pkg>` or
+  `node /usr/lib/node_modules/npm/bin/npm-cli.js install <pkg>`. conda is
+  dropped from this selector entirely: most installs wire `conda` as a bash
+  *function* sourced into the shell's rc file rather than a standalone
+  binary, so a child it "spawns" shows ParentImage=bash with nothing in
+  ParentCommandLine reliably distinguishing a conda install from any other
+  shell activity — catching that form needs a shell-history or
+  session-scoped correlation this rule does not attempt, and is out of
+  scope here rather than silently assumed to be covered.
+
+  PREREQUISITE — raw auditd is not enough. A SYSCALL execve record carries
+  the process's own `exe=`, a numeric `ppid`, and its own argv, but no parent
+  executable path or parent command line at all, so both ParentImage and
+  ParentCommandLine are unpopulated and this rule returns zero rows unless
+  the process_creation pipeline is fed by something that resolves and joins
+  the parent record for you: Auditbeat's `process.parent.executable`
+  enrichment plus a ppid-to-execve join for the parent's own argv,
+  sysmon-for-linux (whose EventID 1 emits both ParentImage and
+  ParentCommandLine directly), or an EDR normalisation layer doing the same
+  work. On unenriched auditd, zero rows here means blind, not quiet. AN0698's
+  other leg — new script files under ~/.local or ~/.cache within 5 minutes of
+  install — is a correlation across a separate auditd PATH record with no
+  filename field offered here, so only the process-spawn leg is written; the
+  Windows leg (AN0699) is the same parent/child shape already published as
+  T1195.001 and is not repeated. A postinstall hook that writes its payload
+  and defers execution to cron, a systemd unit or a detached shell breaks the
+  parent-child pair and is invisible here even with the enrichment in place.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0252, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1204/005
+  - https://attack.mitre.org/detectionstrategies/DET0252
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1204.005
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_manager_pip:
+    ParentImage|endswith:
+      - '/python3'
+      - '/python'
+    ParentCommandLine|contains:
+      - 'pip'
+      - 'poetry'
+  selection_manager_npm:
+    ParentImage|endswith: '/node'
+    ParentCommandLine|contains:
+      - 'npm'
+      - 'npx'
+  selection_manager_gem:
+    ParentImage|endswith: '/ruby'
+    ParentCommandLine|contains: 'gem'
+  selection_payload:
+    Image|endswith:
+      - '/sh'
+      - '/bash'
+      - '/dash'
+      - '/python3'
+      - '/python'
+      - '/node'
+      - '/curl'
+      - '/wget'
+      - '/perl'
+  condition: (selection_manager_pip or selection_manager_npm or selection_manager_gem) and selection_payload
+falsepositives:
+  - "Native-extension builds. Python wheels needing a source build and npm packages using node-gyp legitimately spawn sh, python3, bash, curl or wget during an ordinary pip or npm install — the curl/wget calls fetch vendored source tarballs or build dependencies — on a developer or CI host this is the loudest source and needs a toolchain allowlist to separate from a malicious postinstall hook."
+  - "PEP 517/518 build-backend invocation. pip and poetry resolving a package's build system spawn a python or python3 subprocess for every source distribution installed, which is standard behaviour and will match selection_manager_pip and selection_payload together on every such install."
+  - "gem installing a native extension, which runs extconf.rb through a spawned sh or make step during ordinary Ruby gem installation."
+level: low

@@ -1,0 +1,72 @@
+title: Recursive search for sensitive files under a shared root
+id: 373b7899-fe6f-492b-9a74-5209b73e39b4
+status: experimental
+description: |
+  Matches a find or grep execution that names a broad filesystem root and a
+  sensitive file type or credential filename in the same command line, which is
+  AN1071's "recursively enumerate user home directories, config files, or SSH
+  keys". The rule is deliberately shaped on the search step rather than on what
+  happens afterwards: MITRE's ScriptToolName knob names find, grep, tar and scp,
+  but tar and scp are dropped here because compression and transfer are already
+  covered by the archiving and exfiltration techniques, and keeping them would
+  make this a second copy of those rules instead of the collection step that
+  precedes them. locate and plocate were considered for the tool list and left
+  out because neither takes a directory argument, so they could never satisfy
+  the root gate and would be a selector that can never fire; find and grep are
+  both real ELF binaries, so the auditd exe= field names them rather than a
+  wrapper shell. Prerequisite: this needs an auditd rule arming the execve
+  syscall (for example -a always,exit -F arch=b64 -S execve), which is absent
+  from a default install on every mainstream distribution — without it the rule
+  returns nothing and the silence means the syscall is not being recorded.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0380, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1005
+  - https://attack.mitre.org/detectionstrategies/DET0380
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1005
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_search_tool:
+    Image|endswith:
+      - '/find'
+      - '/grep'
+  selection_broad_root:
+    CommandLine|contains:
+      - ' /home'
+      - ' /root'
+      - ' /srv'
+      - ' /var/www'
+      - ' /opt'
+      - ' /mnt'
+      - ' /media'
+      - ' /export'
+  selection_sensitive_target:
+    CommandLine|contains:
+      - 'id_rsa'
+      - 'id_ed25519'
+      - 'id_ecdsa'
+      - 'authorized_keys'
+      - '/.ssh'
+      - '/.aws'
+      - '/.kube'
+      - '.git-credentials'
+      - '.netrc'
+      - '.pgpass'
+      - '.kdbx'
+      - '.ovpn'
+      - '.docx'
+      - '.xlsx'
+      - '.pdf'
+      - '.sql'
+  condition: selection_search_tool and selection_broad_root and selection_sensitive_target
+falsepositives:
+  - "Storage reporting, quota enforcement and cleanup jobs that sweep every user directory for document types on a schedule — `find /home -name '*.pdf'` is the canonical form and is byte-for-byte the command an operator runs. On a file server or shared login host this is the loudest entry here by a wide margin, and MITRE's ScriptToolName knob is the wrong place to suppress it because the tool is the same; scope it on the service account and the cron window instead."
+  - "Backup and data-loss-prevention pre-scan agents that enumerate documents under /home, /srv and /var/www before each run, producing a predictable nightly burst from a small set of accounts."
+  - "Administrators auditing SSH key hygiene with `find /home -name authorized_keys` or `find /home -name id_rsa`, a standard compliance check that matches all three selections without anything unusual happening."
+  - "Developers hunting for a misplaced credential or config file in a shared checkout under /opt or /srv with a recursive grep, which matches the root and the target term with no collection intent behind it."
+level: medium

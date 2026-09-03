@@ -1,0 +1,69 @@
+title: Registry access to the Office DDE enablement keys
+id: e19a188a-b21b-4985-8ef3-67aa9f358209
+status: experimental
+description: |
+  Matches a handle request or a permission change against the per-user registry
+  keys that decide whether Word and Excel will execute a DDE or DDEAUTO field —
+  the `AllowDDE` value under
+  HKCU\Software\Microsoft\Office\<version>\Word\Security and the Excel key
+  beside it, which the technique's own description names as how DDE is turned
+  back on after Microsoft disabled it. AN1393 lists "registry keys enabling DDE"
+  alongside the process-creation leg, and the registry leg is the only one in
+  this brief that is specific to this technique: an Office document host
+  spawning cmd.exe or powershell.exe is a real DDE artefact, but nothing on
+  Sysmon EventID 1 separates a DDEAUTO field from a VBA macro, an embedded OLE
+  object or an XLL add-in, and that parent-child observable is already published
+  in this corpus under T1203 and T1204 — a third copy under this ID would
+  attribute one event to three techniques without adding evidence for any of
+  them. What this rule buys instead is the preparation step, and it pays for it
+  in coverage: a document that fronts DDE on a host where the setting is already
+  permissive produces no registry event at all, and is not seen here. The Office
+  Options branch — `DontUpdateLinks`, `DDEAllowed`, `DDECleaned` — is
+  deliberately excluded because ordinary Office use rewrites that key
+  constantly. Group-policy writes are filtered out by path, which also means an
+  administrator-level attacker who sets the value through the Policies branch is
+  filtered out with them. The rule is written in the raw Security-channel
+  vocabulary (`EventID`, `ObjectName`, `ObjectType`); Security 4657 would name
+  the value written and whether it was set to 1, but it is not among this
+  brief's log sources and splits key and value across `ObjectName` and
+  `ObjectValueName`, so that feed needs a field mapping before it could be used.
+  4656 reports the access requested, not the write that followed, so a match is
+  the question and not the answer. Prerequisite: registry object access is not
+  audited by default and is not in the MS or CIS baselines — without Audit
+  Object Access (Registry) enabled and a SACL placed on these specific keys
+  auditing Set Value and Create Subkey, this rule returns zero rows on every
+  host, which reads as quiet when it means blind. A SACL that audits reads
+  instead will match Word's own startup on every launch.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0504, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1559/002
+  - https://attack.mitre.org/detectionstrategies/DET0504
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1559.002
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_event:
+    EventID:
+      - 4656
+      - 4670
+    ObjectType: 'Key'
+  selection_office:
+    ObjectName|contains: '\Microsoft\Office\'
+  selection_dde_key:
+    ObjectName|contains:
+      - '\Word\Security'
+      - '\Excel\Security'
+  filter_policy:
+    ObjectName|contains: '\Policies\Microsoft\Office'
+  condition: selection_event and selection_office and selection_dde_key and not filter_policy
+falsepositives:
+  - "A user changing Trust Center settings in Word or Excel — macro warnings, protected view, external content or link updating — which writes the same per-user Security key that DDE enablement lives under. On a normal desktop estate this is the most frequent match, and it cannot be separated from a malicious write at this event because 4656 does not carry the value."
+  - "Endpoint hardening and compliance remediation that sets AllowDDE and the macro-warning values directly in the user hive rather than through group policy, so the Policies filter does not remove it. This runs from a small fixed set of management binaries and is allowlistable on ProcessName rather than by lowering the level."
+  - "Office installation, repair and click-to-run channel updates, which recreate the per-user Security keys for each installed application and produce a burst of handle requests on them."
+  - "Profile roaming, user-state migration and registry backup tooling, which opens the Office branch of the user hive with write access as part of a whole-hive operation and generates the event without any value ever changing."
+level: medium

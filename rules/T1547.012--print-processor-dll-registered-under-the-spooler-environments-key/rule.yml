@@ -1,0 +1,49 @@
+title: Print processor DLL registered under the spooler Environments key
+id: 4ceaf062-7bfb-4ad7-be48-303dfe6d6fd5
+status: experimental
+description: |
+  Matches a registry value write inside the print spooler's Print Processors
+  subtree, whose full shape is
+  `...\Control\Print\Environments\<architecture>\Print Processors\<name>\Driver`:
+  the adversary-chosen `<name>` is a subkey and `Driver` is the value name holding
+  the DLL that spoolsv.exe loads at boot, so a Sysmon EventID 13 record ends at
+  the value and an `endswith` stopping at `\Print Processors` would never fire. The match is split into two `contains`
+  terms rather than one anchored path because the architecture element varies
+  (`Windows x64`, `Windows NT x86`, `Windows ARM64`) and the control set is
+  either `CurrentControlSet` or `ControlSet001`; the hive prefix is left out for
+  the same reason. Writes whose data is the built-in `winprint.dll` are dropped,
+  which is MITRE's `DLLNamePattern` knob populated here with the one processor
+  every Windows install already has — the exclusion is authored, not sourced.
+  The rest of AN0074 — the payload appearing in the system print-processor
+  directory and then loading into spoolsv.exe on the next spooler restart — is a
+  correlation across three event types inside MITRE's `TimeWindow` knob and is
+  not expressible in Sigma; note also that Sysmon logs registry activity only for
+  paths its configuration allowlists, so confirm this key is included before
+  reading silence as a clean result.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0026, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/012
+  - https://attack.mitre.org/detectionstrategies/DET0026
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.012
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_environments:
+    TargetObject|contains: '\Control\Print\Environments\'
+  selection_processor:
+    TargetObject|contains: '\Print Processors\'
+  filter_builtin:
+    Details|endswith: 'winprint.dll'
+  condition: selection_environments and selection_processor and not filter_builtin
+falsepositives:
+  - "Printer driver packages from print-device vendors, which register their own print processor and write its DLL name to the Driver value during installation. This is the highest-volume match by a wide margin in any estate with managed printers, and it repeats on every driver update and on every newly imaged host."
+  - "Virtual and software printers — PDF writers, label and receipt printers, VDI and remote-desktop print redirection — that install a custom print processor as a supported feature of the product."
+  - "Print server role configuration and driver replication between servers, where the spooler rebuilds the Environments subtree for each architecture it serves and rewrites the Driver value for processors that are already present."
+  - "Golden image builds and OS servicing runs that provision the print subsystem; the winprint exclusion removes the built-in processor but not the third-party ones baked into a corporate image."
+level: medium

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((event.code == 5136 AND TO_LOWER(ObjectClass) == "user" AND TO_LOWER(AttributeLDAPDisplayName) == "sidhistory") OR (event.code == 4720 AND TO_LOWER(SidHistory) LIKE "*s-1-5-21-*") OR (event.code == 4738 AND TO_LOWER(SidHistory) LIKE "*s-1-5-21-*"))

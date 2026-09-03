@@ -1,0 +1,2 @@
+Event
+| where (((EventID == 4104 and ScriptBlockText contains "Set-ADUser") and ScriptBlockText contains "AllowReversiblePasswordEncryption") and ScriptBlockText contains "$true")

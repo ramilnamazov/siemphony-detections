@@ -1,0 +1,69 @@
+title: Script derives a cryptographic key from a machine identifier
+id: 66d66665-7a21-47d5-8d0c-657971167355
+status: experimental
+description: |
+  Environmental keying is a burst of discovery followed by a decryption whose key
+  is derived from what the discovery found, and the count-over-a-window part of
+  AN1305 has no Sigma construct, so this rule requires the two halves that do fit
+  inside a single script block — a read of a machine-identifying value and a call
+  into a cryptographic primitive that could turn that value into a key. The corpus
+  rule for the parent technique T1480 matches the conditional form of a guardrail
+  on a process command line, an identity read next to a comparison operator; this
+  one matches the cryptographic form in script text, so the two cover different
+  halves of the behaviour rather than repeating each other. The brief's PowerShell
+  log source spans EventID 4103 through 4106 and this rule is written in the 4104
+  vocabulary, gating on that EventID because ScriptBlockText exists only there —
+  4103 carries Payload and ContextInfo instead and would need a field mapping
+  before it could feed the same logic. Script Block Logging is off in a default
+  install and in the vendor and CIS baselines, so unless it has been enabled there
+  is no 4104 at all and this returns zero rows while appearing healthy. Treat a
+  match as a hunting lead, not an alert: co-occurrence of the two vocabularies in
+  one block is textually identical whether an operator is deriving a key to unlock
+  a payload or an ops script is protecting a secret with the machine's own DPAPI
+  store, and nothing else in a 4104 event separates them. The level is set to what
+  the first false positive below supports, not to the severity of the technique.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0474, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1480/001
+  - https://attack.mitre.org/detectionstrategies/DET0474
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1480.001
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_event:
+    EventID: 4104
+  selection_identity:
+    ScriptBlockText|contains:
+      - 'env:COMPUTERNAME'
+      - 'env:USERDOMAIN'
+      - 'env:USERDNSDOMAIN'
+      - 'env:LOGONSERVER'
+      - 'Win32_ComputerSystemProduct'
+      - 'Win32_BIOS'
+      - 'Win32_NetworkAdapterConfiguration'
+      - 'MachineGuid'
+      - 'GetHostByName'
+      - 'Get-ADDomain'
+  selection_crypto:
+    ScriptBlockText|contains:
+      - 'System.Security.Cryptography'
+      - 'AesManaged'
+      - 'AesCryptoServiceProvider'
+      - 'RijndaelManaged'
+      - 'CreateDecryptor'
+      - 'DeriveBytes'
+      - 'ComputeHash'
+      - 'ConvertTo-SecureString'
+  condition: selection_event and selection_identity and selection_crypto
+falsepositives:
+  - "Plain DPAPI secret handling — ConvertTo-SecureString -AsPlainText piped into ConvertFrom-SecureString with no -Key — which is the default and ubiquitous way to store a credential on a Windows host. Any such script that also logs or stamps the computer name or the domain in the same block matches, and this is the most common PowerShell idiom the rule will ever see."
+  - "Software inventory, licensing and device-enrolment scripts, which build a machine fingerprint by hashing the hardware UUID, the machine GUID or the computer name. Where such a script runs on a schedule it recurs on every host in the estate."
+  - "Configuration management and packaging frameworks that protect a secret with a machine-bound key. Desired State Configuration, installer wrappers and deployment scripts routinely call ConvertTo-SecureString or a key-derivation routine in the same script block that reads the computer name or the domain."
+  - "Backup, endpoint-protection and remote-management agents shipping PowerShell modules that checksum collected system information before uploading it, which reads as an identity value flowing into a hash."
+  - "Administrators writing an ad-hoc script that queries the hardware details and hashes the result to produce a per-host identifier for an asset register or a licence check."
+level: low

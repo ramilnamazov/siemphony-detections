@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath contains "‮" or FolderPath matches regex "(?i) \\.[A-Za-z0-9]{1,6}$")

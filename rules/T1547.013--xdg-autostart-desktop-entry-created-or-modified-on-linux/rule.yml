@@ -1,0 +1,59 @@
+title: XDG autostart desktop entry created or modified on Linux
+id: 41ad0877-ed73-4901-ba21-e1e8d4a9f730
+status: experimental
+description: |
+  Matches the file half of AN1096: an auditd PATH record naming a `.desktop`
+  file inside one of the XDG autostart directories, which is where this
+  technique plants the `Exec=` line the desktop session runs at every login.
+  Both conditions are required in one selection — the directory alone matches
+  icon caches and thumbnails a desktop environment writes beside its entries,
+  and the `.desktop` suffix alone matches every application menu entry any
+  package installs. The two directory values are the ones MITRE names,
+  /etc/xdg/autostart for system-wide entries and the per-user
+  ~/.config/autostart, and the user path is matched as a fragment because the
+  home directory differs per account; MITRE's `AutostartDirectory` knob is the
+  warning that $XDG_CONFIG_HOME can relocate that second directory entirely, in
+  which case this selection has to be extended with the actual value in use.
+  Four limits are structural. auditd records the file, never its content, so
+  MITRE's `ExecCommandPattern` knob cannot be applied here at all — a hit says
+  an autostart entry was written, not that it points anywhere suspicious. The
+  second half of the analytic, execution of that Exec path shortly after logon
+  within the `TimeWindow` knob, is a cross-event correlation and lib/sigma
+  models no timeframe and no join. The writing process's `uid` and `auid` live
+  on the SYSCALL record rather than the PATH record, so the `UserContext` knob
+  cannot narrow this to interactive users inside the selection. And auditd
+  records `name=` exactly as it was handed to the syscall, so an editor run from
+  inside the autostart directory itself logs a bare filename with no directory
+  to match on. Prerequisite: no distribution audits these paths by default, so
+  the rule returns zero rows until watches are loaded — `-w /etc/xdg/autostart
+  -p wa` and a per-user `-w /home/<user>/.config/autostart -p wa`, since a
+  home-relative path cannot be watched generically — and zero rows reads as
+  quiet when it actually means blind. The brief's linux/osquery and linux/auth
+  sources are not attempted, because neither has standardised Sigma field names.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0390, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/013
+  - https://attack.mitre.org/detectionstrategies/DET0390
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.013
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_autostart_entry:
+    type: 'PATH'
+    name|contains:
+      - '/etc/xdg/autostart/'
+      - '/.config/autostart/'
+    name|endswith: '.desktop'
+  condition: selection_autostart_entry
+falsepositives:
+  - "Package installation and upgrade. Desktop software that starts with the session ships its own entry into /etc/xdg/autostart — network and printer applets, update notifiers, keyring and input-method daemons, and vendor packages such as Dropbox, Slack, Steam and Zoom — so every apt, dnf, snap or flatpak transaction touching one of them matches. On a desktop fleet this is the highest-volume match by a wide margin and is why the level is low rather than medium."
+  - "A user ticking 'start automatically at login' in an application's own preferences. Chat, sync and VPN clients write ~/.config/autostart/<app>.desktop the moment that box is ticked, which is byte-for-byte the same operation this technique performs."
+  - "Desktop environment tooling rewriting these files as designed: GNOME's Startup Applications editor, the KDE Autostart settings module and gnome-session's own migration steps rewrite entries on upgrade, and several write through a temporary file and a rename, so one intentional change emits several PATH records."
+  - "Host and account provisioning. Configuration management (Ansible, Puppet, Salt) pushing a standard autostart entry to every workstation on a recurring run, and useradd copying /etc/skel into each new home directory, both produce matching records under root at scale."
+level: low

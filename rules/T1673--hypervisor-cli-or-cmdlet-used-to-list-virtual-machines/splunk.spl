@@ -1,0 +1,1 @@
+index=* (((Image="*\\vmrun.exe" OR Image="*\\VBoxManage.exe") AND (CommandLine="* list*" OR CommandLine="* showvminfo*")) OR ((Image="*\\powershell.exe" OR Image="*\\pwsh.exe") AND CommandLine="*Get-VM*"))

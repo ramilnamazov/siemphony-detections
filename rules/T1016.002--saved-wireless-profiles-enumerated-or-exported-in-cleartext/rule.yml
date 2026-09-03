@@ -1,0 +1,49 @@
+title: Saved wireless profiles enumerated or exported in cleartext
+id: a7735f02-c3a9-4da7-be01-47a4cdc43dd5
+status: experimental
+description: |
+  AN1280 describes two things: enumerating the wireless profiles a host has saved,
+  and pulling their pre-shared keys back out in cleartext. Both are driven from
+  the command line through netsh's wlan context, so this rule requires the wlan
+  token and one of the profile, export, network-listing or key=clear actions in
+  the same command line; the pair is what separates discovery from the wireless
+  diagnostics that share the binary. `show interfaces` and `show drivers` are
+  deliberately excluded — they report the adapter's current state, carry neither a
+  profile list nor a key, and are the first commands support staff type at any
+  connectivity complaint. The other half of the analytic, wlanAPI.dll called
+  directly from code, leaves no command line behind and is invisible here, so a
+  quiet result is not evidence that nothing enumerated the wireless profiles. The
+  logic is written in the Sysmon EventID 1 vocabulary the brief names for this
+  category; the brief's other source, the PowerShell 4103/4104 channel, needs
+  Script Block Logging enabled and a different field mapping, and if this category
+  is fed from Security 4688 instead that channel needs Audit Process Creation plus
+  the separate Include command line in process creation events policy — without
+  it CommandLine is empty and the rule cannot match at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0464, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1016/002
+  - https://attack.mitre.org/detectionstrategies/DET0464
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1016.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_wlan_context:
+    CommandLine|contains: 'wlan '
+  selection_action:
+    CommandLine|contains:
+      - 'show profile'
+      - 'show networks'
+      - 'export profile'
+      - 'key=clear'
+  condition: selection_wlan_context and selection_action
+falsepositives:
+  - "Wireless troubleshooting by helpdesk staff or by an automated diagnostic script, where netsh wlan show profiles is run to check which networks a laptop has saved before rebuilding a connection. On a mobile fleet this is the highest-volume benign match and is what the level below reflects."
+  - "Asset inventory and endpoint management agents that collect the saved SSID list from every portable machine on a schedule, to report which corporate, guest and home networks a laptop has joined."
+  - "Provisioning, imaging and onboarding scripts that call netsh wlan export profile with key=clear on a reference machine and re-import the resulting XML during a build, which uses the cleartext key by design."
+  - "Wireless site-survey and roaming diagnostics tooling that calls netsh wlan show networks mode=bssid repeatedly while an engineer measures coverage, producing a burst of matches from one host over a short period."
+level: medium

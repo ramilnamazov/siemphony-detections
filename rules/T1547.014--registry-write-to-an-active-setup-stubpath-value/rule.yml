@@ -1,0 +1,41 @@
+title: Registry write to an Active Setup StubPath value
+id: 50c3ef1c-34b9-48c8-b2bf-327d5dcb6762
+status: experimental
+description: |
+  Matches a registry_set event where the target value is StubPath beneath
+  HKLM\SOFTWARE\Microsoft\Active Setup\Installed Components — the single write
+  AN0871 needs to have happened before any of its logon-time correlation can
+  begin, since a StubPath write is what makes a component ID execute at the
+  next interactive logon at all. AN0871 also wants the subsequent process
+  execution (4672/4688) tied to the same logon session within a
+  TimeWindow, and entropy- or signature-scored on the launched binary; Sigma
+  has no cross-event join and no scoring function, so this rule keeps the
+  registry write, which is the one event both cheap to collect and specific
+  to this mechanism — no other persistence technique writes a StubPath value
+  under this exact key. Requires Sysmon with a registry rule covering the
+  Active Setup subtree, or Security auditing with Audit Registry enabled and
+  a SACL placed on the Installed Components key, neither of which a default
+  install carries.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0312, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/014
+  - https://attack.mitre.org/detectionstrategies/DET0312
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.014
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_key:
+    TargetObject|contains: '\Active Setup\Installed Components\'
+  selection_value:
+    TargetObject|endswith: '\StubPath'
+  condition: selection_key and selection_value
+falsepositives:
+  - "Software installers that legitimately register an Active Setup component to run a per-user first-launch step — Adobe Reader, Java, and enterprise deployment tools (SCCM, Intune post-install scripts) all write a StubPath entry as part of a normal install, and this is the rule's single largest source of benign hits on any managed fleet."
+  - "Citrix, VDI and terminal-server profile-provisioning tools that use Active Setup by design to re-run a per-user configuration step the first time each account logs onto a shared image, producing a StubPath write on every new profile rather than every install."
+level: medium

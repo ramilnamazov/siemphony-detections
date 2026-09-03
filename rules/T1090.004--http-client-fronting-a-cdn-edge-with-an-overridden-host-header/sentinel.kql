@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((((FolderPath endswith "/curl" or FolderPath endswith "/wget" or FolderPath endswith "/busybox") and (ProcessCommandLine contains "-H Host:" or ProcessCommandLine contains "-HHost:" or ProcessCommandLine contains "--header=Host:")) and ProcessCommandLine contains "https://") and (ProcessCommandLine contains "cloudfront.net" or ProcessCommandLine contains "azureedge.net" or ProcessCommandLine contains "fastly.net" or ProcessCommandLine contains "akamaihd.net"))

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*security\\\\policy\\\\secrets*" OR TO_LOWER(process.command_line) LIKE "*hklm\\\\security\\\\policy*" OR TO_LOWER(process.command_line) LIKE "*hklm:\\\\security\\\\policy*" OR TO_LOWER(process.command_line) LIKE "*lsadump::secrets*" OR TO_LOWER(process.command_line) LIKE "*lsadump::lsa*" OR TO_LOWER(process.command_line) LIKE "*invoke-mimikatz*")

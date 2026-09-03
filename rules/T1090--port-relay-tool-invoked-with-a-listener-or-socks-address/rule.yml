@@ -1,0 +1,59 @@
+title: Port-relay tool invoked with a listener or SOCKS address
+id: b6c49897-9d56-45ee-a096-5eaa8c8fc76e
+status: experimental
+description: |
+  Matches a socat or ncat process started with an address or flag that only
+  makes sense when the tool is bridging two connections, which is the executable
+  half of MITRE's AN1230. The analytic pairs the tool with an uncommon outbound
+  destination; the destination is a second event, so this rule keeps the part a
+  single execve record can carry and gates the tool list against a relay-shaped
+  argument rather than alerting on every invocation. MITRE's CommandLinePattern
+  knob names socat, ncat and openssl; the address keywords listed here are
+  authored from those tools' own syntax. The analytic also names ssh and
+  iptables, which are left out on purpose: their forwarding flags are single
+  letters that collide with routine administration, and a rule keyed on them
+  would be noise rather than detection. Bare nc is left out for a different
+  reason — Debian and Ubuntu route it through the alternatives system, so the
+  binary auditd records is nc.openbsd or nc.traditional and an endswith on
+  '/nc' would silently never fire. Prerequisite: auditd ships no execve rule by
+  default, so without an explicit -a always,exit -F arch=b64 -S execve there is
+  no process_creation telemetry on the host at all and this rule returns zero
+  rows regardless of what ran. CommandLine is reconstructed from the a0..aN
+  fields, and auditd hex-encodes any single argument containing whitespace;
+  the keywords here appear inside whitespace-free arguments, so they survive
+  that encoding, but a keyword added later might not.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0445, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1090
+  - https://attack.mitre.org/detectionstrategies/DET0445
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1090
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tool:
+    Image|endswith:
+      - '/socat'
+      - '/ncat'
+  selection_relay:
+    CommandLine|contains:
+      - 'TCP-LISTEN'
+      - 'TCP4-LISTEN'
+      - 'TCP6-LISTEN'
+      - 'UDP-LISTEN'
+      - 'OPENSSL-LISTEN'
+      - 'SOCKS4'
+      - 'SOCKS5'
+      - 'PROXY:'
+      - '--proxy'
+      - '--broker'
+  condition: selection_tool and selection_relay
+falsepositives:
+  - "Kubernetes port-forwarding, which has historically shelled out to socat with a TCP4-LISTEN address for every forwarded port. On a worker node this fires continuously and drowns the rule, so cluster nodes need the kubelet parent excluded before the rule is usable at all."
+  - "Container and CI tooling that uses socat as a deliberate TCP relay to reach a service inside another network namespace, for example a health check or a database tunnel in a build job. These runs look exactly like a proxy because they are one."
+  - "An administrator reaching a host through a jump box with ncat --proxy during troubleshooting, or standing up a temporary socat relay to test a firewall change. MITRE's ProcessUserContext knob is where this narrows, by restricting the rule to accounts that have no operational reason to relay traffic."
+level: medium

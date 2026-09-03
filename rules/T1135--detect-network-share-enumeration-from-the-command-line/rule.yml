@@ -1,0 +1,46 @@
+title: Detect network share enumeration from the command line
+id: 6c403e52-678d-4698-bc7d-403380607270
+status: experimental
+description: |
+  Matches command lines that enumerate SMB shares — the net view / net share
+  CLI, the PowerShell Get-SmbShare cmdlet, the Win32_Share WMI class and the
+  NetShareEnum API name — which is the opening move of AN0513. Everything that
+  makes that analytic high-fidelity is a correlation: a burst of SMB or RPC
+  connections to at least BurstHostThreshold unique destinations inside
+  TimeWindow, optionally followed by file listing. Sigma can neither count
+  distinct destinations nor join across a window, so this rule fires on the
+  single enumeration command and is levelled low to say so. Matching is done
+  entirely on CommandLine, keeping the cmd, PowerShell and WMI variants in one
+  field so every backend renders the rule as a single alternation.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0182, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1135
+  - https://attack.mitre.org/detectionstrategies/DET0182
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1135
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'net view'
+      - 'net.exe view'
+      - 'net1 view'
+      - 'net1.exe view'
+      - 'net share'
+      - 'net.exe share'
+      - 'net1 share'
+      - 'net1.exe share'
+      - 'Get-SmbShare'
+      - 'Win32_Share'
+      - 'NetShareEnum'
+  condition: selection
+falsepositives:
+  - "Logon scripts and helpdesk troubleshooting. `net view \\fileserver` before a `net use` drive mapping is ordinary administration, and MITRE's AllowedDiscoveryAccounts knob exists for the service and admin accounts that run it on a schedule — filter on User rather than on the command."
+  - "Asset-inventory, backup and configuration-management agents that call Get-SmbShare or the Win32_Share WMI class across the estate. At the single- event level these are indistinguishable from an operator enumerating shares; only the BurstHostThreshold that Sigma cannot express separates them."
+  - "Substring collisions. The rule anchors on CommandLine with no Image constraint, so any command line containing \\\"net view\\\" inside a longer token — a path or a product name ending in \\\"net\\\" followed by \\\"view\\\" — matches."
+level: low

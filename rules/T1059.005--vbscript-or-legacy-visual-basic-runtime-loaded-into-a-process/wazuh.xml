@@ -1,0 +1,11 @@
+<group name="sigma,windows,image_load,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ImageLoaded" type="pcre2">(?i)(\\vbscript\.dll$|\\msvbvm60\.dll$)</field>
+    <description>VBScript or legacy Visual Basic runtime loaded into a process</description>
+    <mitre>
+      <id>T1059.005</id>
+    </mitre>
+  </rule>
+</group>

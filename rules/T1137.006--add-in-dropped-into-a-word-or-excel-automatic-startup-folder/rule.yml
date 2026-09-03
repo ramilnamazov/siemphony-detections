@@ -1,0 +1,76 @@
+title: Add-in dropped into a Word or Excel automatic startup folder
+id: 6ec36e84-a40b-4ecc-aa7e-37f64b164579
+status: experimental
+description: |
+  Detects a loadable Office file appearing in one of the two folders whose
+  contents Word and Excel open automatically at launch, which is the file-drop
+  half of AN0137 and the part that survives without any registry write. The two
+  folders are matched as separate arms, each paired with the extensions its own
+  application loads, because a `.dotm` in XLSTART or a `.xlam` in the Word
+  STARTUP folder is inert — a path list AND-ed against one shared extension list
+  would report those crossed pairs as persistence. Excel's arm carries the macro
+  workbook types (`.xlsm`, `.xls`, `.xlsb`, `.xltm`) as well as the add-in types,
+  since XLSTART opens every workbook it contains and runs `Workbook_Open` /
+  `Auto_Open` in it; `PERSONAL.XLSB` is filtered by name rather than by dropping
+  the whole extension, because that one file is what Excel writes when a user
+  records their first macro. `.xll` is included for completeness — Excel is
+  normally pointed at an XLL through the `OPEN=` registry values or the Add-ins
+  manager rather than by finding one in XLSTART. `.ppam` is absent: PowerPoint
+  has no startup folder of this kind and registers add-ins only in the registry,
+  so a `.ppam` written to either matched folder would not load. The user AddIns
+  folder is also excluded, since a file there does nothing until it is registered
+  in the Office Options keys. `\XLSTART\` is matched unanchored because that
+  folder name is distinctive and appears in both the per-user and the Office
+  install-root copies; the Word term is anchored to `\Microsoft\Word\STARTUP\`
+  and therefore covers the per-user folder only, since the install-root
+  equivalent sits under a version-numbered `...\root\OfficeNN\STARTUP\` path that
+  cannot be written without guessing the release. Extensions here populate
+  MITRE's AddInExtension knob; the values are ours. The lock-file filter removes
+  the `~$` shadow files Office itself creates beside an open template.
+  Prerequisite: Sysmon is not present in a default install, and the widely used
+  shipped configurations trim EventID 11 down to a small extension set that does
+  not include `.wll` or `.xlam` — confirm these folders are in scope before
+  reading an empty result as clean. The analytic's other arms — the registry load
+  path and the abnormal Office child process — are separate events and are not
+  modelled here, and this rule cannot show that a dropped file ever loaded.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0050, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1137/006
+  - https://attack.mitre.org/detectionstrategies/DET0050
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1137.006
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_word_startup:
+    TargetFilename|contains: '\Microsoft\Word\STARTUP\'
+    TargetFilename|endswith:
+      - '.wll'
+      - '.dotm'
+      - '.dot'
+  selection_excel_xlstart:
+    TargetFilename|contains: '\XLSTART\'
+    TargetFilename|endswith:
+      - '.xll'
+      - '.xlam'
+      - '.xla'
+      - '.xlsm'
+      - '.xlsb'
+      - '.xls'
+      - '.xltm'
+  filter_office_lock_files:
+    TargetFilename|contains: '\~$'
+  filter_personal_macro_workbook:
+    TargetFilename|endswith: '\PERSONAL.XLSB'
+  condition: 1 of selection_* and not filter_office_lock_files and not filter_personal_macro_workbook
+falsepositives:
+  - "Add-ins deployed on purpose — a corporate reporting or compliance .xlam pushed by Group Policy or a software-distribution package, or a vendor product that installs a .wll during setup. The rule cannot tell a sanctioned add-in from a dropped one, so these are its main volume, and MITRE's TrustedPath knob is where an estate records the deployment paths and filenames it has approved."
+  - "Users installing an add-in themselves from a download or a colleague, which in finance and engineering teams is routine and lands in exactly these folders."
+  - "Profile roaming and folder sync. Office repair runs, version upgrades, roaming profiles and OneDrive Known Folder Move all re-materialise the contents of STARTUP and XLSTART, and Known Folder Move in particular produces a burst of creates per user on every first logon to a new machine with no install activity behind it."
+  - "Backup, endpoint-protection and search-indexing agents that write a temporary copy of an add-in back into the same folder while scanning or restoring it, producing a file-create event with no user action behind it."
+  - "Shared macro workbooks other than PERSONAL.XLSB. Teams that distribute a departmental .xlsm or .xltm into XLSTART so it opens for everyone will match the Excel arm on every deployment and every update."
+level: medium

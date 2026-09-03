@@ -1,0 +1,50 @@
+title: Process image or command line contains a right-to-left override character
+id: a59ae492-be61-430a-9e83-34fd6f49df45
+status: experimental
+description: |
+  AN1461 asks for execution of files whose name carries the RTLO character
+  (U+202E) to reverse the display of the true extension. That character is
+  rare enough in ordinary filenames that its literal presence in a Sysmon
+  process-creation record is a strong single-event signal by itself, so the
+  rule tests for it directly rather than trying to reconstruct which
+  substring got display-reversed. Two arms cover the two ways the character
+  reaches this event: `Image` catches the case where the RTLO-named file is
+  itself the thing that gets executed (a disguised .scr launched directly),
+  and `CommandLine` catches the case where a shell or interpreter is the
+  process actually created and the RTLO-named file is only an argument (a
+  double-clicked .js opened by wscript.exe, or an attachment path handed to
+  a mail client's viewer). MITRE's ExecutionContext knob — scoping to
+  browser downloads or mail attachments — is not applied here because Sysmon
+  process creation carries no reference to the file's origin; adding that
+  context needs a Zone.Identifier alternate-data-stream check this log
+  source cannot provide, so this rule is origin-agnostic and will fire on an
+  RTLO-named file regardless of where it came from. The Linux (AN1463) and
+  macOS (AN1462) legs of this strategy are not attempted: their log sources
+  are auditd execve and osquery/endpointsecurity/unifiedlog, none of which
+  this pipeline has a verified field vocabulary for, so a rule against them
+  would be guessing field names rather than authoring against known ones.
+  Sysmon is not present on a default Windows install and needs a
+  ProcessCreate rule in its configuration; without it this rule returns
+  nothing, which reads as quiet rather than as blind telemetry.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0527, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1036/002
+  - https://attack.mitre.org/detectionstrategies/DET0527
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1036.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+    Image|contains: "‮"
+  selection_cmdline:
+    CommandLine|contains: "‮"
+  condition: 1 of selection_*
+falsepositives:
+  - "Security-awareness training kits and RTLO-detection test suites that deliberately create and run a sample file such as 'invoice‮fdp.exe' to demonstrate the technique or to verify that detection tooling catches it; these are published and reused across many blog posts and tabletop exercises."
+  - "A right-to-left-script filename (Arabic, Hebrew, Persian, Urdu) that was authored with an explicit RTLO/PDF override pair for correct display in older, non-bidi-aware software, rather than relying on the OS's automatic bidirectional algorithm, and is then opened or run through its normal handler."
+level: high

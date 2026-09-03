@@ -1,0 +1,81 @@
+title: File written to a Linux shared-memory directory
+id: 06cb8f75-7632-47a7-885d-b3093d6d7518
+status: experimental
+description: |
+  AN0974 asks for use of /dev/shm and /run/shm to store obfuscated, encoded or
+  executable content without ever touching disk — the concrete Linux form of
+  this technique's "fileless storage" claim, since files under these paths are
+  tmpfs-backed and mapped straight to RAM. This rule matches the file-write leg
+  directly: an auditd PATH record whose name falls under one of those two
+  directories, using the raw {product: linux, service: auditd} vocabulary
+  (`type`, `name`, `key`) already established elsewhere in this corpus for
+  T1053.003, T1543.002, T1546.017 and T1547.006. MITRE's own list of fileless
+  locations also names /var/run and /var/lock, but those are excluded here on
+  purpose: unlike /dev/shm, both are the default home for ordinary PID and
+  lock files written by essentially every daemon on every Linux host, so a
+  bare path match against them would fire continuously and add nothing a
+  reviewer could act on — over-matching everything is the same silent failure
+  as under-matching nothing, just in the other direction. The `key: 'shm_write'`
+  branch is this rule's own suggested audit-key convention, not one MITRE
+  supplies, offered as a second way to catch the same event if a deployment's
+  watch uses that key. Two of MITRE's three knobs cannot be honestly populated
+  here: PayloadEntropyThreshold has no field to bind to, because a PATH record
+  carries only the filename that was touched and never the bytes written to
+  it — this is the same gap already documented against T1001.001's DNS-label
+  proxy, and there is no substitute proxy on this event either, so the rule
+  does not attempt one; and ExecCorrelationWindow asks for a time-windowed
+  join between this write and a later process execution or network connection
+  from the same file, which lib/sigma has no timeframe or aggregation
+  construct to express — auditd's own PATH/SYSCALL split means even the
+  writing process's `exe` lives on a separate record this selection does not
+  reach. The osquery leg of the same analytic, {product: linux, service:
+  osquery}, is not attempted: no rule in this corpus has an established Sigma
+  field vocabulary for that source. AN0973, the Windows registry/WMI leg of
+  this strategy, is not attempted either. Its logsource maps Security EventID
+  4657 onto Sigma's `registry_set` category, which is Sysmon-shaped —
+  `TargetObject` carrying the full key-plus-value path and `Details` carrying
+  the data — while native 4657 XML splits those into separate `ObjectName` and
+  `ObjectValueName` fields with no single field holding both; authoring
+  against `TargetObject`/`Details` here would silently assume a normalisation
+  layer the brief does not supply, the same trap AUTHORING.md's guidance on
+  Sysmon-shaped categories over Security event IDs warns against. 4657 is also
+  gated behind more than the usual missing audit policy: it requires the Audit
+  Registry subcategory to be enabled *and* a SACL placed on each individual key
+  a defender wants to watch, so unlike most "off by default" telemetry in this
+  corpus it stays silent on every key until someone enumerates and SACLs the
+  specific keys AN0973 cares about — a materially higher bar than turning on a
+  subcategory. Between a registry leg blocked on both field-mapping and a
+  heavier-than-usual audit prerequisite, and a shared-memory leg with an
+  established vocabulary and a real path to a working watch, this rule takes
+  the latter. Prerequisite: auditd records nothing under /dev/shm or /run/shm
+  by default; a watch such as `-w /dev/shm -p wa -k shm_write` is required
+  first (on most current distributions /run/shm is a symlink to /dev/shm, so
+  one watch typically covers both paths) — zero rows without it means blind,
+  not quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0344, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/011
+  - https://attack.mitre.org/detectionstrategies/DET0344
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1027.011
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_shm_paths:
+    type: 'PATH'
+    name|contains:
+      - '/dev/shm/'
+      - '/run/shm/'
+  selection_watch_key:
+    key: 'shm_write'
+  condition: 1 of selection*
+falsepositives:
+  - "PulseAudio and other desktop or container audio daemons that keep persistent shared-memory segments under /dev/shm, named with a pulse-shm- prefix, rewritten continuously during ordinary audio use."
+  - "Headless Chromium, Electron and Node.js applications, extremely common in browser-automation and CI pipelines, which map renderer shared-memory buffers into /dev/shm by default — the reason such containers are routinely launched with an enlarged --shm-size."
+  - "PostgreSQL and other database engines that use POSIX shared memory and semaphore files (sem.*, dsm_* segments) under /dev/shm for inter-process coordination during normal operation."
+  - "systemd-journald and other systemd-managed services that keep structured logging or IPC buffers under /run/shm on any systemd-managed host, active from boot on essentially every current distribution."
+level: low

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(TargetImage) LIKE "*\\\\winlogon.exe" OR TO_LOWER(TargetImage) LIKE "*\\\\explorer.exe" OR TO_LOWER(TargetImage) LIKE "*\\\\logonui.exe" OR TO_LOWER(TargetImage) LIKE "*\\\\credentialuibroker.exe" OR TO_LOWER(TargetImage) LIKE "*\\\\chrome.exe" OR TO_LOWER(TargetImage) LIKE "*\\\\msedge.exe" OR TO_LOWER(TargetImage) LIKE "*\\\\firefox.exe")

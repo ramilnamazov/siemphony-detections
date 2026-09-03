@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "\\powershell.exe" or FolderPath endswith "\\pwsh.exe") and (ProcessCommandLine contains "PromptForCredential" or ProcessCommandLine contains "Get-Credential" or ProcessCommandLine contains "Enter your password" or ProcessCommandLine contains "CredentialRequired")) and (InitiatingProcessFolderPath endswith "\\cmd.exe" or InitiatingProcessFolderPath endswith "\\wscript.exe" or InitiatingProcessFolderPath endswith "\\cscript.exe"))

@@ -1,0 +1,14 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^5145$</field>
+    <field name="ShareName" type="pcre2">(?i)(\\NETLOGON$|\\SYSVOL$)</field>
+    <field name="AccessList" type="pcre2">(?i)(%%4417|%%4418|WriteData|AppendData)</field>
+    <field name="RelativeTargetName" type="pcre2">(?i)(\.bat$|\.cmd$|\.ps1$|\.vbs$|\.vbe$|\.js$|\.jse$|\.wsf$|\.hta$|\.exe$|\.dll$)</field>
+    <description>Logon script written to the NETLOGON or SYSVOL share</description>
+    <mitre>
+      <id>T1037.003</id>
+    </mitre>
+  </rule>
+</group>

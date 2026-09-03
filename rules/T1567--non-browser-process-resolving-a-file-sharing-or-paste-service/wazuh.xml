@@ -1,0 +1,15 @@
+<group name="sigma,windows,dns_query,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="QueryName" type="pcre2">(?i)(dropbox\.com$|dropboxapi\.com$|drive\.google\.com$|www\.googleapis\.com$|oauth2\.googleapis\.com$|onedrive\.live\.com$|api\.onedrive\.com$|graph\.microsoft\.com$|sharepoint\.com$|mega\.nz$|mega\.co\.nz$|wetransfer\.com$|transfer\.sh$|file\.io$|gofile\.io$|pastebin\.com$|hastebin\.com$|paste\.ee$|api\.telegram\.org$|discord\.com$|discordapp\.com$)</field>
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\rundll32\.exe$|\\regsvr32\.exe$|\\certutil\.exe$|\\curl\.exe$|\\python\.exe$|\\pythonw\.exe$|\\rclone\.exe$|\\winword\.exe$|\\excel\.exe$|\\powerpnt\.exe$)</field>
+    <description>Non-browser process resolving a file-sharing or paste service</description>
+    <mitre>
+      <id>T1567</id>
+      <id>T1567.002</id>
+      <id>T1567.003</id>
+      <id>T1567.004</id>
+    </mitre>
+  </rule>
+</group>

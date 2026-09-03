@@ -1,0 +1,61 @@
+title: ClickOnce deployment invoked or abused via rundll32 or dfsvc
+id: a70bc0ed-2f90-44cb-a041-6f75be56bc5e
+status: experimental
+description: |
+  Covers the process_creation half of AN0550. The first leg matches the exact
+  command line every ClickOnce launch uses under the hood: rundll32.exe
+  invoking dfshim.dll's ShOpenVerbApplication export, which is how Windows
+  opens an .appref-ms or .application file whether the user double-clicked a
+  legitimate internal line-of-business tool or a malicious lookalike — the
+  command line itself cannot tell the two apart, which is exactly why MITRE's
+  KnownClickOnceApps knob exists. The second leg flags dfsvc.exe, the ClickOnce
+  host service, spawning a process type it has no legitimate reason to spawn;
+  SuspiciousChildList is MITRE's knob, populated here with general-purpose
+  interpreters and LOLBIN staples rather than the deployed application itself.
+  AN0550's other leg — dfsvc.exe loading an unsigned module, observed on Sysmon
+  EventID 7 (image_load) — is a separate event with no join available in
+  lib/sigma and is not attempted here. The brief also maps this analytic onto
+  Security 4688; this rule is written in the Sysmon process_creation vocabulary
+  (Image, ParentImage, CommandLine), so a 4688-only feed needs NewProcessName
+  mapped to Image and ParentProcessName mapped to ParentImage, plus Audit
+  Process Creation and the separate command-line auditing policy enabled, or it
+  returns nothing.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0191, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1127/002
+  - https://attack.mitre.org/detectionstrategies/DET0191
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1127.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_dfshim:
+    Image|endswith: '\rundll32.exe'
+    CommandLine|contains:
+      - 'dfshim'
+    CommandLine|contains|windash:
+      - 'ShOpenVerbApplication'
+  selection_dfsvc_child:
+    ParentImage|endswith: '\dfsvc.exe'
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+      - '\bitsadmin.exe'
+  condition: 1 of selection*
+falsepositives:
+  - "Every ordinary ClickOnce launch of a legitimately signed internal or vendor .NET application from a Start Menu shortcut, a file association, or a web page — this rundll32/dfshim/ShOpenVerbApplication command line is the normal, documented mechanism Windows uses to open .appref-ms and .application files, not an anomaly, so any actively deployed ClickOnce app will match this rule on every use until MITRE's KnownClickOnceApps allowlist is populated for the estate."
+  - "ClickOnce prerequisite installation, where dfsvc.exe legitimately shells out to msiexec.exe or a bundled setup executable to install a missing .NET runtime or dependency before the deployed application can run, which selection_dfsvc_child's certutil/bitsadmin/script-host entries do not exclude if the prerequisite package happens to invoke one of them."
+  - "Update or self-repair logic in a deployed ClickOnce application that legitimately calls cmd.exe or powershell.exe as a post-install step, which is indistinguishable at the process_creation level from a malicious payload using dfsvc.exe as a trusted parent."
+level: low

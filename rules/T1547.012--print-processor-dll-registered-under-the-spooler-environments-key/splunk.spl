@@ -1,0 +1,1 @@
+index=* ((TargetObject="*\\Control\\Print\\Environments\\*" AND TargetObject="*\\Print Processors\\*") AND NOT (Details="*winprint.dll"))

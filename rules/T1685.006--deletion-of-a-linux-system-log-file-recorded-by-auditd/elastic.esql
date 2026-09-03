@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "path" AND TO_LOWER(nametype) == "delete" AND (TO_LOWER(name) LIKE "*/var/log/messages*" OR TO_LOWER(name) LIKE "*/var/log/secure*" OR TO_LOWER(name) LIKE "*/var/log/auth.log*" OR TO_LOWER(name) LIKE "*/var/log/utmp*" OR TO_LOWER(name) LIKE "*/var/log/wtmp*" OR TO_LOWER(name) LIKE "*/var/log/kern.log*" OR TO_LOWER(name) LIKE "*/var/log/cron.log*" OR TO_LOWER(name) LIKE "*/var/log/maillog*" OR TO_LOWER(name) LIKE "*/var/log/httpd/*")) OR TO_LOWER(key) == "log_tamper")

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*trap *" AND (TO_LOWER(process.command_line) LIKE "*.bashrc*" OR TO_LOWER(process.command_line) LIKE "*.bash_profile*" OR TO_LOWER(process.command_line) LIKE "*.bash_login*" OR TO_LOWER(process.command_line) LIKE "*.profile*" OR TO_LOWER(process.command_line) LIKE "*.zshrc*" OR TO_LOWER(process.command_line) LIKE "*.zprofile*" OR TO_LOWER(process.command_line) LIKE "*.zlogin*" OR TO_LOWER(process.command_line) LIKE "*/etc/profile*" OR TO_LOWER(process.command_line) LIKE "*/etc/bash.bashrc*"))

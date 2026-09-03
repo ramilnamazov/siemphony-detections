@@ -1,0 +1,1 @@
+index=* ((type="PATH" AND (name="*/etc/systemd/system/*" OR name="*/run/systemd/system/*" OR name="*/lib/systemd/system/*")) OR (type="PATH" AND (name="*/etc/systemd/user/*" OR name="*/run/systemd/user/*" OR name="*/lib/systemd/user/*" OR name="*/.config/systemd/user/*" OR name="*/.local/share/systemd/user/*")) OR (type="PATH" AND name="*.service") OR key="*systemd*")

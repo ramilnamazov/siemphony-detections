@@ -1,0 +1,64 @@
+title: Python interpreter spawned by a document or script host
+id: 1995db3a-f5c0-4627-a564-aecece69fcdc
+status: experimental
+description: |
+  Matches a Python interpreter process whose parent is an Office application,
+  a script host or a signed-binary proxy, which is the lineage half of AN0172.
+  Python itself is unremarkable on a Windows estate, so the parent list is the
+  entire detection: it populates MITRE's ParentProcess knob, and the twelve
+  parents named are authored here rather than taken from MITRE, which names
+  only winword.exe and mshta.exe as examples. py.exe and pyw.exe are in the
+  child list on purpose — the launcher execs python.exe as its own child, so
+  in a Word-to-py.exe-to-python.exe chain only the py.exe event still carries
+  winword.exe as ParentImage and a list of python.exe alone would miss it.
+  Known gap in the child list: endswith cannot see version-suffixed
+  interpreters such as python3.12.exe or the embedded runtimes some vendors
+  ship under their own product name, so a payload launched through one of
+  those is invisible here. MITRE's ScriptPath knob (a .py under a temp or
+  profile directory) is not used, because on Sysmon EventID 1 the script path
+  sits in CommandLine only when it was passed as an argument, and requiring
+  that would drop the -c one-liner form entirely. The rule is written in the
+  Sysmon EventID 1 vocabulary the brief names; if Security 4688 feeds this
+  category instead, ParentProcessName is the field name there and Audit
+  Process Creation must be enabled first.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0063, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1059/006
+  - https://attack.mitre.org/detectionstrategies/DET0063
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1059.006
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_python:
+    Image|endswith:
+      - '\python.exe'
+      - '\pythonw.exe'
+      - '\python3.exe'
+      - '\py.exe'
+      - '\pyw.exe'
+  selection_parent:
+    ParentImage|endswith:
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\powerpnt.exe'
+      - '\outlook.exe'
+      - '\msaccess.exe'
+      - '\visio.exe'
+      - '\mshta.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\regsvr32.exe'
+      - '\rundll32.exe'
+      - '\wmiprvse.exe'
+  condition: selection_python and selection_parent
+falsepositives:
+  - "Excel automation add-ins that embed Python by design — xlwings, PyXLL, the Anaconda and Bloomberg Excel integrations — where excel.exe launching python.exe is the product working correctly; on a finance or research workstation with one of these installed this is the highest-volume match by a wide margin and repeats on every recalculation."
+  - "Word, Outlook and Access add-ins from reporting and RPA vendors that shell out to a bundled Python runtime to render a document, parse an attachment or drive a data refresh."
+  - "Endpoint management and inventory that executes scripts over WMI or WinRM, which makes wmiprvse.exe the parent of a vendor-bundled python.exe on a schedule across the whole estate."
+  - "Legacy in-house automation kept in .vbs or .js wrappers under wscript.exe or cscript.exe that call a Python helper, common where a team migrated its scripts piecemeal."
+level: medium

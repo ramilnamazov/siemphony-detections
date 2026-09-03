@@ -1,0 +1,62 @@
+title: Signed diagnostic script sourced to proxy code execution
+id: 0e2e8697-67c7-4402-aa77-f72531eef095
+status: experimental
+description: |
+  The Windows troubleshooting packs under C:\Windows\diagnostics\ ship a set of
+  signed helper scripts whose exported functions run an arbitrary command,
+  register an arbitrary DLL or load an arbitrary assembly — CL_Invocation.ps1
+  exposes SyncInvoke, CL_LoadAssembly.ps1 exposes LoadAssemblyFromPath and
+  LoadAssemblyFromNS, CL_Mutexverifiers.ps1 exposes runAfterCancelProcess, and
+  UtilityFunctions.ps1 exposes RegSnapin. Dot-sourcing one of them and calling
+  its function is the class of signed-script proxy execution this parent
+  technique covers, and Script Block Logging is the only source in the brief
+  that shows it, because the dot-source and the call both land in the text of a
+  4104 event while nothing distinguishable appears in process creation — the
+  payload runs inside the powershell.exe that sourced the file. Two selections
+  are ORed rather than ANDed on purpose: 4104 logs the *content* of a
+  dot-sourced file, so sourcing it matches the filename leg even before the
+  function is called, and a script that pastes the function body inline matches
+  the function leg without naming a file. AN1288 also names pubprn.vbs and, by
+  implication, SyncAppvPublishingServer.vbs; both are deliberately left alone
+  here because they are T1216.001 and T1216.002 and each has its own brief. The
+  installutil.exe the same analytic lists is T1218.004, a different technique,
+  and bare cscript.exe or wscript.exe execution is T1059.005/T1059.007, so
+  neither is treated as a T1216 observable. Prerequisite: PowerShell EventID
+  4104 requires Script Block Logging, which is off in a default install and in
+  both the Microsoft and CIS baselines — without it this rule returns zero rows,
+  and zero rows reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0466, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1216
+  - https://attack.mitre.org/detectionstrategies/DET0466
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1216
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_event:
+    EventID: 4104
+  selection_script:
+    ScriptBlockText|contains:
+      - 'CL_Invocation.ps1'
+      - 'CL_LoadAssembly.ps1'
+      - 'CL_Mutexverifiers.ps1'
+      - 'UtilityFunctions.ps1'
+  selection_function:
+    ScriptBlockText|contains:
+      - 'SyncInvoke'
+      - 'LoadAssemblyFromPath'
+      - 'LoadAssemblyFromNS'
+      - 'runAfterCancelProcess'
+      - 'RegSnapin'
+  condition: selection_event and (selection_script or selection_function)
+falsepositives:
+  - "The Windows troubleshooting packs themselves. Running the network, audio, printer, power or Windows Update troubleshooter causes the diagnostic package to dot-source these exact files, so their full script text is written to 4104 verbatim and matches both selections at once. On a user estate this is the highest-volume source by a wide margin, it is user-initiated so it cannot be scheduled around, and it is why the level is medium rather than high."
+  - "Help-desk and remediation tooling that invokes a built-in troubleshooter non-interactively, for example an RMM job or a self-service portal action that calls Get-TroubleshootingPack and Invoke-TroubleshootingPack to fix printing or networking, producing the same script blocks under a service account."
+  - "Third-party scripts carrying a helper file of their own called UtilityFunctions.ps1, which is a common enough name for a module of shared functions that an unrelated build script, installer or internal module matches selection_script on its dot-source line with no connection to the signed Microsoft copy."
+  - "Detection-validation and training material. Atomic Red Team's T1216 tests and LOLBAS demonstration scripts dot-source CL_Invocation.ps1 and call SyncInvoke precisely because that is the behaviour being exercised, so every validation run on every test host matches."
+level: medium

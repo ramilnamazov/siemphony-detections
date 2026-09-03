@@ -1,0 +1,87 @@
+title: Script host or LOLBin connecting outbound to a proxy port
+id: 179f7391-1355-437a-8d66-7f22fda8285b
+status: experimental
+description: |
+  Matches the network leg of MITRE's AN0922: one of the script hosts or signed
+  LOLBins the analytic names opening an outbound socket to a port that only a
+  relay, SOCKS listener or forward proxy normally answers on, with destinations
+  inside RFC1918 and link-local space subtracted. That subtraction is what makes
+  this External Proxy and not T1090.001 Internal Proxy, and the log source is
+  what keeps it distinct from the published T1090 rule, which matches Linux
+  execve records for socat and ncat command lines; the address filter is a coarse
+  stand-in for MITRE's DestinationASN knob, and an estate that routes public
+  address space internally will need it replaced with its own ranges. The process
+  list is restricted to binaries that perform their own HTTP in process, because
+  Sysmon EventID 3 names the owner of the socket rather than the tool that was
+  typed — bitsadmin.exe is absent because the BITS service in svchost.exe does
+  the transfer, and scp.exe and sftp.exe are absent because ssh.exe owns the
+  connection, so all three would be selectors that can never fire. Where the
+  estate configures an explicit web proxy, every one of these requests terminates
+  on that internal proxy instead of on the real destination and is removed by the
+  private-address filter, so on such a fleet the rule is blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0325, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1090/002
+  - https://attack.mitre.org/detectionstrategies/DET0325
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1090.002
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection_lolbin:
+    Image|endswith:
+      - '\rundll32.exe'
+      - '\mshta.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+  selection_proxy_port:
+    Initiated: 'true'
+    DestinationPort:
+      - 1080
+      - 3128
+      - 4444
+      - 8080
+      - 8081
+      - 8888
+      - 9001
+      - 9050
+      - 9051
+      - 9150
+  filter_internal_destination:
+    DestinationIp|startswith:
+      - '10.'
+      - '127.'
+      - '169.254.'
+      - '172.16.'
+      - '172.17.'
+      - '172.18.'
+      - '172.19.'
+      - '172.20.'
+      - '172.21.'
+      - '172.22.'
+      - '172.23.'
+      - '172.24.'
+      - '172.25.'
+      - '172.26.'
+      - '172.27.'
+      - '172.28.'
+      - '172.29.'
+      - '172.30.'
+      - '172.31.'
+      - '192.168.'
+      - 'fd'
+      - 'fe80:'
+      - '::1'
+  condition: selection_lolbin and selection_proxy_port and not filter_internal_destination
+falsepositives:
+  - "An externally hosted web gateway or cloud filtering service published on 3128 or 8080. Where the estate uses one, every scripted or LOLBin-hosted request reaches it on a public address and matches, which makes it the rule's dominant volume and the reason the level is medium rather than high."
+  - "Vendor installers, patching agents and management tooling that hand a download to certutil.exe or to a rundll32-hosted component against a distribution endpoint published on 8080 or 8081."
+  - "Developer, QA and monitoring scripts run under wscript.exe or cscript.exe that call an external partner API, staging service or test endpoint on a non-standard port."
+  - "Privacy and threat-research tooling on analyst workstations that routes traffic through an external anonymising relay on 9050 or 9150, which is the same shape as the behaviour being hunted."
+level: medium

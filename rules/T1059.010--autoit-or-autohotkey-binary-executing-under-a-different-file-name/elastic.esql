@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.pe.original_file_name) == "autoit3.exe" OR TO_LOWER(process.pe.original_file_name) == "autoit.exe" OR TO_LOWER(process.pe.original_file_name) == "autohotkey.exe" OR TO_LOWER(process.pe.original_file_name) == "autohotkeyu32.exe" OR TO_LOWER(process.pe.original_file_name) == "autohotkeyu64.exe" OR TO_LOWER(process.pe.original_file_name) == "autohotkeya32.exe")

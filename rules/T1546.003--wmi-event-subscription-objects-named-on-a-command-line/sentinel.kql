@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "__EventFilter" or ProcessCommandLine contains "__FilterToConsumerBinding" or ProcessCommandLine contains "EventConsumer" or ProcessCommandLine contains "Register-WmiEvent" or ProcessCommandLine contains "Register-CimIndicationEvent" or ProcessCommandLine contains "root\\subscription" or ProcessCommandLine contains "root/subscription" or ProcessCommandLine contains "mofcomp")

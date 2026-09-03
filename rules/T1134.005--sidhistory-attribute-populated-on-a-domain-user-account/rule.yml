@@ -1,0 +1,63 @@
+title: sIDHistory attribute populated on a domain user account
+id: c783ce3d-0720-4505-880b-5905b38c378b
+status: experimental
+description: |
+  AN0383 is a four-stage chain — an API call to DsAddSidHistory, the resulting
+  directory attribute change, a logon whose token carries the injected SID, and
+  follow-on resource access — and only the second stage has a log source in the
+  brief. This rule implements that stage three ways, one per log source given.
+  The first arm matches Security 5136 (a directory object was modified) narrowed
+  to ObjectClass 'user' and AttributeLDAPDisplayName 'sIDHistory': any event
+  meeting both is itself the attribute being written, so no further value check
+  is needed. The second and third arms match 4720 (user account created) and
+  4738 (user account changed), both of which carry their own SidHistory field
+  populated with the SID(s) added; that field is empty ('-') on the overwhelming
+  majority of 4720/4738 events raised for unrelated changes, so the arm requires
+  it to contain 'S-1-5-21-', the prefix of every domain SID, to separate a real
+  population from the placeholder. The API-call stage (DsAddSidHistory / Mimikatz
+  Kerberos::references) has no log source in the brief and is not attempted. The
+  logon and resource-access stages are absent for the same reason 4624 was left
+  out here: no logsource in the brief carries "this token includes SID-History",
+  and the correlation between the attribute write and the following logon —
+  MITRE's TimeWindow knob, 15-30 minutes — is a cross-event join lib/sigma
+  cannot express, so a match here is evidence the attribute was written, not
+  that the SID was ever exercised. The PrivilegedSIDList and
+  AnomalousSIDCountThreshold knobs (flag only Enterprise/Domain Admin SIDs, or
+  more than two entries) both need to parse and count individual SIDs out of a
+  multivalued field, which none of contains/startswith/endswith/re/all can do;
+  the rule matches on the attribute being touched at all, not on which SID or
+  how many landed in it. Prerequisite: 5136 needs the *Audit Directory Service
+  Changes* subcategory enabled on domain controllers plus an auditing SACL
+  covering the attribute — neither is on by default; 4720/4738 come from
+  *Audit User Account Management*, which the Microsoft and CIS domain-controller
+  baselines do enable, but a hardened or non-baseline DC may still have it off.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0136 (AN0383), not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1134/005
+  - https://attack.mitre.org/detectionstrategies/DET0136
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1134.005
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_directory_attribute:
+    EventID: 5136
+    ObjectClass: 'user'
+    AttributeLDAPDisplayName: 'sIDHistory'
+  selection_account_created:
+    EventID: 4720
+    SidHistory|contains: 'S-1-5-21-'
+  selection_account_changed:
+    EventID: 4738
+    SidHistory|contains: 'S-1-5-21-'
+  condition: 1 of selection_*
+falsepositives:
+  - "ADMT (Active Directory Migration Tool) or an equivalent domain/forest migration or restructuring project, which populates sIDHistory by design so migrated accounts keep access to resources under their old SID — this is exactly the scenario MITRE's AllowedSIDHistoryChanges knob exists to allowlist by migration window or service account."
+  - "Trust and consolidation projects run by third-party identity tooling (Quest Migration Manager, BinaryTree and similar) that write SID history in bulk during a cutover, producing a burst of 4738/5136 events under one migration service account over a short window."
+  - "A domain controller restore or bulk account import from a backup or provisioning system that recreates historical SID-History values as part of restoring account state, rather than injecting a new one."
+level: medium

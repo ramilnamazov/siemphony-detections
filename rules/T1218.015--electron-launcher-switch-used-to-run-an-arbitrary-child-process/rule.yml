@@ -1,0 +1,44 @@
+title: Electron launcher switch used to run an arbitrary child process
+id: e82828ff-98bb-4fab-ba7b-227b759d1ba3
+status: experimental
+description: |
+  AN0071's command-line leg taken on its own. Electron and the Chromium engine
+  underneath it accept several switches whose value is executed as a program,
+  so the switch is the detection and no inventory of Electron applications is
+  needed — an app that never made it into MITRE's AllowedElectronApps baseline
+  is caught the same way a known one is. The first term is the --gpu-launcher
+  form from ATT&CK's own example on this technique page; the other three are
+  the closely related renderer, utility and subprocess-path variants and are
+  authored here, not drawn from the brief. The rest of AN0071 — .asar
+  tampering, module loads and the callout that follows — spans four further log
+  sources correlated over MITRE's TimeWindow knob, which Sigma cannot express,
+  so this rule stands on the launch argument alone and says nothing about what
+  the child then did. It needs a process-creation source that records the full
+  command line: Sysmon EventID 1 does so natively, Security 4688 only with
+  Audit Process Creation plus the separate Include command line in process
+  creation events policy, and neither is enabled by default.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0025, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/015
+  - https://attack.mitre.org/detectionstrategies/DET0025
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.015
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - '--gpu-launcher='
+      - '--renderer-cmd-prefix='
+      - '--utility-cmd-prefix='
+      - '--browser-subprocess-path='
+  condition: selection
+falsepositives:
+  - "Chromium and Electron developers debugging locally. The renderer and utility cmd-prefix switches are the documented way to attach a debugger or a profiler to a child process, so they are routine on engineering workstations and should be near-absent everywhere else — scope this rule away from build machines rather than tuning the terms."
+  - "Packaged applications that embed their own Chromium and legitimately point browser-subprocess-path at a helper binary they ship. This is the noisiest of the four terms and the first to drop if the estate runs such an application."
+  - "Automated UI test harnesses and crash-reporting wrappers that launch a browser through a prefix command as a normal part of a QA or release pipeline."
+level: high

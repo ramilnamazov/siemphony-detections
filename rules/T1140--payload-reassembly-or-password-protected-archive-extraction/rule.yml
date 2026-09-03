@@ -1,0 +1,64 @@
+title: Payload reassembly or password-protected archive extraction
+id: 3d94e8c7-3a23-42f9-9601-823eb5512a7e
+status: experimental
+description: |
+  Matches three Windows utilities being used to turn staged content back into a
+  usable payload, which is the part of AN0767 not already held elsewhere in
+  this corpus: cmd.exe concatenating fragments with `copy /b`, expand.exe
+  pulling a named member out of a cabinet with `-F:`, and an archiver handed a
+  password on the command line with `-p`. The certutil `-decode` and PowerShell
+  `FromBase64String` shapes the analytic lists first are deliberately absent —
+  the T1027.013 rule already selects on exactly those two, and a second copy
+  would add alerts without adding coverage. The `copy /b` leg has a structural
+  limit worth knowing before relying on it: `copy` is a cmd built-in rather
+  than a binary, so it produces a process-creation event only when cmd.exe is
+  started with the command already on its command line, as a dropper or a
+  one-liner does; the same command typed into a console that is already
+  running, or reached from inside a .bat file, creates no process and is
+  invisible here. The `type` command MITRE mentions alongside it is not
+  selectable at all, because the word is far too common in command lines to
+  gate on. The utility and archiver lists populate MITRE's `ToolName` and
+  `FileExtensionFilter` knobs and are authored here, not taken from MITRE; the
+  `TimeWindow` knob that would tie the decode to the download preceding it
+  needs a cross-event join lib/sigma does not model, and the analytic's other
+  two log sources, Sysmon EventID 11 and EventID 10, carry no command line for
+  any of this to be read from. Only the Windows analytic is covered — the Linux
+  and macOS analytics in this strategy are separate log sources and would need
+  their own rules. This rule is written in the Sysmon EventID 1
+  process_creation vocabulary (`Image`, `CommandLine`), and Sysmon is not
+  present in a default install, so with no agent deployed the rule returns zero
+  rows, which reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0275, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1140
+  - https://attack.mitre.org/detectionstrategies/DET0275
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1140
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_concat:
+    Image|endswith: '\cmd.exe'
+    CommandLine|contains: 'copy /b'
+  selection_expand:
+    Image|endswith: '\expand.exe'
+    CommandLine|contains|windash: '-f:'
+  selection_archive_password:
+    Image|endswith:
+      - '\7z.exe'
+      - '\7za.exe'
+      - '\rar.exe'
+      - '\unrar.exe'
+      - '\winrar.exe'
+    CommandLine|contains: ' -p'
+  condition: 1 of selection_*
+falsepositives:
+  - "Driver and update servicing, which is where expand with -F: is normally typed. Extracting a single .inf, .sys or .dll from a Windows Update or vendor driver cabinet is routine work on imaging, build and helpdesk hosts, and on those machines it is the loudest source of matches by a wide margin."
+  - "Backup, diagnostics and vendor support tooling that unpacks a password-protected archive non-interactively and therefore has to pass the password with -p so the job does not block on a prompt. Encrypted backup sets and support log bundles are both handled this way on a schedule."
+  - "Build and packaging scripts that concatenate files with copy /b — joining cabinet parts, appending a payload to a self-extracting stub, or assembling a firmware image — which is the documented purpose of the flag and long predates its adoption by adversaries."
+  - "Helpdesk and end-user extraction of a password-protected archive received by mail or from a supplier portal, when it is done from a command line or a script rather than through the archiver's own window."
+level: medium

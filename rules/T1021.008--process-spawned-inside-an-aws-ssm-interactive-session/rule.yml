@@ -1,0 +1,35 @@
+title: Process spawned inside an AWS SSM interactive session
+id: 3a5fbce5-c9c9-4539-a2d7-21c56e000e32
+status: experimental
+description: |
+  Matches a process created with ssm-session-worker.exe as its parent — the
+  AWS Systems Manager Agent's per-session worker, spawned only for an
+  interactive Session Manager connection and not for Run Command document
+  execution. AN0594 names three cloud-native console methods; the other two,
+  Azure Serial Console and EC2 Instance Connect, leave no artifact in the
+  single Windows process_creation logsource this brief offers, so only the SSM
+  path is written. The shell or command that follows is the "command execution
+  on the VM" half of the analytic; the login/auth half and the region/tag
+  context in MITRE's knobs live in the cloud control plane, not the guest OS,
+  so they are not attempted here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0211, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1021/008
+  - https://attack.mitre.org/detectionstrategies/DET0211
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1021.008
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    ParentImage|endswith: '\ssm-session-worker.exe'
+  condition: selection
+falsepositives:
+  - "Sanctioned administrative access. Many AWS estates standardise on SSM Session Manager specifically to avoid opening RDP or SSH, so this event is the normal shape of legitimate interactive administration on any account where that policy is in force."
+  - "Automated patching, backup or maintenance runbooks that open an SSM session, including port-forwarding sessions, to run scheduled scripts — appearing as this same parent/child pair at a predictable time and from a service identity."
+  - "Break-glass emergency access used precisely because it needs no open SSH or RDP port after a bastion outage or credential rotation, indistinguishable here from unauthorized use since this event carries no IAM principal."
+level: low

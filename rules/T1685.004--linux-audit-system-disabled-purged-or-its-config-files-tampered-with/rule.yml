@@ -1,0 +1,142 @@
+title: Linux Audit system disabled, purged or its config files tampered with
+id: 96f32db9-8406-4a95-be55-a0e14b0b006c
+status: experimental
+description: |
+  AN0171 names three mechanisms — killing the auditd process, stopping it as a
+  service, and editing/deleting its rule and config files — plus the
+  `auditctl` command line the technique's own description calls out as one of
+  "two primary ways to configure the log generation rules". This rule
+  covers all four as single-event auditd EXECVE or PATH records on the same
+  `product: linux, service: auditd` logsource the brief maps every
+  non-syslog log source in AN0171 onto; the correlation AN0171 also asks for —
+  suspicious commands, file writes and a resulting gap in audit logging inside
+  its `TimeWindow` knob — is not expressible in lib/sigma and is not
+  attempted.
+  The first group matches `auditctl -D` (delete all loaded rules) or
+  `auditctl -e 0` (turn auditing off at runtime) — the two invocations that
+  neutralise the running ruleset without touching a file. Both are pinned to
+  the flag appearing first (a1, with `0` at a2 for the second form), which is
+  how these commands are documented and almost always run; a build with
+  another option ahead of `-D` or `-e` — `auditctl -q -D`, say — is missed by
+  this selection. The second and third groups are two fixed-order selections
+  rather than one selection OR-ing the verb and the target across several
+  argument positions: `systemctl stop|disable|mask auditd` (verb at a1, target
+  at a2) and `service auditd stop|disable|mask` (target at a1, verb at a2),
+  which is the documented argument order for each command and covers the
+  ordinary invocation of both. On most current distributions the auditd unit
+  ships `RefuseManualStop=yes`, so a `systemctl stop auditd` from a shell is
+  refused by systemd at the unit level — but the execve of `systemctl stop
+  auditd` still happens and still lands in this selection, which is why the
+  attempt is matched rather than an assumption that it succeeded. Flags ahead
+  of the verb, `systemctl --user stop auditd` for instance, shift the target
+  out of a2 and are missed, the same positional trade-off made for the
+  auditctl group and made everywhere else in this rule: each cross-field OR
+  that the Sigma logic could otherwise use to absorb argument-order variance
+  costs the Wazuh translator a multiplying number of expanded `<rule>` blocks,
+  and this rule is written to stay under that ceiling rather than refuse
+  Wazuh outright, at the cost of the flagged and reordered forms of every
+  command it matches. The fourth group matches `pkill auditd` and
+  `killall auditd`, the two invocations that reference the daemon by name at
+  a1; `pkill -9 auditd`, with the target pushed to a2, is missed for the same
+  reason. A bare `kill -9 <pid>` cannot be matched at all, because the EXECVE
+  record's arguments carry only the numeric pid and nothing ties that number
+  back to auditd without a live process table this rule has no access to —
+  the second log source in the brief ("kill syscalls targeting auditd
+  process") describes exactly this case and is the reason it is listed as a
+  log source MITRE named but this rule cannot cover. The fifth group matches
+  PATH records naming `/etc/audit/audit.rules`,
+  `/etc/audit/audit.conf`, or the `/etc/audit/rules.d/` drop-in directory that
+  `augenrules` compiles into audit.rules on RHEL-family systems; the
+  drop-in directory is an addition beyond the two files MITRE's
+  `FilePathScope` knob names explicitly, added here because it is the only
+  place these rules actually live on any system using augenrules. As with
+  other PATH-based rules in this corpus, auditd records `name=` exactly as
+  handed to the syscall, so an edit made from inside `/etc/audit/` logs a bare
+  filename with the directory only on a CWD record Sigma cannot join, and a
+  relative-path edit from that working directory is missed by this selection.
+  There is a sharper version of the usual blind-prerequisite problem here:
+  this technique's entire premise is removing the very rules that would
+  detect it, so a `-D` that succeeds deletes the exec-watch rule this
+  detection depends on along with everything else — the kernel evaluates
+  rules at syscall entry, so the `auditctl -D` invocation itself should still
+  be logged before its own deletion takes effect, but nothing after it will
+  be, and MITRE's correlation-based observation of "a gap in audit logs
+  following privileged execution" is precisely the signal this rule cannot
+  produce. As with every other auditd-sourced rule in this corpus, none of
+  these watches exist by default; execve is not audited without
+  `-a always,exit -F arch=b64 -S execve -k exec` (plus its b32 twin), and the
+  file group returns nothing until `/etc/audit/audit.rules` and
+  `/etc/audit/audit.conf` are separately watched with `-p wa`. A watch on
+  `/etc/audit/` does not extend to the `/etc/audit/rules.d/` leg above:
+  `auditctl -w` directory watches are documented as non-recursive — they cover
+  only the entries directly inside the watched directory, not files inside a
+  subdirectory of it — so `/etc/audit/rules.d/` needs its own
+  `-w /etc/audit/rules.d/ -p wa` watch or that leg never fires no matter how
+  the parent directory is configured. Zero rows from any group reads as quiet
+  when it means blind, and here specifically it can mean the attack already
+  succeeded. The fourth log source in AN0171 —
+  `linux:syslog::auditd service stopped or disabled` — is a different
+  logsource block (`product: linux, service: syslog`) and is not attempted
+  here; a rule copying that logsource verbatim would need its own selectors
+  in syslog's field vocabulary and is out of scope for this file.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0062, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1685/004
+  - https://attack.mitre.org/detectionstrategies/DET0062
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1685.004
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_auditctl_exec:
+    type: 'EXECVE'
+    a0|endswith: 'auditctl'
+  selection_auditctl_delete_flag:
+    a1: '-D'
+  selection_auditctl_disable_flag:
+    a1: '-e'
+    a2: '0'
+  selection_systemctl_stop:
+    type: 'EXECVE'
+    a0|endswith: 'systemctl'
+    a1|contains:
+      - 'stop'
+      - 'disable'
+      - 'mask'
+    a2|contains: 'auditd'
+  selection_service_stop:
+    type: 'EXECVE'
+    a0|endswith: 'service'
+    a1|contains: 'auditd'
+    a2|contains:
+      - 'stop'
+      - 'disable'
+      - 'mask'
+  selection_kill_direct:
+    type: 'EXECVE'
+    a0|endswith:
+      - 'pkill'
+      - 'killall'
+    a1|contains: 'auditd'
+  selection_file_tamper:
+    type: 'PATH'
+    name|contains:
+      - '/etc/audit/audit.rules'
+      - '/etc/audit/audit.conf'
+      - '/etc/audit/rules.d/'
+  condition: >
+    (selection_auditctl_exec and (selection_auditctl_delete_flag or selection_auditctl_disable_flag))
+    or selection_systemctl_stop
+    or selection_service_stop
+    or selection_kill_direct
+    or selection_file_tamper
+falsepositives:
+  - "augenrules --load, which every RHEL-family auditd service start or restart runs as its rule-loading step, and which begins by issuing auditctl -D to clear the running ruleset before reapplying the compiled rules.d contents — this makes the auditctl -D leg the loudest match by a wide margin on any host that boots normally or has its rules refreshed, and is why the level here is low rather than medium."
+  - "Configuration management convergence (Ansible, Puppet, Chef, Salt) applying an audit policy module, which typically rewrites /etc/audit/rules.d/*.rules or /etc/audit/audit.rules and then restarts or reloads the service to apply it, producing both a file-tamper and a service-stop match on every managed host on every run."
+  - "The audit package's own postinst/postrm scripts during an apt or dnf upgrade of the audit or audit-libs package, which stop and restart the auditd service and may rewrite audit.conf to a new packaged default as part of the upgrade."
+  - "An administrator temporarily disabling auditing with auditctl -e 0 to rule out audit overhead while diagnosing a performance issue, then re-enabling it — a legitimate, if risky, troubleshooting step that is indistinguishable from the technique on command evidence alone."
+level: low

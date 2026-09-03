@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(registry.path) LIKE "*\\\\image file execution options\\\\*" AND TO_LOWER(registry.path) LIKE "*\\\\debugger")

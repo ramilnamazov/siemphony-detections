@@ -1,0 +1,13 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Provider_Name" type="pcre2">(?i)^Service Control Manager$</field>
+    <field name="EventID" type="pcre2">(?i)^7045$</field>
+    <field name="ImagePath" type="pcre2">(?i)(tscon|rdp-tcp#)</field>
+    <description>Service installed to reassign a remote desktop session with tscon</description>
+    <mitre>
+      <id>T1563.002</id>
+    </mitre>
+  </rule>
+</group>

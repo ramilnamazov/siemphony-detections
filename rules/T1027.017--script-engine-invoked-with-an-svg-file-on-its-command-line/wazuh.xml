@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\rundll32\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i)(\.svg|\.svgz)</field>
+    <description>Script engine invoked with an SVG file on its command line</description>
+    <mitre>
+      <id>T1027.017</id>
+    </mitre>
+  </rule>
+</group>

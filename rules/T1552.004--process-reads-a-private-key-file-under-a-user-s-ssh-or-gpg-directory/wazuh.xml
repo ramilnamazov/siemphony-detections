@@ -1,0 +1,12 @@
+<group name="sigma,linux,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(/cat$|/less$|/more$|/cp$|/scp$|/rsync$|/tar$|/gpg$|/gpg2$|/base64$)</field>
+    <field name="CommandLine" type="pcre2">(?i)(\.ssh/id_rsa|\.ssh/id_dsa|\.ssh/id_ecdsa|\.ssh/id_ed25519|\.gnupg|\.pem|\.ppk|\.p12|\.pfx)</field>
+    <description>Process reads a private key file under a user's SSH or GPG directory</description>
+    <mitre>
+      <id>T1552.004</id>
+    </mitre>
+  </rule>
+</group>

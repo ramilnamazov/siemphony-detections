@@ -1,0 +1,2 @@
+SecurityEvent
+| where (EventID == 5145 and (RelativeTargetName endswith ".pst" or RelativeTargetName endswith ".ost" or RelativeTargetName endswith ".nst" or RelativeTargetName endswith ".olm"))

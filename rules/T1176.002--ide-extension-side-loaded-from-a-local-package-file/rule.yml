@@ -1,0 +1,44 @@
+title: IDE extension side-loaded from a local package file
+id: d3565081-efc7-4206-a714-8ebbacf826c4
+status: experimental
+description: |
+  Detects an editor extension being installed from a package file on disk rather
+  than pulled by identifier from the marketplace — the side-load path MITRE calls
+  out as the alternative to a marketplace compromise, and the point at which the
+  extension gains persistence by running on every launch of the editor. Both
+  conditions sit on the command line rather than on Image, deliberately: the
+  Windows `code` entry point is a batch wrapper that re-execs the editor binary
+  with its CLI bundle, so the process actually recorded varies with packaging,
+  build channel and fork, while the flag and the package extension survive all of
+  them and also catch a provisioning script that shells the install out. Bare
+  marketplace installs are not selected — that is ordinary developer activity —
+  so an extension installed by identifier is an accepted gap. The flags come from
+  MITRE's SuspiciousCLI knob; the pairing chosen here is authored. The brief's log
+  source is Security 4688, which needs *Audit Process Creation* and, critically,
+  the separate *Include command line in process creation events* policy: without
+  the second the CommandLine field is empty and this rule can never fire. Sysmon
+  EventID 1 supplies both.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0561, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1176/002
+  - https://attack.mitre.org/detectionstrategies/DET0561
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1176.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_install_flag:
+    CommandLine|contains: '--install-extension'
+  selection_local_package:
+    CommandLine|contains: '.vsix'
+  condition: selection_install_flag and selection_local_package
+falsepositives:
+  - "Air-gapped or proxy-restricted environments that distribute approved extensions as package files from an internal share, because the marketplace is unreachable. The command line is identical to a side-loaded backdoor and only the source path tells them apart."
+  - "Extension developers installing their own build. Packaging a project and installing the result locally is the normal inner loop for anyone writing an extension, so developer workstations will generate this repeatedly."
+  - "Golden image, provisioning and devcontainer build scripts that pre-install pinned extension versions from packaged files, which fire in bursts on freshly built machines and can be scoped out by host rather than by command line."
+  - "MITRE's ServerZones knob is the tuning with the most leverage here — the same event is unremarkable on a developer laptop and alarming on a production server or domain controller, and this rule alone cannot tell the two apart."
+level: medium

@@ -1,0 +1,1 @@
+index=* ((Image="*\\cmd.exe" AND CommandLine="*copy /b*") OR (Image="*\\expand.exe" AND (CommandLine="*-f:*" OR CommandLine="*/f:*" OR CommandLine="*–f:*" OR CommandLine="*—f:*" OR CommandLine="*―f:*")) OR ((Image="*\\7z.exe" OR Image="*\\7za.exe" OR Image="*\\rar.exe" OR Image="*\\unrar.exe" OR Image="*\\winrar.exe") AND CommandLine="* -p*"))

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith ".jpg" or FolderPath endswith ".jpeg" or FolderPath endswith ".png" or FolderPath endswith ".gif" or FolderPath endswith ".bmp" or FolderPath endswith ".txt" or FolderPath endswith ".log" or FolderPath endswith ".pdf" or FolderPath endswith ".rtf" or FolderPath endswith ".doc" or FolderPath endswith ".docx" or FolderPath endswith ".xls" or FolderPath endswith ".xlsx" or FolderPath endswith ".csv")

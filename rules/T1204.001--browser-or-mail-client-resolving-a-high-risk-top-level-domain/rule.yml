@@ -1,0 +1,53 @@
+title: Browser or mail client resolving a high-risk top-level domain
+id: 1b9f2624-7125-412c-9ed9-0fdb283bd213
+status: experimental
+description: |
+  Matches the egress leg of MITRE's AN0178 chain — a user-facing application
+  resolving a name under a top-level domain associated with throwaway
+  registrations — rather than the click itself, which no Windows event records.
+  The process list is MITRE's BrowserParents knob verbatim (chrome.exe,
+  msedge.exe, firefox.exe, winword.exe, outlook.exe, teams.exe); MITRE's
+  SuspiciousTLDs knob names .top, .xyz and .monster and the remaining entries
+  are authored here. The lineage-, download- and follow-on-execution legs of the
+  analytic need a multi-source correlation Sigma cannot express, and a rule on
+  the follow-on leg would be a third copy of the Office-parent-spawns-LOLBin
+  logic already authored for T1203 and T1204, so the DNS leg is what is written.
+  Requires Sysmon 10 or later with DNS query logging enabled and the browsers
+  not excluded — most shipped Sysmon configurations filter EventID 22 heavily,
+  and a filtered config returns nothing while looking healthy.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0066, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1204/001
+  - https://attack.mitre.org/detectionstrategies/DET0066
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1204.001
+logsource:
+  category: dns_query
+  product: windows
+detection:
+  selection_client:
+    Image|endswith:
+      - '\chrome.exe'
+      - '\msedge.exe'
+      - '\firefox.exe'
+      - '\winword.exe'
+      - '\outlook.exe'
+      - '\teams.exe'
+  selection_tld:
+    QueryName|endswith:
+      - '.top'
+      - '.xyz'
+      - '.monster'
+      - '.click'
+      - '.zip'
+      - '.mov'
+  condition: selection_client and selection_tld
+falsepositives:
+  - "Ordinary browsing. Legitimate businesses register under .xyz and .top, and a single visit to one produces this event exactly as a phishing link does. This is the loudest entry by a wide margin and is why the rule is scoped to the six client processes rather than to every resolver on the host."
+  - "Advertising, analytics and content-delivery lookups made by pages the user did not choose to visit. A single page load fans out to dozens of third-party names, so one embedded tracker on a matching TLD attributes the query to the browser with no user action behind it. MITRE's AllowedCDNs knob is the intended suppression, populated here by the analyst with the estate's own delivery and tracking domains."
+  - "Link preview and safe-browsing lookups. Outlook and Teams resolve names on the user's behalf when rendering a message card, so the resolution can appear without anyone having clicked anything."
+  - "Short-lived vendor and campaign domains on the same TLDs, used by marketing and event sites that staff are told to visit."
+level: low

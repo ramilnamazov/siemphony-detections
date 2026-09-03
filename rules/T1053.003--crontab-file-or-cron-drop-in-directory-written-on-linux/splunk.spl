@@ -1,0 +1,1 @@
+index=* ((type="PATH" AND name="*/var/spool/cron/*") OR (type="PATH" AND (name="*/etc/cron.d/*" OR name="*/etc/cron.hourly/*" OR name="*/etc/cron.daily/*" OR name="*/etc/cron.weekly/*" OR name="*/etc/cron.monthly/*")) OR (type="PATH" AND (name="*/etc/crontab" OR name="*/etc/anacrontab")) OR key="cron")

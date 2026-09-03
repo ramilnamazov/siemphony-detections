@@ -1,0 +1,13 @@
+<group name="sigma,linux,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^EXECVE$</field>
+    <field name="a0" type="pcre2">(?i)systemctl$</field>
+    <field name="a1" type="pcre2">(?i)(^start$|^restart$|^enable$|^reenable$|^link$|^daemon-reload$)</field>
+    <description>Systemctl invoked with a state-changing service subcommand</description>
+    <mitre>
+      <id>T1569.003</id>
+    </mitre>
+  </rule>
+</group>

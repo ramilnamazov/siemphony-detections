@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "\\net.exe" or FolderPath endswith "\\net1.exe") and (ProcessCommandLine contains "use " and ProcessCommandLine contains "/delete")) or ProcessCommandLine contains "Remove-SmbMapping")

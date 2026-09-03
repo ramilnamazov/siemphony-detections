@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\wscript.exe" OR TO_LOWER(process.executable) LIKE "*\\\\cscript.exe") AND (TO_LOWER(process.command_line) LIKE "*.js*" OR TO_LOWER(process.command_line) LIKE "*.jse*"))

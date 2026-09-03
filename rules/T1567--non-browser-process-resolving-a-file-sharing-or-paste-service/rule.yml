@@ -1,0 +1,94 @@
+title: Non-browser process resolving a file-sharing or paste service
+id: bb7e9b72-d184-4c7b-a32a-fb3816d1c7d0
+status: experimental
+description: |
+  What separates this technique from exfiltration over a raw channel is the
+  identity of the destination service, and the DNS query is the only log source
+  in AN1511 that carries that identity on a single event — so this rule pins
+  `QueryName` to file-sharing, paste, messaging-API and cloud-storage-API
+  domains and `Image` to the script hosts, signed-binary proxies, transfer
+  utilities and Office applications the analytic calls out as processes that do
+  not normally initiate network communications. Both lists are assembled here;
+  MITRE supplies the `MonitoredServices` knob and not its contents, and the
+  provider list is a dated starting point — services come and go (anonfiles
+  closed in 2023) and a site should replace it with the providers it has not
+  sanctioned. The programmatic hostnames are included deliberately, because
+  business-tenant exfiltration with a stolen token resolves
+  `www.googleapis.com`, `graph.microsoft.com` or a tenant SharePoint host
+  rather than the consumer names — on an M365 or Workspace estate those three
+  match constantly and are the first entries to cut. Scope: every provider
+  named here belongs to a child technique — cloud storage to T1567.002, paste
+  sites to T1567.003, the Telegram and Discord webhook endpoints to T1567.004,
+  all tagged below — and the parent-level behaviours that do not reduce to a
+  named provider are out of scope for this rule. The analytic's real
+  discriminator is the outbound-to-inbound volume ratio over a `TimeWindow`,
+  and Sigma has neither aggregation nor a numeric threshold, so this fires on
+  one name resolution instead; a resolution is not a transfer and carries no
+  direction, so a download and an upload are identical here, a tool that hands
+  its transport to a service process resolves nothing under its own name, and
+  the rule sees nothing at all unless the running Sysmon configuration is
+  version 10 or later with DNS query logging enabled and not filtered out.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0548, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1567
+  - https://attack.mitre.org/detectionstrategies/DET0548
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.exfiltration
+  - attack.t1567
+  - attack.t1567.002
+  - attack.t1567.003
+  - attack.t1567.004
+logsource:
+  category: dns_query
+  product: windows
+detection:
+  selection_service:
+    QueryName|endswith:
+      - 'dropbox.com'
+      - 'dropboxapi.com'
+      - 'drive.google.com'
+      - 'www.googleapis.com'
+      - 'oauth2.googleapis.com'
+      - 'onedrive.live.com'
+      - 'api.onedrive.com'
+      - 'graph.microsoft.com'
+      - 'sharepoint.com'
+      - 'mega.nz'
+      - 'mega.co.nz'
+      - 'wetransfer.com'
+      - 'transfer.sh'
+      - 'file.io'
+      - 'gofile.io'
+      - 'pastebin.com'
+      - 'hastebin.com'
+      - 'paste.ee'
+      - 'api.telegram.org'
+      - 'discord.com'
+      - 'discordapp.com'
+  selection_process:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+      - '\curl.exe'
+      - '\python.exe'
+      - '\pythonw.exe'
+      - '\rclone.exe'
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\powerpnt.exe'
+  condition: selection_service and selection_process
+falsepositives:
+  - "Business-tenant API endpoints. On an M365 or Google Workspace estate, Word and Excel reach graph.microsoft.com and the tenant sharepoint.com host for AutoSave, co-authoring and add-ins, and PowerShell modules such as Microsoft.Graph do the same on every run — this is the highest-volume match by a wide margin, which is why the level is set no higher than low, and MITRE's MonitoredServices knob is where the tenant's own hostnames get removed rather than baselined."
+  - "Sanctioned consumer cloud storage, which is ubiquitous wherever personal OneDrive, Google Drive or Dropbox accounts are attached to managed machines: Office applications and PowerShell scripts then resolve those endpoints continuously as ordinary document work."
+  - "Administrator and developer downloads. A download and an upload are the same DNS event, so winget and Chocolatey bootstraps, an iwr of an install.ps1, and curl.exe or certutil.exe pulling tooling or snippets from gofile.io, transfer.sh or pastebin.com all match exactly as an upload would."
+  - "Backup, sync and migration jobs built on rclone, curl or Python that push to a corporate cloud account on a schedule, which are indistinguishable from staged exfiltration at the DNS layer because the volume element of the analytic is not expressible here."
+  - "IT automation that posts job results to chat, where a scheduled PowerShell or Python task resolves api.telegram.org or discord.com on every run to reach a bot or webhook used for alerting."
+level: low

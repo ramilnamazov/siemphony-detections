@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((InitiatingProcessFolderPath endswith "\\svchost.exe" or InitiatingProcessFolderPath endswith "\\taskeng.exe") and (FolderPath endswith "\\curl.exe" or FolderPath endswith "\\wget.exe" or FolderPath endswith "\\bitsadmin.exe" or FolderPath endswith "\\ftp.exe" or FolderPath endswith "\\rclone.exe" or FolderPath endswith "\\scp.exe" or FolderPath endswith "\\sftp.exe" or FolderPath endswith "\\pscp.exe" or FolderPath endswith "\\psftp.exe" or FolderPath endswith "\\winscp.com" or FolderPath endswith "\\winscp.exe"))

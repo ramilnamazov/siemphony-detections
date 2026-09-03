@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "path" AND TO_LOWER(name) LIKE "*/etc/pam.d/*") OR (TO_LOWER(type) == "path" AND TO_LOWER(name) LIKE "*/lib/security/*") OR (TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*/lib/x86_64-linux-gnu/security/*" OR TO_LOWER(name) LIKE "*/usr/lib/x86_64-linux-gnu/security/*")))

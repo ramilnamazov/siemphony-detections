@@ -1,0 +1,25 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4624$</field>
+    <field name="LogonType" type="pcre2">(?i)^10$</field>
+    <field name="LogonProcessName" type="pcre2">(?i)^NtLmSsp$</field>
+    <description>Remote interactive NTLM logon or explicit-credential remote access (1/2)</description>
+    <mitre>
+      <id>T1021</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4648$</field>
+    <field name="ProcessName" type="pcre2">(?i)(\\mstsc\.exe$|\\wmic\.exe$|\\winrs\.exe$|\\powershell\.exe$|\\pwsh\.exe$|\\psexec\.exe$|\\psexec64\.exe$)</field>
+    <description>Remote interactive NTLM logon or explicit-credential remote access (2/2)</description>
+    <mitre>
+      <id>T1021</id>
+    </mitre>
+  </rule>
+</group>

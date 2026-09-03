@@ -1,0 +1,85 @@
+title: Service installed under a well-known Windows service display name
+id: 5b6f127f-92cc-4b85-9d0a-62b1943c1046
+status: experimental
+description: |
+  AN0324 asks for service creation "with names or descriptions mimicking
+  legitimate entries." MITRE's own knob for this, TaskNameSimilarityThreshold,
+  calls for a fuzzy comparison — its description names Levenshtein distance —
+  that lib/sigma has no function for; nothing in this pipeline can compute a
+  string-edit distance inside a Sigma condition. This rule substitutes a
+  narrower, exact-match proxy that is entirely its own, not MITRE's: rather
+  than a near-miss of a legitimate name, it looks for an exact reuse of one,
+  paired with an image path outside where that name is ever legitimately
+  installed. EventID 7045 on the System channel is written by the Service
+  Control Manager on every install with no audit policy to enable, and its
+  `ServiceName` field is populated from the display name passed to
+  CreateService, not the internal service key — which is precisely what makes
+  this observable real: a duplicate of an internal key name would be rejected
+  at creation and 7045 would never fire, but nothing stops an installer from
+  reusing a display name that is already in use elsewhere on the system, since
+  display names carry no uniqueness constraint. The twelve names in
+  `selection_known_name` are core, universally-present Windows service display
+  names populated by this pipeline, not sourced from MITRE, chosen because a
+  genuine instance of any of them only ever installs from `\Windows\System32\`
+  or `\Windows\SysWOW64\`; `filter_expected_path` excludes exactly those two
+  locations so the rule fires only when the name and the path disagree. Two of
+  MITRE's other knobs go unreached here: BinaryReputationScore needs an
+  external reputation source no local field carries, and ExecutionContext asks
+  for the account context of a later, anomalous execution of the installed
+  binary — a second, correlated event this single service-creation record does
+  not join to. The Linux leg (AN0325) is not attempted. Its one usable
+  logsource, {product: linux, service: auditd}, reduces — once the fuzzy-name
+  comparison is set aside for the same reason as above — to "a file was
+  written under a systemd unit-file search path," which is exactly what the
+  published T1543.002 rule already covers on that same logsource; re-authoring
+  the identical PATH selector under this technique ID would double-count one
+  signal rather than add coverage, and PATH records carry only a bare filename
+  with no way to tell `networks.service` (a masquerade) from `network.service`
+  (the real unit) beyond a string comparison a reviewer has to make by hand
+  regardless of which technique tagged the alert. AN0325's other two sources,
+  {product: linux, service: osquery} and {product: linux, service: cron}, have
+  no established Sigma field vocabulary anywhere in this corpus. The macOS leg
+  (AN0326) is not attempted either: both its logsources, {product: macos,
+  service: unifiedlog} and {product: macos, service: endpointsecurity}, are
+  unstandardised in this pipeline — the same blocker already recorded against
+  these exact sources for T1037.002, T1059.002, T1548.004 and T1546.006.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0117, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1036/004
+  - https://attack.mitre.org/detectionstrategies/DET0117
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1036.004
+logsource:
+  product: windows
+  service: system
+detection:
+  selection_service_created:
+    Provider_Name: 'Service Control Manager'
+    EventID: 7045
+  selection_known_name:
+    ServiceName:
+      - 'Windows Update'
+      - 'Windows Defender Antivirus Service'
+      - 'Print Spooler'
+      - 'Background Intelligent Transfer Service'
+      - 'DHCP Client'
+      - 'DNS Client'
+      - 'Windows Event Log'
+      - 'Remote Procedure Call (RPC)'
+      - 'Task Scheduler'
+      - 'Windows Management Instrumentation'
+      - 'Server'
+      - 'Workstation'
+  filter_expected_path:
+    ImagePath|contains:
+      - '\Windows\System32\'
+      - '\Windows\SysWOW64\'
+  condition: selection_service_created and selection_known_name and not filter_expected_path
+falsepositives:
+  - "EDR and deception-technology products that deliberately install decoy services carrying common built-in display names such as Print Spooler or Windows Update from their own install directory as a tripwire for lateral-movement and service-enumeration tooling — the product this rule is aimed at catching is exactly what these are designed to resemble."
+  - "Offline-servicing and imaging pipelines — DISM offline package injection, MDT and SCCM task sequences, WinPE-based recovery tools — that stage or re-register a core OS service from a temporary build drive or staging directory partway through provisioning, before the final image places it back under \\Windows\\System32\\."
+  - "OEM recovery-partition tools and system-repair utilities that reinstall a named Windows service such as Windows Update or BITS from a repair or recovery-image path to fix a corrupted installation, rather than from the live System32 tree."
+level: medium

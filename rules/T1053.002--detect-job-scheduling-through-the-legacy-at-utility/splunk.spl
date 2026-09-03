@@ -1,0 +1,1 @@
+index=* (Image="*\\at.exe" OR (CommandLine="*Win32_ScheduledJob*" OR CommandLine="* job call create*"))

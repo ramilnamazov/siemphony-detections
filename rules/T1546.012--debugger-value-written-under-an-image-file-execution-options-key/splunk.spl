@@ -1,0 +1,1 @@
+index=* (TargetObject="*\\Image File Execution Options\\*" AND TargetObject="*\\Debugger")

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*/steghide" OR TO_LOWER(process.executable) LIKE "*/outguess" OR TO_LOWER(process.executable) LIKE "*/stegsnow" OR TO_LOWER(process.executable) LIKE "*/stegify") AND (TO_LOWER(process.command_line) LIKE "* embed*" OR TO_LOWER(process.command_line) LIKE "* encode*" OR TO_LOWER(process.command_line) LIKE "* -d *" OR TO_LOWER(process.command_line) LIKE "* -m *"))

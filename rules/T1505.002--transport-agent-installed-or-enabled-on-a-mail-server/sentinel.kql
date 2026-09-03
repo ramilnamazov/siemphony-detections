@@ -1,0 +1,2 @@
+Event
+| where (EventID == 4104 and (ScriptBlockText contains "Install-TransportAgent" or ScriptBlockText contains "Enable-TransportAgent" or ScriptBlockText contains "Set-TransportAgent"))

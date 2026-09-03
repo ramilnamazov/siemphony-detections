@@ -1,0 +1,69 @@
+title: PowerShell script touching the Outlook Home Page WebView setting
+id: 6640bb31-0422-4736-8ee7-afaa2cf05c66
+status: experimental
+description: |
+  AN0502 offers three log sources, and the first two are already spoken for
+  elsewhere in this corpus. The process-creation leg — outlook.exe as parent,
+  a scripting host as child — is already published as data/detections/T1203's
+  selector, which lists outlook.exe among its parents and mshta.exe/wscript.exe
+  among its children; every event that leg would match already matches T1203,
+  with nothing on the event to say which technique produced it. This rule
+  previously took the image-load leg instead, matching outlook.exe loading
+  vbscript.dll/jscript.dll/scrobj.dll — but data/detections/T1137.003 was
+  reworked onto the near-identical selector (outlook.exe loading vbscript.dll
+  and scrobj.dll, same category) to catch a malicious custom Form, and a
+  review confirmed every event satisfying either selector satisfies the other:
+  jscript.dll was the only field that differed, so the two technique-tagged
+  rules fired on the same Sysmon EID7 record with no way to tell a malicious
+  folder Home Page from a malicious Form. That leg is dropped here in favour
+  of AN0502's third, previously-unused source: the PowerShell operational log.
+  A Home Page is not set through a registry edit alone — Ruler-style tooling
+  and the equivalent manual/administrative cleanup both go through Outlook's
+  COM object model, setting a folder's `WebViewURL` and `WebViewOn`
+  properties, which is what actually populates the `Outlook\WebView\<Folder>`
+  registry value the brief has no log source for. Matching PowerShell script
+  block text that references either the COM properties or the registry path
+  they write catches the mechanism itself, on a source neither the T1137.003
+  nor the T1203 rule reads. Of MITRE's knobs: `ChildProcessName` belongs to
+  the process-creation leg dropped above, so it has no expression here;
+  `TargetFolder` and `HTMLPayloadLocation` may appear as literal substrings
+  inside a matching script block but are not separately addressable fields on
+  a 4104 event, so neither is asserted as its own gate; `TimeWindow` and
+  `FormViewBehavior` describe timing and rendering state that a script-block
+  log does not carry. The event records that a script touched the Home Page
+  mechanism, not what it changed it to, and it cannot distinguish an
+  adversary's Ruler module from a defender's or IT team's own remediation
+  script doing the identical property writes to remove one — both are
+  "execution of a PowerShell script to enumerate or remove malicious Home
+  Page folder config" in MITRE's own words for this source, and this analytic
+  cannot separate the two directions. Prerequisite: EventID 4104 requires
+  PowerShell Script Block Logging, which is off in a default install and in
+  the MS/CIS baselines; an empty result means the telemetry is most likely
+  missing, not that the technique is absent.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0177, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1137/004
+  - https://attack.mitre.org/detectionstrategies/DET0177
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.t1137.004
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_event:
+    EventID: 4104
+  selection_homepage:
+    ScriptBlockText|contains:
+      - 'WebViewURL'
+      - 'WebViewOn'
+      - 'Outlook\WebView'
+  condition: selection_event and selection_homepage
+falsepositives:
+  - "IT and security-response scripts that enumerate or strip a malicious Home Page as remediation: by design they set WebViewOn to false and clear WebViewURL through the same COM properties an attacker's tooling used to set them, and on an estate actively responding to this technique they are the highest-volume match by a wide margin."
+  - "Legitimate corporate provisioning scripts that set an internal portal, dashboard or knowledge-base page as a folder Home Page through Group Policy logon scripts or an MDM-pushed PowerShell configuration, which is the sanctioned use of the exact same properties."
+  - "Outlook profile migration and tenant-to-tenant cutover scripts that reset or reapply WebView settings across mailboxes in bulk ahead of or after a mailbox move."
+  - "Diagnostic or inventory scripts run by help desk staff that read WebViewURL/WebViewOn to audit which mailboxes have a Home Page configured, without writing anything — the read appears as the same substring in the script's own text as a write would."
+level: low

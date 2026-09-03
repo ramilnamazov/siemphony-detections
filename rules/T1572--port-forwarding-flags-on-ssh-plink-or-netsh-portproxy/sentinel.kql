@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "\\ssh.exe" or FolderPath endswith "\\plink.exe") and ProcessCommandLine matches regex "(?i) -[LRD][ ]?[0-9]") or (FolderPath endswith "\\netsh.exe" and (ProcessCommandLine contains "portproxy" and ProcessCommandLine contains "connectaddress")))

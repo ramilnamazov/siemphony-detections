@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey endswith "\\Windows NT\\CurrentVersion\\Windows\\AppInit_DLLs" or RegistryKey endswith "\\Windows NT\\CurrentVersion\\Windows\\LoadAppInit_DLLs" or RegistryKey endswith "\\Windows NT\\CurrentVersion\\Windows\\RequireSignedAppInit_DLLs")

@@ -1,0 +1,51 @@
+title: Group Policy enumeration via gpresult or GPO cmdlets
+id: 7eeb9ce4-ca31-48e1-a606-8b887cec8c3b
+status: experimental
+description: |
+  Matches the command line of a process that names a Group Policy enumeration
+  tool. AN0152 names two of them itself — gpresult and the PowerView function
+  Get-DomainGPO; the substring match on Get-DomainGPO also covers
+  Get-DomainGPOLocalGroup, the third name in the analytic. The remaining values
+  are added here, not sourced from MITRE: the RSAT GroupPolicy cmdlets Get-GPO
+  and Get-GPResultantSetOfPolicy, and Get-NetGPO, the PowerView v2 name for the
+  same enumeration function. It is a single CommandLine list
+  rather than an Image list plus a keyword search, so the invocation is caught
+  whether the binary is launched directly or wrapped in powershell.exe -Command,
+  and so every backend renders one field. AN0152's other two legs are not
+  written here: its Security 4661 leg needs a SACL on the domain's
+  groupPolicyContainer objects and an object-type GUID match that this brief
+  supplies no field names for, and its PowerShell 4103/4104 leg is a different
+  logsource. Two limitations follow from matching a command line and belong in
+  the reader's expectations rather than in the false positives — a cmdlet typed
+  at an interactive prompt or called from inside a .ps1 never reaches a command
+  line at all, and a base64 -EncodedCommand hides the name. The telemetry is
+  Sysmon EventID 1 per the brief; sourced from Security 4688 instead it needs
+  *Audit Process Creation* plus the separate *Include command line in process
+  creation events* policy, neither on by default.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0055, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1615
+  - https://attack.mitre.org/detectionstrategies/DET0055
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1615
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'gpresult'
+      - 'Get-GPO'
+      - 'Get-GPResultantSetOfPolicy'
+      - 'Get-DomainGPO'
+      - 'Get-NetGPO'
+  condition: selection
+falsepositives:
+  - "Helpdesk troubleshooting. Running gpresult /r or gpresult /h against a user's machine is the standard first move on any policy complaint, and on a support workstation it is the loudest match this rule has — which is why the level is low and why MITRE's UserContext knob (which accounts are expected to enumerate policy) is the practical filter."
+  - "Scheduled inventory, compliance and health-check scripts that shell out to gpresult on every managed endpoint, producing a periodic burst across the whole estate under SYSTEM or the management agent's account."
+  - "Group Policy administration from RSAT. Backup, documentation and change-review scripts call Get-GPO and Get-GPOReport routinely, and Get-GPOReport matches the Get-GPO entry as a substring."
+  - "Security baselining and audit tooling that captures applied policy with Get-GPResultantSetOfPolicy, including some CIS and vendor hardening assessment scripts."
+level: low

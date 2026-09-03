@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*--install-extension*" AND TO_LOWER(process.command_line) LIKE "*.vsix*")

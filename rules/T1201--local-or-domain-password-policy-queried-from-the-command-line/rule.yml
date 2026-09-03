@@ -1,0 +1,58 @@
+title: Local or domain password policy queried from the command line
+id: 5e463356-1977-4200-bb34-2eecd4987438
+status: experimental
+description: |
+  AN0455's first step is a shell or PowerShell process that reads the password
+  policy, and it names the three commands this rule is built from: `net accounts`
+  (with or without `/domain`) for the local or domain lockout and complexity
+  settings, `secedit /export` for the whole local security policy including the
+  password section, and the Active Directory cmdlets that return the domain
+  default and fine-grained policies. Each selection pins the command to its own
+  binary rather than matching the words alone, so a document or script merely
+  mentioning them does not fire; `net1.exe` is included because `net.exe` hands
+  its arguments to it and both process creations are logged. The analytic's
+  later steps are not attempted: the LDAP read leg on Security 4662 and the
+  "same principal does something else suspicious shortly after" correlation
+  inside MITRE's `TimeWindow` knob need a join lib/sigma cannot express, and
+  MITRE's `PrivilegedUserAllowList` and `HostRoleScope` knobs are deployment
+  filters with no field on this event. One coverage gap is worth stating: the
+  AD cmdlets only appear on a command line when they are passed to
+  `powershell.exe -Command` or run from a script invoked that way — typed into
+  an interactive console they leave nothing here, and are visible only in
+  PowerShell EventID 4104, which requires Script Block Logging to be turned on
+  and is off by default.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0161, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1201
+  - https://attack.mitre.org/detectionstrategies/DET0161
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1201
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_net:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+    CommandLine|contains: ' accounts'
+  selection_secedit:
+    Image|endswith: '\secedit.exe'
+    CommandLine|contains: '/export'
+  selection_powershell:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+    CommandLine|contains:
+      - 'Get-ADDefaultDomainPasswordPolicy'
+      - 'Get-ADFineGrainedPasswordPolicy'
+  condition: 1 of selection*
+falsepositives:
+  - "Configuration and compliance scanning. `secedit /export /cfg` is the standard way to read local security policy, and it is what CIS-CAT, the Microsoft Security Compliance Toolkit and LGPO, SCAP and STIG checkers, Nessus local policy audits and SCCM configuration baselines all run — on a schedule, on every host in scope. That is the highest-volume match by a wide margin and is what sets the level here."
+  - "Helpdesk and desktop support running `net accounts /domain` to check the lockout threshold and password age while working a reset or lockout ticket, which is exactly the routine use MITRE's PrivilegedUserAllowList knob exists to exclude."
+  - "Logon scripts, password-expiry notification tools and inventory agents that call `net accounts` or the AD password policy cmdlets to display or report remaining password lifetime, producing one match per user per logon across the fleet."
+  - "Directory administrators and reporting automation calling Get-ADDefaultDomainPasswordPolicy from scheduled PowerShell scripts that build audit or governance reports, typically from a management server or jump host."
+level: low

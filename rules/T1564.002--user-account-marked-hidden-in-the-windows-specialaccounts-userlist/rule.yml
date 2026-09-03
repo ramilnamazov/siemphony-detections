@@ -1,0 +1,47 @@
+title: User account marked hidden in the Windows SpecialAccounts UserList
+id: 96a10031-fdaf-4d55-bcf7-fab8b20b65c8
+status: experimental
+description: |
+  AN1001 asks for account creation (Security 4720) correlated with a registry
+  edit that marks the new account hidden, a join Sigma cannot express. This
+  rule matches the registry edit alone: a Sysmon EventID 13 write under
+  HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon\SpecialAccounts\
+  UserList where the value name is the account and the DWORD data written is
+  0, the documented mechanism that removes an account from the Welcome
+  screen and Fast User Switching list. That is a real signal on its own even
+  without the 4720 join, since it also catches an existing account being
+  hidden after the fact, a case the correlated version would miss entirely.
+  Sysmon EventID 14 (registry_rename) is not used -- renaming or deleting a
+  UserList value un-hides an account rather than hiding one, the opposite of
+  this analytic's intent. The Linux and macOS legs in this strategy, AN1002
+  and AN1003, are not attempted here: AN1002's gsettings/Display-Manager
+  mechanism toggles visibility for the entire greeter user list rather than
+  one account, a coarser match to "hidden user" than the Windows
+  value-per-account write; AN1003's logsource ({product: macos, service:
+  unifiedlog}) has no established Sigma field vocabulary anywhere in this
+  corpus. Sysmon is not installed by default, and shipped Sysmon
+  configurations commonly allowlist which registry subtrees EventID 13
+  reports on -- SpecialAccounts\UserList must be in that allowlist or this
+  rule returns zero rows, which reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0353, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/002
+  - https://attack.mitre.org/detectionstrategies/DET0353
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1564.002
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains: '\SpecialAccounts\UserList\'
+    Details: 'DWORD (0x00000000)'
+  condition: selection
+falsepositives:
+  - "Administrators deliberately hiding a support, service or break-glass account from the Welcome screen for privacy or operational-security reasons -- the technique's own description names this as a legitimate, common admin practice, and it produces the identical registry write this rule matches."
+  - "Remote-support and RMM agents (helpdesk tooling, some endpoint-management suites) that provision a local service account for their own agent and hide it from the logon screen this same way as part of routine installation."
+  - "Kiosk-mode and shared-device imaging tooling that hides default or built-in local accounts from the Welcome screen as a standard step in a locked-down device profile."
+level: medium

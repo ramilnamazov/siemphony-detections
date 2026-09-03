@@ -1,0 +1,47 @@
+title: Connection to an onion-routing relay or local SOCKS proxy port
+id: ca64529c-19ec-41c2-8773-b1fbbb2f9952
+status: experimental
+description: |
+  AN1020 pairs an anonymity client with sustained outbound traffic, and the part
+  of that a single connection event can carry is the destination port, so this
+  rule matches host-initiated connections to the onion-routing relay and
+  directory ports and to the SOCKS and control ports that the standard and
+  browser-bundled clients listen on locally. The analytic's other source, DNS
+  query, is not used: an onion-aware client resolves .onion names inside the
+  SOCKS tunnel and never through the system resolver, so a QueryName selector on
+  that suffix would validate cleanly, render in four backends and never fire.
+  The I2P proxy ports 4444 and 4445 are left out because they collide with
+  development and test listeners often enough to dominate the rule. Sysmon
+  EventID 3 is off in a bare install and most shipped configurations drop
+  loopback traffic, which removes the local SOCKS half of this rule entirely —
+  zero rows there means the filter, not the absence of a proxy.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0359, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1090/003
+  - https://attack.mitre.org/detectionstrategies/DET0359
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1090.003
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection:
+    Initiated: 'true'
+    DestinationPort:
+      - 9001
+      - 9030
+      - 9040
+      - 9050
+      - 9051
+      - 9150
+      - 9151
+  condition: selection
+falsepositives:
+  - "Line-of-business and vendor software bound to 9001, which is registered to several database and management products and is by far the most likely benign match in this list. On an estate that runs one, every client of that server matches continuously and the destination address has to be excluded before the rule is usable at all."
+  - "Privacy-conscious staff running the browser bundle on a corporate laptop. Its connections to the local SOCKS listener on 9150 and to guard relays on 9001 are exactly the events this rule looks for, with no adversary behind them."
+  - "Security research, malware analysis and threat-intelligence workstations that reach onion services deliberately, and any host running a sanctioned relay or bridge."
+  - "Port scanners and vulnerability-assessment agents sweeping wide ranges from a scanning host, which produce host-initiated connections on every port in this list against every target in scope."
+level: medium

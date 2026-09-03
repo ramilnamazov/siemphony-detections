@@ -1,0 +1,1 @@
+index=* | where match(QueryName, "^[A-Za-z0-9-]{45,}\\.")

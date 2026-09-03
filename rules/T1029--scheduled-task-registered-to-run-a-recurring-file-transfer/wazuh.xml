@@ -1,0 +1,14 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\schtasks\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(-create|/create|–create|—create|―create)</field>
+    <field name="CommandLine" type="pcre2">(?i)(-sc minute|/sc minute|–sc minute|—sc minute|―sc minute|-sc hourly|/sc hourly|–sc hourly|—sc hourly|―sc hourly|-sc daily|/sc daily|–sc daily|—sc daily|―sc daily|-ri |/ri |–ri |—ri |―ri )</field>
+    <field name="CommandLine" type="pcre2">(?i)(curl|wget|bitsadmin|certutil|rclone|winscp|Invoke-WebRequest|Invoke-RestMethod|Start-BitsTransfer|WebClient)</field>
+    <description>Scheduled task registered to run a recurring file transfer</description>
+    <mitre>
+      <id>T1029</id>
+    </mitre>
+  </rule>
+</group>

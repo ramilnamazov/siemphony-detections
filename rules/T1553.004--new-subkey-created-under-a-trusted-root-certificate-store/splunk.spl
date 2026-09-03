@@ -1,0 +1,1 @@
+index=* ((TargetObject="*\\SystemCertificates\\Root\\Certificates\\*" OR TargetObject="*\\SystemCertificates\\AuthRoot\\Certificates\\*" OR TargetObject="*\\EnterpriseCertificates\\Root\\Certificates\\*") AND NOT (Image="C:\\Windows\\System32\\svchost.exe"))

@@ -1,0 +1,51 @@
+title: AppInit DLL registry values set for system-wide DLL injection
+id: dbe9dbf4-da5a-4305-9fbe-e12a52bab681
+status: experimental
+description: |
+  Matches a write to the AppInit_DLLs value, which user32.dll loads into every
+  process that links it — the registry half of AN1536. The value lives under
+  `...\Microsoft\Windows NT\CurrentVersion\Windows`, where the final `Windows`
+  is a subkey and AppInit_DLLs is a value name inside it, so a Sysmon EventID
+  13 record ends with the value name and the match is an endswith on the value,
+  not on the key: an endswith stopping at `\CurrentVersion\Windows` would never
+  fire. The parent key is carried in the matched tail so the term is anchored;
+  `AppInit_DLLs` on its own is a short substring that collides with unrelated
+  per-application keys. Both the 64-bit key and its Wow6432Node twin are
+  covered by the one term because the redirection element sits to the left of
+  the suffix. MITRE names AppInit_DLLs; LoadAppInit_DLLs and
+  RequireSignedAppInit_DLLs are added here rather than taken from MITRE — they
+  are the values that arm the mechanism and disable its signature check, and an
+  adversary must usually touch them too. Note that AppInit loading is inert on
+  Windows 8 and later with Secure Boot enabled, so on those hosts a hit is an
+  unauthorised write that will not execute, not confirmed code execution. The
+  analytic's other half — the resulting unsigned DLL appearing in EventID 7
+  image loads across many processes — is a correlation over MITRE's TimeWindow
+  knob that Sigma cannot express, so it is not attempted. Sysmon registry
+  monitoring is an allowlist of paths; confirm this key is in yours before
+  reading silence as a clean result.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0557, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/010
+  - https://attack.mitre.org/detectionstrategies/DET0557
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.010
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|endswith:
+      - '\Windows NT\CurrentVersion\Windows\AppInit_DLLs'
+      - '\Windows NT\CurrentVersion\Windows\LoadAppInit_DLLs'
+      - '\Windows NT\CurrentVersion\Windows\RequireSignedAppInit_DLLs'
+  condition: selection
+falsepositives:
+  - "Hardening baselines and configuration-management runs that enforce LoadAppInit_DLLs to 0 and RequireSignedAppInit_DLLs to 1. Sysmon logs a value set even when the data is unchanged, so this rewrites on every policy refresh across the whole estate and is the loudest source by a wide margin. It is also the easiest to separate: the writing process is the policy engine and the Details field shows the enforced value."
+  - "Legacy accessibility software, input-method editors and older endpoint DLP or anti-malware agents that still install themselves through AppInit_DLLs. The write happens once at install under a service account but is byte-identical to the abuse, so MITRE's ImagePathWhitelist knob is populated here from your own inventory of approved DLL paths, read off the Details field."
+  - "Windows Setup, the servicing stack and image-deployment tooling provisioning a host, which write an empty AppInit_DLLs and a LoadAppInit_DLLs of 0 as part of the default configuration. These arrive as a burst at build time on every new machine."
+  - "Graphics-driver, printing, VDI and remote-display vendor shims that inject a compatibility DLL this way on older platforms, typically reinstated by each driver update."
+level: high

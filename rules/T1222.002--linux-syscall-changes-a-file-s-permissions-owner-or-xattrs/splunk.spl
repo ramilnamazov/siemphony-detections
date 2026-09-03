@@ -1,0 +1,1 @@
+index=* (type="SYSCALL" AND (syscall="chmod" OR syscall="fchmod" OR syscall="fchmodat" OR syscall="chown" OR syscall="fchown" OR syscall="fchownat" OR syscall="lchown" OR syscall="setxattr" OR syscall="lsetxattr" OR syscall="fsetxattr" OR syscall="removexattr" OR syscall="lremovexattr" OR syscall="fremovexattr"))

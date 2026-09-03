@@ -1,0 +1,63 @@
+title: Domain group enumeration via net group or the AD cmdlets
+id: 21aae1ac-7621-44d5-9042-ad99235d7274
+status: experimental
+description: |
+  Matches the Windows leg of AN1025: a process-creation event where net.exe or
+  its net1.exe helper is invoked with the group verb against a domain, or where
+  the command line carries one of the directory-reading cmdlets and utilities
+  that return domain group objects. The net arm requires both ` group ` and
+  `/domain` on the same command line, which keeps the rule on the domain side of
+  the T1069.001/T1069.002 split — ` localgroup` never contains ` group ` with a
+  leading space, and the published T1069.001 rule owns that half. The cmdlet and
+  utility names below are authored here, not supplied by MITRE; the analytic
+  gives only the knobs. What the analytic actually asks for is a chain —
+  enumeration followed by LSASS or API access within a window — and lib/sigma
+  models no timeframe, no aggregation and no identity lookup, so MITRE's
+  TimeWindow, UserContext and ProcessLineageDepth knobs are all unexpressible
+  and a match means one enumeration command ran and nothing more. Three coverage
+  limits are structural: the LDAP and ADSI routes that read the same groups
+  without a new process leave nothing on this logsource, a PowerView cmdlet typed
+  into an already-running session never reaches CommandLine at all, and
+  base64-encoded PowerShell hides the cmdlet name. The brief maps Security
+  EventID 4688 onto the Sysmon-shaped process_creation category; this rule is
+  written in the Sysmon EventID 1 vocabulary (Image, CommandLine), so an estate
+  feeding 4688 into that category must map NewProcessName onto Image first, and
+  must have both Audit Process Creation and the separate Include command line in
+  process creation events policy enabled — neither is on by default, and without
+  the second one CommandLine is empty and every selection here is dead.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0360, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1069/002
+  - https://attack.mitre.org/detectionstrategies/DET0360
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1069.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_net_image:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+  selection_net_verb:
+    CommandLine|contains|all:
+      - ' group '
+      - '/domain'
+  selection_cmdlet:
+    CommandLine|contains:
+      - 'Get-ADGroup'
+      - 'Get-ADPrincipalGroupMembership'
+      - 'Get-DomainGroup'
+      - 'Get-NetGroup'
+      - 'dsquery group'
+      - 'dsget group'
+  condition: (selection_net_image and selection_net_verb) or selection_cmdlet
+falsepositives:
+  - "Identity and directory administration. Get-ADGroup and Get-ADGroupMember are the ordinary way to answer any question about AD groups, so scheduled group-membership reports, HR and identity-governance sync jobs, access-review exports and admin sessions on any host with RSAT or on a domain controller produce a steady stream of matches — the highest-volume source by a wide margin, and the reason this rule is scored low rather than medium."
+  - "Logon and provisioning scripts that branch on domain group membership, typically with a net group /domain call naming Domain Admins, or with Get-ADPrincipalGroupMembership, to decide which drives to map, which printers to install or which software to deploy. These run once per user session on every workstation."
+  - "Compliance and vulnerability scanners with credentialed checks that enumerate privileged domain groups on a fixed schedule to report who holds Domain Admin, producing identical command lines from the scanner's service account at the same time every day."
+  - "Helpdesk and desktop-support work, where net group /domain and dsquery group are the standard way to confirm whether a user is in the right group before escalating a ticket."
+level: low

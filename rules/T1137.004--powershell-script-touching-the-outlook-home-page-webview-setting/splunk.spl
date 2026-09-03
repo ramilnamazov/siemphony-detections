@@ -1,0 +1,1 @@
+index=* (EventID="4104" AND (ScriptBlockText="*WebViewURL*" OR ScriptBlockText="*WebViewOn*" OR ScriptBlockText="*Outlook\\WebView*"))

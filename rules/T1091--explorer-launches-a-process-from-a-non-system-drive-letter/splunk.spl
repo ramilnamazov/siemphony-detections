@@ -1,0 +1,1 @@
+index=* (ParentImage="*\\explorer.exe" AND (Image="D:\\*" OR Image="E:\\*" OR Image="F:\\*" OR Image="G:\\*" OR Image="H:\\*"))

@@ -1,0 +1,62 @@
+title: Chained shell command downloads, chmods and runs a /tmp payload
+id: 91030a45-a31d-43c1-829f-4414fb96989c
+status: experimental
+description: |
+  Matches a single shell invocation combining a curl/wget fetch into /tmp or
+  /var/tmp with a chmod on the same command line — the compressed, single-event
+  form of AN0993's "curl/wget commands saving executable/script payloads to
+  /tmp... followed by execution," and the closest thing to an injected-content
+  delivery observable this brief supports on Linux. The Windows leg (AN0992:
+  browser drops a file or spawns a script host) is not authored here, because
+  it is mechanically the same lineage already published for T1189 (browser
+  writes executable content outside its download folder), T1203 and T1204
+  (client application spawns a scripting host), and repeating it would add no
+  new coverage. This rule cannot see the network leg either — nothing in the
+  command line distinguishes a payload that arrived because traffic was
+  injected from one fetched from ordinary adversary infrastructure — and it
+  needs an auditd rule arming the execve syscall (for example
+  `-a always,exit -F arch=b64 -S execve`), absent from a default install on
+  every mainstream distribution, or the rule returns nothing and the silence
+  means the syscall is not being recorded. It is also blind to the same
+  sequence run as separate commands: fetch, chmod and execution have to share
+  one command line, so a script or automation that issues them as three
+  process creations — the ordinary shape outside an interactive one-liner —
+  matches nothing here, and Sigma has no construct to join those events.
+  UNVERIFIED — derived from MITRE ATT&CK DET0349 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1659
+  - https://attack.mitre.org/detectionstrategies/DET0349
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.command-and-control
+  - attack.t1659
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_shell:
+    Image|endswith:
+      - '/sh'
+      - '/bash'
+      - '/dash'
+  selection_download:
+    CommandLine|contains:
+      - 'curl '
+      - 'wget '
+  selection_temp_path:
+    CommandLine|contains:
+      - '/tmp/'
+      - '/var/tmp/'
+  selection_chmod:
+    CommandLine|contains:
+      - 'chmod +x'
+      - 'chmod 755'
+      - 'chmod 777'
+  condition: selection_shell and selection_download and selection_temp_path and selection_chmod
+falsepositives:
+  - "Configuration-management provisioners (Ansible, Chef, Puppet local-exec steps) and homegrown deployment scripts that explicitly curl or wget a binary to /tmp/, chmod +x it, then invoke it within the same shell step — a common idiom precisely because it avoids piping an installer through a live shell, and it differs from malicious use only in the URL and the payload."
+  - "CI/CD runners and container entrypoints that fetch a helper binary or build plugin into /tmp at start-up, chmod it and execute it as a routine part of an ephemeral pipeline or container boot."
+  - "An administrator pasting a vendor-provided diagnostic or hotfix one-liner by hand, run interactively as root or via sudo, that downloads to /tmp, marks it executable and runs it."
+level: medium

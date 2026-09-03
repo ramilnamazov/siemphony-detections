@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "syscall" AND (TO_LOWER(exe) LIKE "*/xdotool" OR TO_LOWER(exe) LIKE "*/xinput" OR TO_LOWER(exe) LIKE "*/xev")) OR (TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*.bash_history*" OR TO_LOWER(name) LIKE "*.mozilla*")))

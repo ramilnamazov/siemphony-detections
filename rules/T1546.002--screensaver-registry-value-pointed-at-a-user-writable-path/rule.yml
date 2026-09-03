@@ -1,0 +1,51 @@
+title: Screensaver registry value pointed at a user-writable path
+id: 8e6838bb-bbcf-4444-b97b-83362b354ef4
+status: experimental
+description: |
+  Matches a registry SetValue on the SCRNSAVE.EXE value under Control Panel\Desktop
+  where the value data points into a location a user-context process can write,
+  which is the persistence half of AN0441 — that value names the PE Windows
+  launches after the inactivity timeout, so the write itself carries the payload
+  path. The other three values MITRE lists (ScreenSaveActive, ScreenSaverIsSecure,
+  ScreenSaveTimeout) are DWORDs whose Details field holds no path at all, so they
+  cannot support the data gate that makes this rule specific and are left out. The
+  endswith term deliberately covers both the per-user preference key, which Sysmon
+  records as HKU\<SID>\Control Panel\Desktop\SCRNSAVE.EXE rather than under HKCU,
+  and the Software\Policies mirror of the same value; the path list is MITRE's
+  SuspiciousPathRegex knob populated here with user-writable directories, so a
+  screensaver left under System32 or Program Files never matches. Prerequisite:
+  Sysmon EventID 13 is only emitted where the running configuration carries a
+  RegistryEvent SetValue rule covering Control Panel\Desktop, and registry events
+  are the most aggressively trimmed section of the widely used community configs,
+  so an empty result here can mean blind rather than clean.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0154, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/002
+  - https://attack.mitre.org/detectionstrategies/DET0154
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.002
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_screensaver_value:
+    TargetObject|endswith: '\Control Panel\Desktop\SCRNSAVE.EXE'
+  selection_user_writable_payload:
+    Details|contains:
+      - '\Users\'
+      - '\AppData\'
+      - '\ProgramData\'
+      - '\Windows\Temp\'
+      - '\PerfLogs\'
+      - '\$Recycle.Bin\'
+  condition: selection_screensaver_value and selection_user_writable_payload
+falsepositives:
+  - "A corporate branded or compliance screensaver deployed by Group Policy Preferences from a staging folder under ProgramData. GPP registry items re-apply on every policy refresh by default, so in an estate that ships one this is the highest-volume match by a wide margin and it lands on every domain-joined host; suppress it on the specific Details value rather than by removing ProgramData, which is also where an operator would stage."
+  - "Endpoint-management and software-distribution agents that set the screensaver as part of a desktop-configuration baseline, writing the value once per host at enrolment and again whenever the baseline is re-evaluated."
+  - "A user picking a third-party screensaver that installed into their own profile — themed and photo screensavers routinely unpack under AppData rather than into System32, and the Screen Saver Settings dialog then stores that profile path verbatim."
+  - "User-state migration and roaming-profile tooling replaying a captured Control Panel\\Desktop hive into a new profile, which reproduces the original SCRNSAVE.EXE value including its per-user path."
+level: medium

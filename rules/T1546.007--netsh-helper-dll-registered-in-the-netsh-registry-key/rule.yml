@@ -1,0 +1,45 @@
+title: Netsh helper DLL registered in the Netsh registry key
+id: f78b0c27-4b55-4886-ba55-a9b6186d278e
+status: experimental
+description: |
+  Matches a registry value written directly under HKLM\SOFTWARE\Microsoft\Netsh —
+  the persistence half of AN1588. Netsh helper registration has no subkey: each
+  helper is a value whose name is an arbitrary alias and whose data is the DLL
+  path, sitting straight under the Netsh key itself, so the match is a contains on
+  the parent key rather than an endswith on any fixed value name, and it catches
+  the WOW6432Node-redirected key on 64-bit hosts the same way since that prefix
+  sits to the left of the matched substring. AN1588's other half — netsh.exe then
+  spawning a child process or loading the registered module — is a correlation
+  across MITRE's TimeWindow knob that a single registry_set event cannot carry, so
+  only the write is modelled here; a hit is evidence a helper was registered, not
+  that it has run. Vocabulary and prerequisite: this rule is written in the
+  Sysmon-shaped `registry_set` vocabulary, where a single `TargetObject` carries
+  the key path and the value name together. The brief's log source for this
+  observable is Security EventID 4657, which splits the same information across
+  `ObjectName` and `ObjectValueName` — that feed needs a field mapping into
+  `TargetObject` before this logic applies at all, so enabling Audit Registry and
+  a SACL on the Netsh key will not populate the field this rule reads. Against
+  Sysmon (EventID 13), registry monitoring only reports paths the local
+  configuration allowlists, so confirm this key is covered before reading an
+  empty result as clean.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0575, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/007
+  - https://attack.mitre.org/detectionstrategies/DET0575
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.007
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains: '\Microsoft\Netsh\'
+  condition: selection
+falsepositives:
+  - "VPN client and network-security software installers (e.g. Cisco AnyConnect, Pulse Secure and similar agents) that register their own netsh helper DLL once, at install time, to expose a custom netsh command set — this is legitimate and indistinguishable from the abuse case by this selector alone."
+  - "Installing a Windows Server role that extends netsh with its own context — Hyper-V's Virtual Filtering Platform, RRAS or DirectAccess all register a helper DLL under this key as a normal side effect of feature installation, producing a cluster of writes at server build or role-change time."
+level: medium

@@ -1,0 +1,70 @@
+title: Local credential registry hive saved or exported to disk
+id: 9f4c27b6-8e51-4a3d-b96f-0c7d2e148a35
+status: experimental
+description: |
+  Matches process creation where the command line asks for a copy of one of the
+  three hives needed to recover local account hashes offline — SAM, SYSTEM and
+  SECURITY. Both halves are tested on CommandLine so the rule survives the usual
+  wrappers: `reg save`, `reg.exe save`, the same command behind `cmd /c`, and the
+  PowerShell `HKLM:\` provider form all put the verb and the hive in one string,
+  whereas keying on Image would only catch the bare reg.exe case. MITRE's AN0235
+  also correlates the SAM and SYSTEM dumps a few minutes apart and watches for the
+  resulting .save file; that TimeWindow join is not expressible in Sigma, so this
+  fires on either hive on its own.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0085, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1003/002
+  - https://attack.mitre.org/detectionstrategies/DET0085
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1003.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_action:
+    CommandLine|contains:
+      - ' save '
+      - ' export '
+  selection_hive:
+    CommandLine|contains:
+      - 'hklm\sam'
+      - 'hklm\system'
+      - 'hklm\security'
+      - 'hklm:\sam'
+      - 'hklm:\system'
+      - 'hklm:\security'
+      - '\registry\machine\sam'
+      - '\registry\machine\security'
+  # The file-copy path. The two selections above only see the registry API
+  # (`reg save hklm\sam`) and miss reading the hive straight off disk, which
+  # is the other half of T1003.002 and the half that avoids the registry
+  # entirely: esentutl /vss, diskshadow, wbadmin and plain copy against a
+  # shadow snapshot all produce a command line naming \config\SAM.
+  #
+  # Found by running the corpus against real telemetry — OTRF's
+  # cmd_sam_copy_esentutl capture, whose single process-creation event is
+  # `esentutl.exe /y /vss C:\windows/system32/config/SAM /d C:\ProgramData\SAM`.
+  # The rule scored zero on it. Adversarial review had not caught this.
+  #
+  # Keyed on the hive's PATH rather than on the tool, so a variant using a
+  # different binary against the same file still fires; keyed on \config\
+  # rather than on the bare filename, because "SAM" alone appears in ordinary
+  # command lines constantly.
+  selection_hive_file:
+    CommandLine|contains:
+      - '\config\sam'
+      - '\config\system'
+      - '\config\security'
+      - '/config/sam'
+      - '/config/system'
+      - '/config/security'
+  condition: (selection_action and selection_hive) or selection_hive_file
+falsepositives:
+  - "Vendor diagnostic collectors and support scripts that run `reg export HKLM\\SYSTEM\\CurrentControlSet\\...` to capture driver or service configuration. This matches the export verb against the SYSTEM hive and is the most common benign hit; MITRE names ParentProcessName as the knob, since the collector's parent is stable and nameable."
+  - "Imaging, sysprep and driver-update tooling that snapshots HKLM\\SYSTEM to a fixed path before making changes. These recur on a schedule and always write to the same location, which is what MITRE's TargetFilePath knob is for."
+  - "Configuration-management and hardening runs that save a hive copy as a rollback point before applying a policy baseline. The command is indistinguishable from the adversary's on the command line alone, so suppression has to come from the account and the parent process."
+  - "Legitimate SECURITY or SYSTEM hive exports during a domain-join or LSA policy troubleshooting session, typically performed interactively by an administrator from an elevated console."
+level: high

@@ -1,0 +1,1 @@
+index=* ((Image="*\\code.exe" OR Image="*\\code-tunnel.exe" OR Image="*\\code-insiders.exe") AND CommandLine="* tunnel*")

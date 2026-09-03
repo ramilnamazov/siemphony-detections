@@ -1,0 +1,61 @@
+title: Invisible Unicode code point rebuilt in a PowerShell script block
+id: 7eb2f807-be72-40db-9998-122dcdc1c296
+status: experimental
+description: |
+  MITRE's analytic describes a script that looks benign because its payload is
+  written in characters that do not render, and is reconstructed and evaluated at
+  runtime. Script Block Logging is the only log source in the strategy that shows
+  the script text itself, so this rule requires two things in one 4104 block: a
+  literal reference to one of the zero-width, word-joiner, right-to-left-override
+  or byte-order-mark code points, and a dynamic-execution or decode call. Both the
+  0x200B literal and the backslash-u escape are matched, since both leave the
+  hex value in the text; the U+200B documentation form is deliberately not, as it
+  appears in comments and prose far more often than in an executable payload.
+  What the rule cannot do is measure MITRE's UnicodeDensityThreshold — a script
+  carrying the raw invisible characters rather than naming their code points is
+  invisible to a text match, so this catches the constructor, not the payload.
+  Script Block Logging is off in a default install and in the MS and CIS
+  baselines; without it the PowerShell channel carries no ScriptBlockText at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0920, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/018
+  - https://attack.mitre.org/detectionstrategies/DET0920
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1027.018
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_event:
+    EventID: 4104
+  selection_codepoint:
+    ScriptBlockText|contains:
+      - '0x200b'
+      - '0x200c'
+      - '0x200d'
+      - '0x2060'
+      - '0x202e'
+      - '0xfeff'
+      - 'u200b'
+      - 'u200c'
+      - 'u200d'
+      - 'u2060'
+      - 'u202e'
+      - 'ufeff'
+  selection_dynamic:
+    ScriptBlockText|contains:
+      - 'Invoke-Expression'
+      - 'IEX('
+      - 'IEX ('
+      - 'FromBase64String'
+      - '[scriptblock]::Create'
+  condition: selection_event and selection_codepoint and selection_dynamic
+falsepositives:
+  - "Large modules logged as a single script block, where one function strips a byte-order mark or a zero-width space from imported text and an unrelated function decodes base64. Sigma has no proximity operator, so the two halves need not be connected in any way for the rule to fire, and this is the most likely benign hit on a host that runs sizeable PowerShell modules."
+  - "Text-normalisation, localisation and right-to-left handling code, which names 0x202E and the zero-width joiners on purpose to sanitise or render user-supplied strings correctly."
+  - "Obfuscation research, security training material and detection-validation suites, which construct zero-width payloads and evaluate them precisely because that is the behaviour being demonstrated."
+  - "Installer and packaging scripts that embed a base64 blob and clean up encoding artefacts in the same block. MITRE's ExecutionContext knob is the intended tuning point here, but 4104 records the interpreter that logged the block rather than a distinct execution context, so scoping has to be done on the host or the calling user."
+level: medium

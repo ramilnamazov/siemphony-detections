@@ -1,0 +1,53 @@
+title: Command line sets a custom .NET AppDomainManager assembly
+id: bd764e62-9849-4b19-bc10-9b7843202629
+status: experimental
+description: |
+  AppDomainManager injection redirects a .NET host to load an attacker
+  assembly through one of two mechanisms: the APPDOMAIN_MANAGER_ASM and
+  APPDOMAIN_MANAGER_TYPE environment variables, or the appDomainManagerAssembly
+  and appDomainManagerType attributes in a .config file — both named directly
+  in Microsoft's own AppDomainManager documentation and the public
+  AppDomainManagerInject tooling this technique's citations point to. This
+  rule matches only the narrow case where one of those four literal marker
+  strings is visible on the command line of the process being launched — a
+  `cmd /c set APPDOMAIN_MANAGER_ASM=... && app.exe` chain, a PowerShell
+  `$env:` assignment on the same line, or an inline reference to the config
+  attribute name. It cannot see AN1433's other two legs: an env var set by a
+  separate parent process (invisible to the child's own CommandLine), or a
+  .config file edited out-of-band and read silently at next launch with
+  nothing to show on the command line at all — both would need the file_event
+  and image_load correlation AN1433 also asks for, which is a cross-event join
+  lib/sigma has no construct for. The brief maps Security 4688 onto Sigma's
+  process_creation category, which is Sysmon-shaped, and this rule is written
+  in that vocabulary (Image, CommandLine); on a 4688 feed the same values are
+  NewProcessName and CommandLine, so that feed needs a field mapping before
+  this rule matches at all, and 4688 itself only exists once Audit Process
+  Creation is enabled, with CommandLine requiring the separate "Include
+  command line in process creation events" policy — neither is on in a
+  default install or in the MS/CIS baselines, and zero rows here would read as
+  quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0517, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/014
+  - https://attack.mitre.org/detectionstrategies/DET0517
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.014
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'APPDOMAIN_MANAGER_ASM'
+      - 'APPDOMAIN_MANAGER_TYPE'
+      - 'appDomainManagerAssembly'
+      - 'appDomainManagerType'
+  condition: selection
+falsepositives:
+  - "Internal .NET applications that legitimately ship a custom AppDomainManager assembly for licensing, instrumentation or telemetry and set APPDOMAIN_MANAGER_ASM or appDomainManagerAssembly on their own launch command line or embedded .config."
+  - "QA or CI test harnesses and .NET training material that exercise AppDomainManager extensibility as part of an automated build, regression suite or walkthrough, invoking the same environment variable or config attribute names on the command line."
+level: medium

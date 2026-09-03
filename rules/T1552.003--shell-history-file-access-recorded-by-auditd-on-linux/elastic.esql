@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*.bash_history" OR TO_LOWER(name) LIKE "*.zsh_history" OR TO_LOWER(name) LIKE "*.sh_history" OR TO_LOWER(name) LIKE "*.ash_history" OR TO_LOWER(name) LIKE "*.ksh_history" OR TO_LOWER(name) LIKE "*.histfile" OR TO_LOWER(name) LIKE "*fish_history"))

@@ -1,0 +1,93 @@
+title: Systemd unit file written under a unit search path on Linux
+id: 5718f03f-ebf8-4248-b7e4-576e615a36b8
+status: experimental
+description: |
+  Matches the file-creation and file-modification legs of AN0701: an auditd PATH
+  record naming a file inside one of the directories systemd loads unit
+  definitions from, which is where this technique plants the `ExecStart` line it
+  wants re-executed at every boot. The directory list is MITRE's
+  `ServicePathRegex` knob, populated here with the system and user unit search
+  paths from systemd.unit(5); `/lib/systemd/system/` is written without the
+  `/usr` prefix on purpose, because `contains` matching means that one entry also
+  covers `/usr/lib/systemd/system/` and `/usr/local/lib/systemd/system/` on the
+  merged-/usr layouts every current distribution uses. The selections are
+  anchored on the directory rather than on a `.service` suffix because the two
+  most common ways to change what a service runs do not produce a `.service`
+  filename at all — `systemctl edit` writes `<unit>.service.d/override.conf`,
+  and `systemctl enable` creates a symlink inside `<target>.target.wants/` — so
+  a suffix gate would miss both. The cost is a deliberate over-match: a `.timer`
+  or `.socket` unit written into the same directories also fires here, and those
+  belong to T1053.006 rather than to this technique. A separate suffix selection
+  and a watch-key selection are present because auditd records `name=` exactly
+  as it was handed to the syscall, so an edit made from inside the directory
+  logs a bare `foo.service` with the directory only on a CWD record Sigma cannot
+  join; the key branch closes the same gap for any filename, but only for
+  deployments whose watches carry a key containing `systemd`. Three parts of the
+  analytic are out of reach. PATH records carry a filename and never file
+  contents, so the `ExecStart` target cannot be read at all and MITRE's
+  `ExecStartPathAllowlist` and `FileEntropyThreshold` knobs — along with the
+  analytic's `/tmp` and `/dev/shm` payload check — have nothing to act on here;
+  auditd splits PATH and SYSCALL into separate records for one event and the
+  writing process's `uid` and `auid` live only on the SYSCALL side, so
+  `UserContextFilter` cannot be applied inside these selections; and the
+  `systemctl enable` plus `systemctl start` pairing behind `SystemctlOperationSet`
+  is a separate execve event with no join available in lib/sigma, which is also
+  why it is not OR-ed in — every service start on every host would match. The
+  linux/osquery source in the brief is not attempted, because it has no
+  standardised Sigma field names. Prerequisite: no distribution audits any of
+  these paths by default, and an auditd watch covers one concrete directory
+  only, so each selection is blind until its own watch is loaded —
+  `-w /etc/systemd/system -p wa -k systemd`,
+  `-w /usr/lib/systemd/system -p wa -k systemd`,
+  `-w /run/systemd/system -p wa -k systemd` and the three matching
+  `.../systemd/user` paths. The two home-relative entries are weaker still:
+  `~/.config/systemd/user/` and `~/.local/share/systemd/user/` cannot be
+  watched generically, so they stay dead until a per-user watch is added or
+  `-w /home -p wa -k systemd` is accepted along with the volume that brings —
+  and user-level units are a documented variant of this technique, so treat
+  that as missing coverage rather than as absence of the behaviour. Zero rows
+  from any of these branches reads as quiet when it actually means blind. Note
+  also that one write can match twice, once on the PATH record and once on the
+  SYSCALL record carrying the key, so hits should be deduplicated on the audit
+  event id before volume is judged.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0253, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1543/002
+  - https://attack.mitre.org/detectionstrategies/DET0253
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1543.002
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_system_units:
+    type: 'PATH'
+    name|contains:
+      - '/etc/systemd/system/'
+      - '/run/systemd/system/'
+      - '/lib/systemd/system/'
+  selection_user_units:
+    type: 'PATH'
+    name|contains:
+      - '/etc/systemd/user/'
+      - '/run/systemd/user/'
+      - '/lib/systemd/user/'
+      - '/.config/systemd/user/'
+      - '/.local/share/systemd/user/'
+  selection_unit_suffix:
+    type: 'PATH'
+    name|endswith: '.service'
+  selection_watch_key:
+    key|contains: 'systemd'
+  condition: 1 of selection*
+falsepositives:
+  - "Package installation, upgrade and removal. Every apt, dnf or zypper transaction that touches a daemon writes its unit file into /usr/lib/systemd/system, and the post-install script then runs systemctl enable, which creates a symlink under /etc/systemd/system/multi-user.target.wants. On a patched estate this is the highest-volume match by a wide margin and is the reason the level is low rather than medium."
+  - "Configuration management convergence. The Ansible systemd, template and copy modules, Puppet service and file resources, Chef and Salt all rewrite unit files and re-run daemon-reload on every run, which on a half-hourly schedule means several matching PATH records per managed host per run whether or not the content changed."
+  - "Ordinary service administration. Any systemctl enable or systemctl disable creates or removes a symlink inside a .wants directory under /etc/systemd/system, and systemctl edit writes an override.conf drop-in through a temporary file and a rename, so one intentional change by an administrator emits several PATH records."
+  - "Host provisioning. cloud-init, container and VM image bakes, Kubernetes node bootstrap writing kubelet drop-ins, and Docker or containerd installers all lay down unit files while the machine is being created, producing a burst of matches on every new host."
+  - "Agent and appliance installers. Backup, monitoring, vulnerability-scanning and antivirus packages install their own unit at setup and rewrite it at every version upgrade, under root, from a legitimate package manager."
+level: low

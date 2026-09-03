@@ -1,0 +1,62 @@
+title: Process executed from a filename with a trailing space
+id: 86016c01-d63d-4cfd-9de3-c1e3f2488e1b
+status: experimental
+description: |
+  AN0812 asks for "file execution where the file name contains a trailing
+  space to masquerade as a known executable," citing how command-line
+  interpreters handle trailing whitespace differently from the GUI dispatch
+  behaviour the technique is best known for on macOS. This rule takes the
+  literal, single-event form of that claim on the {category: process_creation,
+  product: linux} logsource — the same raw-auditd-normalised shape (Image,
+  CommandLine) used throughout this corpus — and matches an executed `Image`
+  whose resolved path ends in a literal space character. `Image` is the
+  auditd pipeline's resolved absolute path of the file that was actually
+  execve'd, so this reads the real, on-disk filename rather than however it
+  was quoted on a command line, which is the more literal reading of the
+  technique: the file's own name carries the trailing space, not the way it
+  was invoked. This is deliberately narrow and says nothing about *why* a
+  trailing space would help an adversary on Linux specifically — unlike
+  macOS's Finder, Linux has no extension-based double-click dispatch for this
+  to bypass, and MITRE's own description is written primarily around that
+  macOS mechanism; AN0812's own text frames the Linux angle as evading a
+  command-line interpreter or a naive extension check rather than an exec
+  reroute, and this rule only asserts the checkable fact — a trailing-space
+  filename was executed — not the more specific evasion story. Two of MITRE's
+  three knobs go unpopulated: ExecutableNameTrailingSpace *is* the selector
+  below, so there is nothing further to add; TimeWindow, aimed at flagging
+  off-hours execution to cut noise, needs a time-of-day comparison lib/sigma
+  has no function for, so it is not attempted; and UserContext (untrusted or
+  lower-privileged users) is left to the reviewer, since a blanket privilege
+  filter here would need a per-estate notion of "untrusted" this brief does
+  not supply. The second Linux logsource in the same analytic, {product:
+  linux, service: syslog}, is not attempted: no rule in this corpus has an
+  established Sigma field vocabulary for it. AN0813, the macOS leg, is not
+  attempted either: its only logsource, {product: macos, service: unifiedlog},
+  is unstandardised in this pipeline — the same blocker already recorded
+  against that exact source for T1037.002, T1059.002, T1548.004 and
+  T1546.006 — despite macOS being where MITRE's own narrative example (Finder
+  double-click dispatch) actually applies. Prerequisite: raw auditd does not
+  record execve by default; this returns nothing until a rule such as
+  `-a always,exit -F arch=b64 -S execve -k exec` is loaded, and zero rows
+  reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0292, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1036/006
+  - https://attack.mitre.org/detectionstrategies/DET0292
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1036.006
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection:
+    Image|endswith: ' '
+  condition: selection
+falsepositives:
+  - "A user renaming or creating a file through a graphical file manager (GNOME Files, a desktop drag-and-drop) who leaves an accidental trailing space, then runs it from a terminal that inherits the exact quoted path, including the space — an ordinary mistake rather than adversarial activity."
+  - "Build or packaging tooling that extracts an archive originally created on Windows or macOS where a file legitimately ends in a trailing space, then a shell script globs for and executes files in that directory without trimming whitespace from the matched names."
+  - "Filesystem or backup-software test suites that intentionally exercise trailing-space and other odd-filename edge cases by creating and then running a binary named with a trailing space as part of automated test coverage."
+level: medium

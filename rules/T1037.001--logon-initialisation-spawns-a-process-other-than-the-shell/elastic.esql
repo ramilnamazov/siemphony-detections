@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.parent.executable) LIKE "*\\\\userinit.exe" AND NOT (TO_LOWER(process.executable) LIKE "*\\\\windows\\\\explorer.exe")) AND NOT ((TO_LOWER(process.command_line) LIKE "*\\\\netlogon\\\\*" OR TO_LOWER(process.command_line) LIKE "*\\\\sysvol\\\\*")))

@@ -1,0 +1,12 @@
+<group name="sigma,linux,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(/chmod$|/install$)</field>
+    <field name="CommandLine" type="pcre2">(?i)(\+s|4755|4777|4711|4750|4700|6755|6777|2755|2775|2777)</field>
+    <description>chmod command sets the setuid or setgid bit on a file</description>
+    <mitre>
+      <id>T1548.001</id>
+    </mitre>
+  </rule>
+</group>

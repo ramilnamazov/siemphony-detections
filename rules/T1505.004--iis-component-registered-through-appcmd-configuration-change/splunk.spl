@@ -1,0 +1,1 @@
+index=* (Image="*\\appcmd.exe" AND (CommandLine="*isapiFilters*" OR CommandLine="*globalModules*" OR CommandLine="*system.webServer/modules*" OR CommandLine="*add module*"))

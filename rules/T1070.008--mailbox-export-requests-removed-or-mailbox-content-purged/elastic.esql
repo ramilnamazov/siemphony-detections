@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (event.code == 4104 AND ((TO_LOWER(powershell.file.script_block_text) LIKE "*remove-mailboxexportrequest*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*remove-mailboximportrequest*") OR ((TO_LOWER(powershell.file.script_block_text) LIKE "*search-mailbox*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*new-compliancesearchaction*") AND (TO_LOWER(powershell.file.script_block_text) LIKE "*-deletecontent*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*-purge*"))))

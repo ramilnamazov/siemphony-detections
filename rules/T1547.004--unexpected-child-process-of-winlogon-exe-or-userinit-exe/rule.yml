@@ -1,0 +1,96 @@
+title: Unexpected child process of winlogon.exe or userinit.exe
+id: 54c0b3a4-0ede-4f0e-9f49-2b54abd4a0f3
+status: experimental
+description: |
+  Matches the process-creation half of AN1133: a process whose parent is
+  winlogon.exe or userinit.exe and which is not one of the handful of binaries
+  those two start in an ordinary session. That parentage is the execution
+  signature of two of the three subkeys this technique abuses — a Userinit
+  value extended with a second path makes winlogon.exe start something that is
+  not userinit.exe, and a rewritten Shell value makes userinit.exe start
+  something that is not explorer.exe — so the child's identity is the
+  discriminator, and the rule is written as an allowlist of the expected
+  children. That allowlist (userinit, LogonUI, dwm, fontdrvhost, wlrmdr,
+  mpnotify, and rdpclip and AtBroker for remote and accessibility sessions, all
+  in System32, plus explorer.exe in the Windows directory) is authored here, not
+  taken from MITRE. Each entry is anchored on its full system path rather than
+  on its file name alone, because in this technique the adversary owns the path:
+  a payload copied to C:\Users\Public\explorer.exe and named in the Shell value
+  would be cleared by a bare `\explorer.exe` allowlist, which is the cheapest
+  possible evasion of a rule shaped this way. The two parents share one list, so
+  a legitimate but unusual crossover such as winlogon.exe starting explorer.exe
+  directly is also cleared. Four limits are structural. The registry write that MITRE puts first in this analytic has no
+  log source in the brief at all — AN1133 offers only Sysmon EventID 7 and
+  EventID 1 — so the change to the Winlogon key itself is not observable here,
+  and neither is the TimeWindow knob that would correlate it with the
+  execution, which needs a cross-event join lib/sigma does not model. The
+  Notify subkey is not covered either: Windows stopped loading Winlogon
+  notification package DLLs after XP/2003, and the module-load leg of this
+  analytic would in any case be a rule about what winlogon.exe has loaded, for
+  which MITRE's BinarySignatureValidation knob is the right test — Sysmon
+  EventID 1 carries no signature fields, so that knob cannot be applied in this
+  rule. MITRE's ExecutablePathScope knob is left unused rather than narrowed to
+  temp or non-System32 paths, because a Userinit payload copied into System32
+  is exactly the case the analytic calls out. And an adversary who appends a
+  path to Userinit while leaving userinit.exe itself in place still produces a
+  match for the added binary, but nothing here says which registry value
+  launched it. This rule is written in the Sysmon EventID 1 vocabulary (`Image`,
+  `ParentImage`) that AN1133 names; an estate feeding Security 4688 instead
+  needs `NewProcessName` and `ParentProcessName` mapped onto those two fields
+  first, and 4688 requires the *Audit Process Creation* policy, which is not on
+  in a default install. Sysmon itself is not present by default either, and
+  with neither in place the rule returns zero rows — which reads as quiet when
+  it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0404, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/004
+  - https://attack.mitre.org/detectionstrategies/DET0404
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.004
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_logon_parent:
+    ParentImage|endswith:
+      - '\winlogon.exe'
+      - '\userinit.exe'
+  filter_expected_children:
+    Image|endswith:
+      - '\Windows\System32\userinit.exe'
+      - '\Windows\explorer.exe'
+      - '\Windows\System32\LogonUI.exe'
+      - '\Windows\System32\dwm.exe'
+      - '\Windows\System32\fontdrvhost.exe'
+      - '\Windows\System32\wlrmdr.exe'
+      - '\Windows\System32\mpnotify.exe'
+      - '\Windows\System32\rdpclip.exe'
+      - '\Windows\System32\AtBroker.exe'
+  filter_logon_scripts:
+    # Running logon scripts is part of what userinit.exe is FOR, so a script
+    # host under it is expected rather than anomalous. Narrowed to scripts
+    # served from NETLOGON or SYSVOL: a Userinit registry hijack — the
+    # technique this rule exists to catch — points at a local or user-writable
+    # path, so it still fires. Allowlisting the script hosts outright would
+    # have blinded the rule to its own technique.
+    ParentImage|endswith: '\userinit.exe'
+    Image|endswith:
+      - '\cmd.exe'
+      - '\cscript.exe'
+      - '\wscript.exe'
+      - '\powershell.exe'
+    CommandLine|contains:
+      - '\NETLOGON\'
+      - '\SYSVOL\'
+  condition: selection_logon_parent and not 1 of filter_*
+falsepositives:
+  - "Legacy per-user logon scripts. A script path set on the account object is run by userinit.exe, so cmd.exe, wscript.exe, cscript.exe or powershell.exe appears as its child once per user per logon. On an estate that still assigns them this is the loudest match by a wide margin, it recurs on every session on every host, and it is the reason this rule is medium rather than high; those four images are deliberately not filtered out, because appending a script host to the Userinit value is the most common shape of the technique itself."
+  - "Group Policy logon scripts and the gpscript.exe host that runs them, plus the login-time helpers that endpoint-management, antivirus, backup and licence-metering agents start from the same point in the logon sequence."
+  - "Kiosk, VDI and thin-client builds that deliberately replace the Shell value with a single application, a custom launcher or a session broker, so userinit.exe starts that binary instead of explorer.exe on every logon of every session on the pool — a configured, documented change that is indistinguishable at this level of detail from an adversary rewriting the same value."
+  - "Third-party shell and session software installed on top of Windows — remote-session agents, alternate desktop shells, profile-management and folder-redirection tools — which register themselves in the Shell or Userinit chain by design and so run under exactly this parentage."
+  - "Screen readers, magnifiers and on-screen keyboards launched from the secure desktop, and vendor credential-provider helpers, which winlogon.exe starts by design under names not in the allowlist above."
+level: medium

@@ -1,0 +1,1 @@
+index=* ((ImageLoaded="*\\ntdll.dll" OR ImageLoaded="*\\kernel32.dll" OR ImageLoaded="*\\kernelbase.dll") AND NOT ((ImageLoaded="C:\\Windows\\System32\\*" OR ImageLoaded="C:\\Windows\\SysWOW64\\*" OR ImageLoaded="C:\\Windows\\WinSxS\\*" OR ImageLoaded="C:\\Windows\\SyChpe32\\*" OR ImageLoaded="C:\\Windows\\SysArm32\\*")))

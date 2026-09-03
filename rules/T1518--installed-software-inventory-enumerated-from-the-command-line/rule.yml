@@ -1,0 +1,74 @@
+title: Installed software inventory enumerated from the command line
+id: 745c287c-0985-4b76-9c78-e4cdd66e80d3
+status: experimental
+description: |
+  Matches the Windows leg of AN1100 in the form one process-creation record can
+  carry: a command line naming the WMI/CIM classes that list installed products,
+  the PowerShell package cmdlets, or the Uninstall registry subtree that every
+  general-purpose software inventory actually reads. The Uninstall arm is a plain
+  substring on the key path, so it covers `reg query`, `Get-ItemProperty
+  HKLM:\...\Uninstall\*` and a WMI StdRegProv call alike without guessing at the
+  tool; the `wmic.exe` arm is separate because `wmic product get` never contains
+  the string `Win32_Product` and would otherwise be missed, and its alias carries
+  a leading space so that a Security Center query such as `wmic ... path
+  AntiVirusProduct get` does not fall through it. AN1100's second log source, the
+  PowerShell operational log, is not used here: a cmdlet typed into a session
+  already running, or called from inside a script, never reaches a process
+  command line at all, so that half of the analytic needs its own 4104 rule with
+  Script Block Logging switched on. This is the parent
+  technique's own observable and it is disjoint from the published T1518.001
+  rule, which gates on security-vendor and Security Center names — a query for
+  every installed product is not a query for the AV agent, and neither rule's
+  value list appears in the other. What is not attempted: MITRE's `TimeWindow`
+  knob asks for several discovery commands inside a short window, which needs an
+  aggregation lib/sigma does not model, and the `ParentProcess` knob is left
+  unused rather than turned into a filter, because the management tools it would
+  exclude are exactly what an adversary living off the land would run through.
+  The Linux arm AN1101 (`dpkg -l`, `rpm -qa` on auditd) and the macOS arm AN1102
+  (`system_profiler` on the unified log) are different feeds with different field
+  vocabularies and belong in their own rules, not bolted onto this logsource.
+  Prerequisite: the brief feeds this Sysmon-shaped `process_creation` category
+  from Security EventID 4688, which needs *Audit Process Creation*, and every arm
+  of this rule reads `CommandLine`, which needs the separate *Include command
+  line in process creation events* policy — without that second policy the rule
+  matches nothing at all, and zero rows reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0392, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1518
+  - https://attack.mitre.org/detectionstrategies/DET0392
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1518
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_wmi_class:
+    CommandLine|contains:
+      - 'Win32_Product'
+      - 'Win32_InstalledWin32Program'
+      - 'Win32_InstalledStoreProgram'
+      - 'Win32_SoftwareElement'
+      - 'Win32_SoftwareFeature'
+  selection_uninstall_key:
+    CommandLine|contains:
+      - '\CurrentVersion\Uninstall'
+  selection_package_cmdlet:
+    CommandLine|contains:
+      - 'Get-Package'
+      - 'Get-AppxPackage'
+      - 'Get-AppvClientPackage'
+      - 'Get-WindowsCapability'
+      - 'Get-InstalledModule'
+  selection_wmic_product:
+    Image|endswith: '\wmic.exe'
+    CommandLine|contains: ' product'
+  condition: 1 of selection*
+falsepositives:
+  - "Software asset management and vulnerability scanning. SCCM/Configuration Manager hardware inventory, Intune, Lansweeper, PDQ and the Qualys, Tenable and Rapid7 agents all enumerate installed products on a fixed schedule, through these exact classes and the Uninstall subtree. On a managed fleet this is the dominant volume by a wide margin and is the reason this rule is low rather than medium."
+  - "Installer, updater and uninstall workflows. MSI-based setups, patch tools and vendor updaters read the Uninstall subtree to find a previous version before installing over it, so ordinary software maintenance produces a matching command line per package."
+  - "Administrator and help-desk troubleshooting, where `wmic product get name,version` and `Get-Package` are the standard first step for confirming what is installed on a machine before a support call."
+  - "Build and provisioning tooling: `Get-WindowsCapability` in feature-compliance scripts, `Get-AppxPackage` in the deprovisioning scripts that image builds and MDM baselines run on every new machine, and `Get-InstalledModule` in the PowerShell module-update step of a CI or configuration-management run."
+level: low

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) LIKE "*\\\\fwupdate.exe" OR TO_LOWER(process.executable) LIKE "*\\\\afuwin.exe" OR TO_LOWER(process.executable) LIKE "*\\\\afudos.exe" OR TO_LOWER(process.executable) LIKE "*\\\\h2offt.exe" OR TO_LOWER(process.executable) LIKE "*\\\\h2offtwin64.exe" OR TO_LOWER(process.executable) LIKE "*\\\\winflash.exe")

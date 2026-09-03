@@ -1,0 +1,1 @@
+index=* (((Image="*\\net.exe" OR Image="*\\net1.exe") AND (CommandLine="* group *" AND CommandLine="*/domain*")) OR (CommandLine="*Get-ADGroup*" OR CommandLine="*Get-ADPrincipalGroupMembership*" OR CommandLine="*Get-DomainGroup*" OR CommandLine="*Get-NetGroup*" OR CommandLine="*dsquery group*" OR CommandLine="*dsget group*"))

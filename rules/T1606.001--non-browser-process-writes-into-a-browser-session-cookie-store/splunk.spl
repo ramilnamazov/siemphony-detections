@@ -1,0 +1,1 @@
+index=* ((TargetFilename="*\\Network\\Cookies*" OR TargetFilename="*\\User Data\\Default\\Cookies*" OR TargetFilename="*cookies.sqlite*") AND NOT ((Image="*\\chrome.exe" OR Image="*\\msedge.exe" OR Image="*\\firefox.exe" OR Image="*\\brave.exe" OR Image="*\\opera.exe" OR Image="*\\vivaldi.exe" OR Image="*\\chromium.exe")))

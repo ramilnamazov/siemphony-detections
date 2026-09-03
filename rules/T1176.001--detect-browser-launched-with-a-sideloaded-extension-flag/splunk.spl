@@ -1,0 +1,1 @@
+index=* (CommandLine="*--load-extension=*" OR CommandLine="*--disable-extensions-except=*" OR CommandLine="*--pack-extension=*" OR CommandLine="*--install-chrome-app=*")

@@ -1,0 +1,26 @@
+<group name="sigma,linux,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^PATH$</field>
+    <field name="name" type="pcre2">(?i)(/tmp/|/dev/shm/|/var/tmp/)</field>
+    <field name="name" type="pcre2">(?i)\.so$</field>
+    <description>Shared object opened from /tmp, or ptrace called by a network service (1/2)</description>
+    <mitre>
+      <id>T1055.014</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^SYSCALL$</field>
+    <field name="syscall" type="pcre2">(?i)^ptrace$</field>
+    <field name="exe" type="pcre2">(?i)(/nginx$|/apache2$|/sshd$)</field>
+    <description>Shared object opened from /tmp, or ptrace called by a network service (2/2)</description>
+    <mitre>
+      <id>T1055.014</id>
+    </mitre>
+  </rule>
+</group>

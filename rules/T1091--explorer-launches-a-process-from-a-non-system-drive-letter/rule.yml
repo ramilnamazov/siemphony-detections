@@ -1,0 +1,49 @@
+title: Explorer launches a process from a non-system drive letter
+id: 792753da-7723-4704-8b5f-1e8c7caaacf5
+status: experimental
+description: |
+  AN0841 chains a drive-mount event (System 1006), a file write to the new
+  volume (Sysmon 11) and execution from it (Sysmon 1) within a
+  `FileExecutionWindow`; Sigma has no cross-event timer, so this rule keeps the
+  execution leg alone and adds the one correlate a single process_creation
+  event can carry — the parent. `ParentImage` ending in explorer.exe is the
+  double-click path: a user opened the removable volume in a folder window and
+  launched something from it, which is the social-engineering half of this
+  technique rather than a true Autorun/AutoPlay launch, since that path spawns
+  from a different parent and is not covered here. `Image` starting with a
+  letter from D: through H: is MITRE's `DriveLetterMatch` knob, populated with
+  the drive letters Windows assigns to removable media on a machine whose C:
+  is the system volume; it is a structural stand-in for "removable" and cannot
+  tell a USB stick from a second internal disk, an optical drive or a mapped
+  volume that happens to land in that range — `FileEntropy`, which would help
+  separate a packed payload from a normal file, has no Sigma equivalent either.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0301, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1091
+  - https://attack.mitre.org/detectionstrategies/DET0301
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.initial-access
+  - attack.t1091
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent:
+    ParentImage|endswith: '\explorer.exe'
+  selection_removable_path:
+    Image|startswith:
+      - 'D:\'
+      - 'E:\'
+      - 'F:\'
+      - 'G:\'
+      - 'H:\'
+  condition: selection_parent and selection_removable_path
+falsepositives:
+  - "Portable applications run directly from a USB stick, which is routine for field technicians, contractors and kiosk-style workstations and produces exactly this parent-child shape without anything malicious involved."
+  - "Machines where D: or a later letter is a second internal or virtual disk rather than removable media — a data partition, a mounted VHD/VHDX, or a DVD/ISO drive — none of which this selector can distinguish from a USB device; MITRE's DriveLetterMatch knob is where a site's own layout replaces the default range."
+  - "Offline software or driver distribution on USB, mentioned directly in the technique's own description for air-gapped networks, where IT deliberately copies an installer to media and a user double-clicks it from Explorer."
+  - "Network drives mapped with `net use` to a letter in this range, which a user can launch content from by double-clicking in Explorer identically to a physically removable volume."
+level: medium

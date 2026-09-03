@@ -1,0 +1,2 @@
+DeviceFileEvents
+| where (InitiatingProcessFolderPath =~ "System" and (FolderPath endswith ".exe" or FolderPath endswith ".dll" or FolderPath endswith ".sys" or FolderPath endswith ".ps1" or FolderPath endswith ".bat" or FolderPath endswith ".cmd" or FolderPath endswith ".vbs" or FolderPath endswith ".hta" or FolderPath endswith ".scr"))

@@ -1,0 +1,2 @@
+Event
+| where ((EventID == 4104 and (ScriptBlockText contains "Copy-Item" or ScriptBlockText contains "copy-item" or ScriptBlockText contains "Robocopy" or ScriptBlockText contains "robocopy")) and ScriptBlockText contains "\\\\")

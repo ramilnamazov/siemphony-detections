@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\net.exe" OR TO_LOWER(process.executable) LIKE "*\\\\net1.exe" OR TO_LOWER(process.executable) LIKE "*\\\\findstr.exe" OR TO_LOWER(process.executable) LIKE "*\\\\cmd.exe" OR TO_LOWER(process.executable) LIKE "*\\\\python.exe") AND NOT ((TO_LOWER(process.executable) LIKE "c:\\\\windows\\\\system32\\\\*" OR TO_LOWER(process.executable) LIKE "c:\\\\windows\\\\syswow64\\\\*" OR TO_LOWER(process.executable) LIKE "c:\\\\program files\\\\*" OR TO_LOWER(process.executable) LIKE "c:\\\\program files (x86)\\\\*")))

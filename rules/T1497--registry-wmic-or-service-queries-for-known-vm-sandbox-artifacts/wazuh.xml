@@ -1,0 +1,34 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 3 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\reg\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(HARDWARE\\DESCRIPTION\\System\\BIOS|HARDWARE\\ACPI\\DSDT|SystemBiosVersion)</field>
+    <description>Registry, WMIC or service queries for known VM/sandbox artifacts (1/3)</description>
+    <mitre>
+      <id>T1497</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\wmic\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(computersystem get manufacturer|computersystem get model|bios get serialnumber|baseboard get product|csproduct get uuid)</field>
+    <description>Registry, WMIC or service queries for known VM/sandbox artifacts (2/3)</description>
+    <mitre>
+      <id>T1497</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\sc\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(VBoxService|VBoxGuest|VBoxSF|VBoxMouse|vmci|vm3dmp|vmmouse|VMTools)</field>
+    <description>Registry, WMIC or service queries for known VM/sandbox artifacts (3/3)</description>
+    <mitre>
+      <id>T1497</id>
+    </mitre>
+  </rule>
+</group>

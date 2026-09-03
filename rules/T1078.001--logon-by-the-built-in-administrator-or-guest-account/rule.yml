@@ -1,0 +1,86 @@
+title: Logon by the built-in Administrator or Guest account
+id: 24807dd6-6b60-43dd-90c1-67b7b4199c24
+status: experimental
+description: |
+  AN1283 asks for the built-in default accounts — the technique's own text
+  names Administrator and Guest specifically — performing "interactive or
+  remote logons." This rule matches EventID 4624 (a completed logon),
+  restricted to LogonType 2 (interactive), 3 (network — the ADMIN$/C$ and
+  named-pipe path most PsExec-style tooling and remote admin actually takes)
+  or 10 (RemoteInteractive, RDP), or EventID 4648 (a logon attempted with
+  explicitly supplied credentials, the shape a runas, a mapped drive or a
+  scheduled task under an alternate account takes), in both cases where
+  TargetUserName is one of those two names. The LogonType filter applies only
+  to the 4624 branch: 4648 has no LogonType field on the raw event at all —
+  it records that alternate credentials were supplied, not what kind of
+  session they were then used to open — so an earlier draft of this rule
+  ANDed LogonType across both event IDs and silently killed the entire 4648
+  branch, the same trap this corpus's T1021 rule sidesteps by filtering 4648
+  on ProcessName instead. Batch and service logons (4, 5) are excluded from
+  the 4624 branch on purpose: a scheduled task or a Windows service
+  legitimately running as a local account is a configuration choice, not the
+  "someone logged into this box as Guest" behaviour the analytic describes.
+  MITRE's own knob concedes the largest hole in this rule before it is even
+  deployed: "Default usernames like 'Administrator' or 'Guest' may be renamed
+  or disabled by the organization. Detection logic should account for name
+  changes" — a literal TargetUserName match cannot account for a rename,
+  because at that point the account's SID is the only thing still tying it to
+  its default-account identity, and 4624/4648 do not carry the well-known SID
+  suffix (-500 for the built-in Administrator, -501 for Guest) in a field
+  this pipeline can bind to; TargetSid is present on the raw event but is
+  rendered as a full SID string with the RID at the end, which needs an
+  endswith rather than an equality match and is not attempted here since no
+  rule in this corpus has established that field. An estate that renames its
+  defaults per Microsoft's own guidance is therefore invisible to this rule
+  entirely, and a quiet result there means the mitigation worked, not that
+  the technique failed to fire. The TimeWindow knob — restricting matches to
+  outside installation or maintenance windows — needs a schedule baseline
+  lib/sigma has no construct for, so every match here carries equal weight
+  regardless of when it happened.
+  The Linux leg, AN1284, is not attempted in this file: lib/sigma renders one
+  logsource per rule, and 4624/4648 is the better-established of the two
+  vocabularies in this corpus. For the record, AN1284's {product: linux,
+  service: auditd} USER_LOGIN source is real but its SSHMethod knob —
+  password versus key-based authentication — is not a field raw auditd's
+  USER_LOGIN record carries; that distinction lives in a separate USER_AUTH
+  record keyed to the PAM module that ran, which this pipeline has not
+  established a vocabulary for.
+  Prerequisite: 4624 and 4648 are both written by the Logon/Logoff audit
+  category, on by default and in both the Microsoft and CIS baselines, but a
+  host whose audit policy was rewritten can still be blind — confirm with
+  auditpol rather than assuming.
+  UNVERIFIED — derived from MITRE ATT&CK DET0465 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1078/001
+  - https://attack.mitre.org/detectionstrategies/DET0465
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.initial-access
+  - attack.t1078.001
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_4624_typed:
+    EventID: 4624
+    LogonType:
+      - 2
+      - 3
+      - 10
+  selection_4648_explicit:
+    EventID: 4648
+  selection_default_account:
+    TargetUserName:
+      - 'Administrator'
+      - 'Guest'
+  condition: (selection_4624_typed or selection_4648_explicit) and selection_default_account
+falsepositives:
+  - "Legacy or third-party remote-administration tooling that authenticates as the built-in local Administrator over LogonType 3 to reach ADMIN$ or C$ — older PsExec-style deployment tools, some vulnerability scanners, and backup or imaging agents that were never migrated to a dedicated service account. On an estate still running any of these this is the loudest source here, which is why the level is medium rather than high."
+  - "Break-glass use of the built-in local Administrator account during a domain-controller or authentication outage, when it is the only account guaranteed to still work — a rare but entirely legitimate and expected trigger of this rule."
+  - "Freshly imaged or newly provisioned, not-yet-domain-joined servers where the local Administrator account is the only one that exists until provisioning finishes and named admin accounts are granted access — MITRE's own TimeWindow knob is aimed at exactly this window."
+  - "Kiosk, lab or legacy line-of-business systems where the Guest account has been deliberately left enabled for compatibility, producing routine interactive or network logons that are sanctioned rather than adversarial."
+level: medium

@@ -1,0 +1,1 @@
+index=* (((Image="*/bash" OR Image="*/sh" OR Image="*/dash") AND (CommandLine="*base64*" OR CommandLine="*gzip*" OR CommandLine="*xxd*" OR CommandLine="*uuencode*" OR CommandLine="*b64encode*")) AND (CommandLine="*curl*" OR CommandLine="*wget*" OR CommandLine="*netcat*" OR CommandLine="* nc *"))

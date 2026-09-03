@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\fwupdate.exe" or FolderPath endswith "\\afuwin.exe" or FolderPath endswith "\\afudos.exe" or FolderPath endswith "\\h2offt.exe" or FolderPath endswith "\\h2offtwin64.exe" or FolderPath endswith "\\winflash.exe")

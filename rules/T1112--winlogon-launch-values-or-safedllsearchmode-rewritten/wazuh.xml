@@ -1,0 +1,23 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)(\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit|\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell|\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Notify\\)</field>
+    <field name="Details" negate="yes" type="pcre2">(?i)(^C:\\Windows\\system32\\userinit\.exe,$|^explorer\.exe$)</field>
+    <description>Winlogon launch values or SafeDllSearchMode rewritten (1/2)</description>
+    <mitre>
+      <id>T1112</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)\\Control\\Session Manager\\SafeDllSearchMode$</field>
+    <description>Winlogon launch values or SafeDllSearchMode rewritten (2/2)</description>
+    <mitre>
+      <id>T1112</id>
+    </mitre>
+  </rule>
+</group>

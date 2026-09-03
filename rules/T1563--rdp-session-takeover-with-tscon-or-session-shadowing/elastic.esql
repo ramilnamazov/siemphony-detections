@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) LIKE "*\\\\tscon.exe" OR (TO_LOWER(process.executable) LIKE "*\\\\mstsc.exe" AND (TO_LOWER(process.command_line) LIKE "*-shadow:*" OR TO_LOWER(process.command_line) LIKE "*/shadow:*" OR TO_LOWER(process.command_line) LIKE "*–shadow:*" OR TO_LOWER(process.command_line) LIKE "*—shadow:*" OR TO_LOWER(process.command_line) LIKE "*―shadow:*")))

@@ -1,0 +1,72 @@
+title: File timestamps rewritten via touch time flags or debugfs
+id: ed4fd5cb-59a3-40fc-8c79-8f05f27c403b
+status: experimental
+description: |
+  Matches process creation on Linux where `touch` is invoked with a flag that
+  sets a timestamp to something other than "now" — an explicit time (`-t`), an
+  explicit date (`-d`/`--date`), or another file's times copied across
+  (`-r`/`--reference`) — plus the clustered short-flag forms (`-amt`, `-mr`,
+  `-ad` and friends) that the same command is usually written with. The binary
+  gate and the flag gate are separate selections that must both hold, because
+  bare `touch file` only stamps the current time and is one of the most common
+  commands on any Linux host; it is the flag that turns the invocation into
+  timestomping. A second, independent selection covers `debugfs` carrying
+  `set_inode_field`, which writes inode times directly and bypasses the
+  utimensat path entirely. MITRE's `MonitoredCommandList` knob names `touch -r`
+  and `debugfs`; the specific flag list above is authored here, not sourced from
+  MITRE. This rule is written for the `process_creation` vocabulary over
+  auditd `execve` records — `Image` holds the resolved `exe=` path and
+  `CommandLine` the reconstructed `a0..aN` argument vector — and auditd emits no
+  execve records at all until an `-a always,exit -F arch=b64 -S execve` rule is
+  loaded, so an estate with stock auditd rules returns zero rows because it is
+  blind, not because it is quiet. Three routes are invisible to it by
+  construction: a timestamp set by calling `utimensat`/`utime` directly from
+  compiled code or from `os.utime` in a script never creates a process; a
+  BusyBox or toybox userland execs `/bin/busybox` rather than a path ending
+  `/touch`; and the `$STANDARD_INFORMATION` versus `$FILE_NAME` discrepancy the
+  technique description centres on is an NTFS artefact with no Linux
+  equivalent, so the brief's Windows analytic AN1626 (Sysmon EventID 15
+  `create_stream_hash`, Security 4663/4670/4656) is a separate feed with its own
+  field names and is not combined here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0591, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1070/006
+  - https://attack.mitre.org/detectionstrategies/DET0591
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1070.006
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_touch_binary:
+    Image|endswith: '/touch'
+  selection_touch_time_flag:
+    CommandLine|contains:
+      - ' -t '
+      - ' -d '
+      - ' -r '
+      - ' --date'
+      - ' --reference'
+      - ' --time='
+      - ' -at '
+      - ' -mt '
+      - ' -amt '
+      - ' -ar '
+      - ' -mr '
+      - ' -amr '
+      - ' -ad '
+      - ' -md '
+      - ' -amd '
+  selection_debugfs:
+    Image|endswith: '/debugfs'
+    CommandLine|contains: 'set_inode_field'
+  condition: (selection_touch_binary and selection_touch_time_flag) or selection_debugfs
+falsepositives:
+  - "Build and packaging systems, which are the single largest source of matches on any developer, CI or build host. `make` recipes, `rpmbuild`, `dpkg-buildpackage` and reproducible-build wrappers call `touch -r` and `touch -d @SOURCE_DATE_EPOCH` on generated artefacts to normalise mtimes and stop spurious rebuilds, and nothing on the command line separates that from an operator backdating a dropped file."
+  - "Backup, restore and sync tooling — rsync, tar, cpio and cp wrappers that call `touch -r reference target` to reapply original timestamps after a restore, and archive-extraction scripts that replay recorded mtimes onto unpacked files."
+  - "Housekeeping cron jobs and log-retention scripts that create a dated marker with `touch -t` or `touch -d '7 days ago'` and then sweep with `find -newer marker`, which produces a steady low-rate match on every server that runs one."
+  - "Filesystem repair and forensic-tooling work by administrators, where `debugfs -w -R 'set_inode_field ...'` is used to correct a corrupted inode on an unmounted ext filesystem, typically alongside `fsck` during an outage."
+level: low

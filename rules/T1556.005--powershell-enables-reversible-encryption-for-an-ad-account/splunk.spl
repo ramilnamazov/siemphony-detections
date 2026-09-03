@@ -1,0 +1,1 @@
+index=* (((EventID="4104" AND ScriptBlockText="*Set-ADUser*") AND ScriptBlockText="*AllowReversiblePasswordEncryption*") AND ScriptBlockText="*$true*")

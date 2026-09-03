@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (event.code == 5145 AND (TO_LOWER(RelativeTargetName) LIKE "*.pst" OR TO_LOWER(RelativeTargetName) LIKE "*.ost" OR TO_LOWER(RelativeTargetName) LIKE "*.nst" OR TO_LOWER(RelativeTargetName) LIKE "*.olm"))

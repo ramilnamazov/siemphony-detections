@@ -1,0 +1,1 @@
+index=* (type="PATH" AND (name="/etc/hosts" OR name="/etc/resolv.conf"))

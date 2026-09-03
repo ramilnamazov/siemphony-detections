@@ -1,0 +1,62 @@
+title: Executable written into a protected program directory
+id: 393c050a-eab2-4223-909d-257aea69ea24
+status: experimental
+description: |
+  Matches the binary-modification half of AN0949: a file create or overwrite of
+  an .exe, .dll, .sys or .ocx underneath the system directories or the Program
+  Files trees, by a writer that is not part of the Windows servicing or
+  antimalware update path. The rule is written in the Sysmon-shaped `file_event`
+  vocabulary (`TargetFilename`, `Image`); the brief also lists Security 4688 for
+  the execution half of the same analytic, which is a different feed with a
+  different field set and is not authored here. Path terms use `contains` rather
+  than `startswith` so the rule is not pinned to the C: drive. Three limits
+  worth stating: Sysmon EventID 11 fires on create and overwrite, so patching an
+  existing binary in place — IAT hooking or an entry-point patch — may produce
+  no event at all; the excluded-writer list includes msiexec.exe because it is
+  the loudest legitimate writer, which also removes MSI-delivered tampering from
+  view; and the correlation MITRE describes, a write followed by execution of an
+  anomalously signed image inside the `TimeWindow` knob, needs both a join and a
+  signature attribute that Sigma has neither of. Sysmon file-create logging is
+  scoped entirely by your Sysmon configuration, and the common public configs
+  filter most writes under System32 — confirm .exe and .dll creation in these
+  paths is included before reading silence as clean.
+  UNVERIFIED — derived from MITRE ATT&CK DET0336 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1554
+  - https://attack.mitre.org/detectionstrategies/DET0336
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1554
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection:
+    TargetFilename|contains:
+      - '\Windows\System32\'
+      - '\Windows\SysWOW64\'
+      - '\Program Files\'
+      - '\Program Files (x86)\'
+    TargetFilename|endswith:
+      - '.exe'
+      - '.dll'
+      - '.sys'
+      - '.ocx'
+  filter_servicing_writers:
+    Image|endswith:
+      - '\TiWorker.exe'
+      - '\TrustedInstaller.exe'
+      - '\poqexec.exe'
+      - '\msiexec.exe'
+      - '\wusa.exe'
+      - '\MsMpEng.exe'
+      - '\MpSigStub.exe'
+  condition: selection and not filter_servicing_writers
+falsepositives:
+  - "Third-party application updaters replacing their own binaries in place — browser, conferencing, PDF reader and language-runtime updaters all write fresh .exe and .dll into their Program Files subdirectory on every release. On a fleet this is a continuous stream and by a wide margin the largest source of matches, which is why MITRE's MonitoredPaths knob is the first thing to tighten: dropping the two Program Files prefixes and keeping only System32 and SysWOW64 raises precision sharply."
+  - "Windows servicing performed by writers other than the excluded ones, in particular svchost.exe-hosted service components and DISM or setup running during a feature-on-demand, language-pack or in-place upgrade, all of which legitimately create binaries directly in System32."
+  - "Non-MSI installer bootstrappers — setup.exe stubs, NSIS and Inno Setup packages, and vendor bundle installers — which unpack their payload straight into Program Files without ever invoking msiexec.exe."
+  - "Endpoint agents that self-update without an installer, such as EDR, backup and monitoring products that download a new build and overwrite their own .exe and .dll under Program Files on a schedule."
+level: low

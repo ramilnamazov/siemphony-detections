@@ -1,0 +1,73 @@
+title: Shell or script host spawned by a remotely activatable COM server
+id: fd9b7e0e-4ab9-4925-9bd9-ec2f26eb7206
+status: experimental
+description: |
+  Catches the execution leg of DCOM lateral movement on the target host: a COM
+  server that can be activated remotely — MMC, an Office application or the COM
+  surrogate — becoming the parent of a command shell, script engine or
+  signed-binary proxy. The parent list populates MITRE's ProcessName tuning knob;
+  the values are ours, chosen for objects whose activation creates a new server
+  process, and the child list is what an operator typically detonates through
+  MMC20.Application.ExecuteShellCommand or an Office Application object.
+  Coverage limits worth stating plainly. ShellWindows and ShellBrowserWindow —
+  the two most widely used DCOM objects — bind to the already-running shell, so
+  the payload is spawned by explorer.exe and this rule is silent on both;
+  explorer.exe is not in the parent list because explorer.exe launching cmd.exe
+  or powershell.exe is ordinary desktop behaviour and would swamp everything else
+  here. Objects that execute in-process leave no child at all — Excel's
+  RegisterXLL loads a DLL into the running excel.exe — and are visible only in
+  the brief's image_load source (Sysmon EventID 7), not in process creation. An
+  operator who names a dropped binary instead of a listed LOLBIN also escapes the
+  child list. wmiprvse.exe is deliberately absent: DCOM underlies WMI remoting,
+  but a WMI provider host spawning a shell is T1047 / T1021.006 and on any estate
+  with management or scanning agents it would supply most of this rule's output
+  under the wrong label. AN0791's first leg — a privileged remote logon and RPC
+  to port 135 shortly before the spawn — is a cross-event correlation over a
+  TimeWindow that Sigma cannot express, so this rule stands on the spawn alone
+  and the analyst should pivot to the matching 4624 type 3 logon by hand; that
+  logon is also the only thing separating this from the T1204 rule
+  (190b7574-8f2d-47cd-b1ed-168a3789ab2e), whose Office parent arm selects the
+  same events from the Execution side. The overlap is intentional, not an
+  accident. Prerequisite: Sysmon EventID 1 is not present in a default install.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0285, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1021/003
+  - https://attack.mitre.org/detectionstrategies/DET0285
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1021.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent:
+    ParentImage|endswith:
+      - '\mmc.exe'
+      - '\excel.exe'
+      - '\winword.exe'
+      - '\powerpnt.exe'
+      - '\outlook.exe'
+      - '\visio.exe'
+      - '\msaccess.exe'
+      - '\dllhost.exe'
+  selection_child:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\msiexec.exe'
+      - '\bitsadmin.exe'
+      - '\certutil.exe'
+  condition: selection_parent and selection_child
+falsepositives:
+  - "dllhost.exe acting as a normal COM surrogate. Installers, shell extensions and packaged applications routinely run under dllhost.exe and start msiexec.exe or rundll32.exe as part of ordinary servicing, so this parent contributes most of the benign volume and is the reason the rule is not rated higher."
+  - "Office documents with legitimate macros or add-ins that shell out. A finance workbook calling cmd.exe or a VBA project driving wscript.exe produces the exact parent-child pair selected here, and nothing in the process-creation event distinguishes it from a remotely activated Excel.Application. This is where MITRE's RemoteHostList and UserContext knobs earn their place — a local interactive user opening a document looks nothing like a rare first-time invocation from another host."
+  - "Administrative MMC snap-ins that launch a console or script host — for example a management pack or a custom snap-in offering a run-command action — which are indistinguishable from MMC20.Application abuse without the remote-logon leg."
+level: medium

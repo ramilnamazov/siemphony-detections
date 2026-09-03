@@ -1,0 +1,56 @@
+title: Transport agent installed or enabled on a mail server
+id: 5d51d73d-9703-449a-b572-68968d8752b3
+status: experimental
+description: |
+  Matches the configuration half of AN0472: a script block naming one of the
+  management cmdlets that registers, activates or reprioritises a transport
+  agent on an Exchange server. Registration is the step that turns an attacker
+  DLL into persistence — the assembly does nothing until it is installed into
+  the transport pipeline and enabled — and it is a cmdlet call, so
+  ScriptBlockText under EventID 4104 is the field that carries it whether it
+  was typed into the Exchange Management Shell, pasted into a remote session or
+  wrapped in an encoded one-liner. Set-TransportAgent is included because
+  moving an agent to the front of the pipeline is how it guarantees it sees
+  every message; the read-only Get-TransportAgent is deliberately excluded,
+  because listing the agents is how ordinary administration and every
+  troubleshooting session also begins.
+  The brief's other three log sources were not used, and the reasons are worth
+  stating: EdgeTransport.exe legitimately loads a large set of assemblies from
+  the GAC and the Exchange install tree, so a Sysmon EventID 7 selector needs a
+  verified baseline of that set which this corpus does not have, and MITRE's
+  own AssemblyPath knob says the install paths vary by deployment, which
+  removes the one anchor an EventID 11 file-creation rule would need. The rule
+  therefore sees the registration, not the DLL: an agent installed by editing
+  the pipeline configuration directly, or one already registered before
+  logging was turned on, produces nothing here. EventID 4104 requires *Script
+  Block Logging* to be enabled by policy — it is off in a default install and
+  in the MS and CIS baselines — and because these cmdlets run against the
+  Exchange server, the log has to be collected from that server rather than
+  from the administrator's workstation. With either missing the rule returns
+  zero rows, which reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0166, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1505/002
+  - https://attack.mitre.org/detectionstrategies/DET0166
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1505.002
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection:
+    EventID: 4104
+    ScriptBlockText|contains:
+      - 'Install-TransportAgent'
+      - 'Enable-TransportAgent'
+      - 'Set-TransportAgent'
+  condition: selection
+falsepositives:
+  - "Supported third-party transport agent products — mail hygiene, DLP, journaling, archiving and email-signature tooling — whose documented installers call Install-TransportAgent and then Set-TransportAgent to place themselves in the pipeline, and repeat both on every product upgrade."
+  - "Microsoft's own install-AntiSpamAgents.ps1, which is the documented way to turn on the built-in anti-spam agents on a Mailbox server and calls Install-TransportAgent once per agent, producing a burst of matches from a single legitimate run."
+  - "Post-update maintenance on the mail server, where a cumulative update leaves agents unregistered or disabled and an administrator re-runs Install-TransportAgent and Enable-TransportAgent to restore them during the change window."
+  - "Administrators reordering an existing pipeline with Set-TransportAgent -Priority, which is routine whenever two agents must run in a particular order and involves no new code at all."
+level: medium

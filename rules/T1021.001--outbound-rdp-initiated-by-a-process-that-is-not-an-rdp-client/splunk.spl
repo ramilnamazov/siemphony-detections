@@ -1,0 +1,1 @@
+index=* ((DestinationPort="3389" AND Initiated="true") AND NOT ((Image="*\\mstsc.exe" OR Image="*\\msrdc.exe")))

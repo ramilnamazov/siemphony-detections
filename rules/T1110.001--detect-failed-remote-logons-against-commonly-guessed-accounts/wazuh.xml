@@ -1,0 +1,14 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4625$</field>
+    <field name="LogonType" type="pcre2">(?i)(^3$|^8$|^10$)</field>
+    <field name="SubStatus" type="pcre2">(?i)(^0xC000006A$|^0xC0000064$)</field>
+    <field name="TargetUserName" type="pcre2">(?i)(^administrator$|^admin$|^guest$|^root$|^sa$|^sysadmin$|^oracle$|^postgres$|^ftp$|^test$|^user$|^backup$|^support$|^demo$)</field>
+    <description>Detect failed remote logons against commonly guessed accounts</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+  </rule>
+</group>

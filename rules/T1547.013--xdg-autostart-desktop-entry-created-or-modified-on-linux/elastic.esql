@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*/etc/xdg/autostart/*" OR TO_LOWER(name) LIKE "*/.config/autostart/*") AND TO_LOWER(name) LIKE "*.desktop")

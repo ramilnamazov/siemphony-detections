@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*ntds.dit*" OR TO_LOWER(process.command_line) LIKE "*ntdsutil*" OR TO_LOWER(process.command_line) LIKE "*windows\\\\ntds*" OR TO_LOWER(process.command_line) LIKE "*invoke-ninjacopy*" OR TO_LOWER(process.command_line) LIKE "*ntdsdumpex*")

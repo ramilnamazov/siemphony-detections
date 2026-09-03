@@ -1,0 +1,1 @@
+index=* ((Image="*\\certutil.exe" OR Image="*\\finger.exe" OR Image="*\\tftp.exe" OR Image="*\\curl.exe" OR Image="*\\wget.exe" OR Image="*\\ftp.exe" OR Image="*\\ssh.exe") AND Initiated="true")

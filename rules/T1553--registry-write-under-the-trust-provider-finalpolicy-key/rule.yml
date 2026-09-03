@@ -1,0 +1,44 @@
+title: Registry write under the trust-provider FinalPolicy key
+id: b9bd781f-98cf-4b0f-9cb6-81ae66f50288
+status: experimental
+description: |
+  AN1246 describes "creation/modification of suspicious registry keys for
+  trust providers"; this rule targets the one such key the technique's own
+  cited source names precisely — the SpectorOps "Subverting Trust" research
+  the brief references documents that WinVerifyTrust's provider dispatch is
+  driven by the DLL and function values under
+  `HKLM\SOFTWARE\Microsoft\Cryptography\Providers\Trust\FinalPolicy\{class-id}`,
+  and that repointing those values to an attacker DLL makes Windows report a
+  tampered binary as validly signed. Any write under that subtree is the
+  selector, since legitimate software essentially never touches it after
+  install. The brief offers Security EventID 4657 for this leg but maps it
+  onto the Sysmon-shaped `registry_set` category, and the rule is written in
+  that vocabulary (`TargetObject` carrying the full key-plus-value path); a
+  native 4657 feed splits that into `ObjectName` and `ObjectValueName` and
+  needs both mapped onto `TargetObject` before this rule can match anything —
+  turning on *Audit Registry* alone does not make 4657 usable here, since the
+  field shape differs, not just the audit policy. The other two analytics in
+  AN1246 — unusual module loads from non-standard locations, and file
+  creation from Sysmon EventID 11 — are not used; a certificate dropped into
+  the machine or user certificate store without ever touching this registry
+  key, e.g. via `certutil -addstore`, is invisible to this rule.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0452, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1553
+  - https://attack.mitre.org/detectionstrategies/DET0452
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1553
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains: '\SOFTWARE\Microsoft\Cryptography\Providers\Trust\FinalPolicy\'
+  condition: selection
+falsepositives:
+  - "A narrow set of antivirus and endpoint-security products that register their own WinVerifyTrust hook under this same subtree at install time to intercept signature checks for content scanning."
+  - "Group Policy or endpoint-management security-baseline remediation that resets trust-provider registry values to their default state after detecting drift, which writes to the same key this rule watches."
+level: high

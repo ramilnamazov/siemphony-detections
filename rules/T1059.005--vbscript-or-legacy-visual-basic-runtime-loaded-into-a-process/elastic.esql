@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(file.path) LIKE "*\\\\vbscript.dll" OR TO_LOWER(file.path) LIKE "*\\\\msvbvm60.dll")

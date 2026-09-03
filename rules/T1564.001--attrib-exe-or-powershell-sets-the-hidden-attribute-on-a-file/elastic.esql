@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\attrib.exe" AND TO_LOWER(process.command_line) LIKE "*+h*") OR ((TO_LOWER(process.executable) LIKE "*\\\\powershell.exe" OR TO_LOWER(process.executable) LIKE "*\\\\pwsh.exe") AND (TO_LOWER(process.command_line) LIKE "*attributes*" AND TO_LOWER(process.command_line) LIKE "*hidden*")))

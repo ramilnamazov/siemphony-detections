@@ -1,0 +1,1 @@
+index=* ((Image="*\\attrib.exe" AND CommandLine="*+h*") OR ((Image="*\\powershell.exe" OR Image="*\\pwsh.exe") AND (CommandLine="*attributes*" AND CommandLine="*hidden*")))

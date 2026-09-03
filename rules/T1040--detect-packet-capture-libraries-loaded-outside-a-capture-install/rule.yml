@@ -1,0 +1,58 @@
+title: Detect packet capture libraries loaded outside a capture install
+id: e43d625b-79e6-466d-865c-9aad55493290
+status: experimental
+description: |
+  A socket filter backdoor on Windows has to obtain raw packet visibility before
+  it can watch for its trigger packet, and the libpcap route to that is loading
+  the user-mode capture libraries MITRE names in the analytic's
+  CaptureLibIndicators knob. This rule matches Module Load events for wpcap.dll
+  or packet.dll and subtracts only processes running from a standard capture
+  install directory. The exclusion is anchored on the install path rather than on
+  the file name because a name-only allowlist is defeated by
+  `copy implant.exe C:\Users\Public\tshark.exe` and, worse, publishes the exact
+  names an attacker should use; anchoring on the directory also picks up
+  nping.exe and ncat.exe, which ship beside nmap.exe and load the same library.
+  Two gaps to be plain about. The raw-socket route (SIO_RCVALL on an AF_INET
+  SOCK_RAW, or a WFP callout) acquires the same capability with no capture DLL
+  and produces no event here, and the driver arm of the same knob — npcap.sys
+  and npf.sys on Sysmon EID 6 — is a different logsource and is not expressed in
+  this rule. Nothing at this layer touches the BPF filter that defines the
+  sub-technique, so every alert is a sniffing event (T1040) of which a socket
+  filter backdoor is a subset; the trigger-to-callback correlation that would
+  separate them needs a join and a timer that Sigma has no construct for.
+  UNVERIFIED — derived from MITRE ATT&CK DET0162 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1205/002
+  - https://attack.mitre.org/detectionstrategies/DET0162
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.command-and-control
+  - attack.t1205.002
+  - attack.t1040
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection:
+    ImageLoaded|endswith:
+      - '\wpcap.dll'
+      - '\packet.dll'
+  filter_capture_installs:
+    Image|startswith:
+      - 'C:\Program Files\Wireshark\'
+      - 'C:\Program Files (x86)\Wireshark\'
+      - 'C:\Program Files\Npcap\'
+      - 'C:\Program Files (x86)\Npcap\'
+      - 'C:\Program Files\Nmap\'
+      - 'C:\Program Files (x86)\Nmap\'
+      - 'C:\Windows\System32\Npcap\'
+  condition: selection and not filter_capture_installs
+falsepositives:
+  - "Portable or relocated capture tooling. Wireshark or Nmap run from a USB stick, a user profile or a non-default install root is not under any excluded path and alerts exactly like an implant would. MITRE's AllowedInstallers knob is where a site records which processes may legitimately acquire capture capability, and that list cannot be written in advance for someone else's fleet."
+  - "Monitoring agents, VoIP quality probes, NAC clients and vulnerability scanners that link against the same libraries for their own capture needs. They load them once per service start, so the steady-state rate of this rule is set by service restarts and reboots across the fleet rather than by human activity — baseline the Image values for a week before enabling it, or the first patch Tuesday will look like an incident."
+  - "The capture driver installer and its post-install self-test, which map both libraries once per deployment and once per upgrade wave, from a bootstrap executable that is not itself an analyser."
+  - "Software distribution tooling that stages the capture runtime as a dependency of an unrelated product, so the loading image is a packaging or installer process running from a temp directory."
+level: medium

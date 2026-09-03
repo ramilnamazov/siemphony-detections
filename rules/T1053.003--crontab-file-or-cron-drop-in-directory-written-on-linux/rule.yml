@@ -1,0 +1,82 @@
+title: Crontab file or cron drop-in directory written on Linux
+id: d1211ae7-280f-4182-9b93-c55ba2d668ba
+status: experimental
+description: |
+  Matches the file-modification leg of AN0805: an auditd PATH record naming one
+  of the stores cron reads its schedule from — the per-user spool under
+  /var/spool/cron/, the system-wide /etc/crontab and /etc/anacrontab, and the
+  drop-in directories /etc/cron.d/ and the hourly, daily, weekly and monthly
+  run-parts folders. The path list is MITRE's `CronFilePath` knob, populated
+  here with the Debian and RHEL layouts; a distribution that keeps its spool
+  elsewhere needs its own entry. ESXi is one of the technique's platforms and
+  its crontab lives at the same /var/spool/cron/crontabs/root path, but ESXi
+  runs no auditd, so this logsource does not reach it and the ESXi arm of the
+  technique is uncovered. Matching is on `contains` and `endswith` rather than
+  an absolute path because `crontab -e` writes a temporary file and renames it
+  into the spool — the rename target is what shows up, not the editor's scratch
+  file. That does not rescue the relative case: auditd records `name=` exactly
+  as it was handed to the syscall, so `cd /etc/cron.d && echo '* * * * * root
+  /tmp/x' > job` logs `name="job"`, with the directory on a separate CWD record
+  that Sigma cannot join, and no path selection here can match it. Such a write
+  is caught only by the fourth selection, which matches the audit `key` the
+  watches below install and which rides on the SYSCALL record whatever form the
+  path took — so it works only if those watches were loaded with that exact
+  `-k cron` key.
+  Two parts of the analytic cannot be expressed here. auditd emits PATH and
+  SYSCALL as separate records for one event, and the writing process's `exe`,
+  `uid` and `auid` live only on the SYSCALL side, so MITRE's `RunUser` knob
+  ("only root may schedule jobs") cannot be applied inside this selection; and
+  the analytic's second half — an uncommon binary later executing on the
+  schedule, with MITRE's `ExecutionFrequency` knob thresholding how often — is a
+  cross-event correlation Sigma has no way to state. The macOS arm AN0806 is
+  not attempted, because its unifiedlog source has no standardised Sigma field
+  names and inventing them would produce a rule that renders everywhere and
+  matches nothing. Prerequisite: no distribution audits these paths by default,
+  so this rule returns zero rows until watches such as
+  `-w /var/spool/cron -p wa -k cron`, `-w /etc/crontab -p wa -k cron` and
+  `-w /etc/cron.d -p wa -k cron` are loaded — and zero rows reads as quiet when
+  it actually means blind. The `wa` permission also decides the noise floor:
+  with it, only writes and attribute changes are recorded, whereas a watch that
+  includes `r` makes every scan by the cron daemon itself match.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0290, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1053/003
+  - https://attack.mitre.org/detectionstrategies/DET0290
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1053.003
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_spool:
+    type: 'PATH'
+    name|contains:
+      - '/var/spool/cron/'
+  selection_dropin_dirs:
+    type: 'PATH'
+    name|contains:
+      - '/etc/cron.d/'
+      - '/etc/cron.hourly/'
+      - '/etc/cron.daily/'
+      - '/etc/cron.weekly/'
+      - '/etc/cron.monthly/'
+  selection_system_tables:
+    type: 'PATH'
+    name|endswith:
+      - '/etc/crontab'
+      - '/etc/anacrontab'
+  selection_watch_key:
+    key: 'cron'
+  condition: 1 of selection*
+falsepositives:
+  - "Package installation, upgrade and removal. Distribution packages routinely ship their own schedule into /etc/cron.d or /etc/cron.daily — logrotate, mlocate/plocate, man-db, sysstat, certbot and unattended-upgrades among them — so every apt or dnf transaction on every host writes several matching PATH records. On a patched estate this is the highest-volume match by a wide margin and is why this rule is low rather than medium."
+  - "Configuration management convergence. The Ansible cron module, Puppet cron resources, Chef and Salt all rewrite /var/spool/cron/crontabs/<user> or drop a fragment into /etc/cron.d on every run, which on a half-hourly schedule means a match per managed host per run whether or not the content changed."
+  - "Agent and appliance installers. Backup, monitoring, vulnerability-scanning and antivirus packages install their own cron entry at setup and rewrite it at each version upgrade, under root, from a legitimate package manager."
+  - "A user or administrator running `crontab -e` to add, edit or remove a normal job, or reinstalling a saved table with `crontab mytab`. This is the everyday supported way to schedule work and is separated from the technique only by who did it and what the entry runs."
+  - "Host provisioning: cloud-init runcmd blocks, container image builds and golden-image bake scripts writing crontabs while the machine is being created, which produces a burst of matches on every new host."
+level: low

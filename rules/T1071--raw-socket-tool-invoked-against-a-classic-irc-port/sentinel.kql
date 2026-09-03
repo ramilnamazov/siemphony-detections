@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "/nc" or FolderPath endswith "/nc.openbsd" or FolderPath endswith "/nc.traditional" or FolderPath endswith "/ncat" or FolderPath endswith "/socat" or FolderPath endswith "/telnet") and (ProcessCommandLine contains "6667" or ProcessCommandLine contains "6668" or ProcessCommandLine contains "6669" or ProcessCommandLine contains "6697"))

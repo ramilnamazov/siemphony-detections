@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (((TO_LOWER(process.executable) LIKE "*\\\\bcdedit.exe" OR TO_LOWER(process.executable) LIKE "*\\\\bootcfg.exe") AND TO_LOWER(process.command_line) LIKE "*safeboot*") OR TO_LOWER(process.command_line) LIKE "*currentcontrolset\\\\control\\\\safeboot*")

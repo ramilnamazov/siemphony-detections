@@ -1,0 +1,1 @@
+index=* (type="PATH" AND (name="*.bash_history" OR name="*.zsh_history" OR name="*.sh_history" OR name="*.ash_history" OR name="*.ksh_history" OR name="*.histfile" OR name="*fish_history"))

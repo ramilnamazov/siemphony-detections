@@ -1,0 +1,60 @@
+title: Non-browser HTTP client user agent in web traffic
+id: ec95ccdd-c836-4ff6-85ec-fdf9d6366ea0
+status: experimental
+description: |
+  Matches Zeek http.log requests whose User-Agent identifies a scripting or
+  library HTTP client rather than a browser, plus the obsolete
+  "Mozilla/4.0 (compatible; MSIE" family that off-the-shelf C2 profiles still
+  use to imitate one. This is the UserAgentAnomalies knob of AN0075 turned
+  into logic, and the network view is chosen over the brief's Sysmon leg
+  because the header only exists on the wire — a Sysmon EventID 3 record
+  carries the process and the port and nothing about the request. The user
+  agent list is authored for this rule; MITRE names the knob but supplies no
+  values. Three limits belong in the reader's head before this is deployed:
+  http.log holds cleartext HTTP only, so a C2 channel over HTTPS or a
+  WebSocket upgraded inside TLS is invisible here and is what the brief's
+  ssl.log and websocket.log sources exist for; a User-Agent is attacker-chosen
+  and copying a current Chrome string defeats the rule entirely; and the
+  beaconing, volume-ratio and byte-count discriminators the analytic leans on
+  (OutboundByteRatioThreshold, BeaconIntervalWindow) need aggregation over
+  time, which Sigma has no way to express, so this fires on a single request.
+  There is also no direction test here: http.log carries requests in both
+  directions, and where the sensor watches an internet-facing service the
+  inbound scanners using these same libraries will outweigh anything leaving
+  the estate, so the first tuning step is to constrain the originator to
+  internal address space.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0027, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1071/001
+  - https://attack.mitre.org/detectionstrategies/DET0027
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1071.001
+logsource:
+  product: zeek
+  service: http
+detection:
+  selection:
+    user_agent|contains:
+      - 'python-requests'
+      - 'python-urllib'
+      - 'Go-http-client'
+      - 'curl/'
+      - 'Wget/'
+      - 'libwww-perl'
+      - 'Java/'
+      - 'WindowsPowerShell'
+      - 'PowerShell/'
+      - 'WinHttp.WinHttpRequest'
+      - 'Microsoft BITS'
+      - 'Mozilla/4.0 (compatible; MSIE'
+  condition: selection
+falsepositives:
+  - "Monitoring, uptime and load-balancer health checks polling internal endpoints with curl or Wget every few seconds. On any network with a monitoring stack this single source outweighs everything else the rule returns, which is why the level here is low and why the first tuning step is to exclude the pollers by source address rather than to shorten the user agent list."
+  - "Package managers, CI runners and container builds pulling dependencies over plain HTTP from internal mirrors, which produce python-requests, Go-http-client and Java/ user agents in bulk from build hosts and registry proxies."
+  - "Windows software distribution and telemetry components: BITS transfers publish the Microsoft BITS string and WinHTTP-based agents publish the WinHttpRequest one, both as a normal part of update and inventory traffic."
+  - "Legacy intranet and line-of-business applications built on WinINet that still identify as an old MSIE version, which match the browser-spoof pattern with nothing unusual happening at all."
+  - "Inbound internet scanning and crawling of any web service the sensor sits in front of, which arrives with python-requests, Go-http-client and curl user agents continuously and has nothing to do with an internal host beaconing out."
+level: low

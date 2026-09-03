@@ -1,0 +1,1 @@
+index=* ((Image="*\\cscript.exe" OR Image="*\\wscript.exe") AND CommandLine="*pubprn*" AND (CommandLine="*script:http*" OR CommandLine="*script:ftp*" OR CommandLine="*script:\\\\*"))

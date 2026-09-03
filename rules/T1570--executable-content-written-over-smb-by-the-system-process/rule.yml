@@ -1,0 +1,52 @@
+title: Executable content written over SMB by the System process
+id: af25e265-bec8-45c8-96e4-821fea43b08f
+status: experimental
+description: |
+  Detects a tool arriving on a host through a file share. Sysmon attributes a
+  file written by a remote SMB client to the kernel-side System process, so a
+  file-create event whose Image is System and whose name carries an executable
+  or script extension is content that came in over the network rather than
+  something the host produced locally, which is the transfer half of AN0516.
+  Image is matched as the exact string System because that is literally what
+  Sysmon records for PID 4 — an endswith on a path fragment such as '\System'
+  would never fire. The share-access leg is deliberately not used: Security
+  EventID 5140 is already covered for administrative shares by the T1021.002
+  rule in this corpus, and 5140 names the share but not the file while this
+  event names the file but neither the share nor the remote account. The
+  analytic's second half — execution of the transferred binary within a
+  TimeWindow of the write — is a cross-event join Sigma cannot express and has
+  to be pivoted to by hand, and the destination path is where MITRE's
+  FilePathWhitelist knob applies.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0183, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1570
+  - https://attack.mitre.org/detectionstrategies/DET0183
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1570
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_remote_writer:
+    Image: 'System'
+  selection_payload:
+    TargetFilename|endswith:
+      - '.exe'
+      - '.dll'
+      - '.sys'
+      - '.ps1'
+      - '.bat'
+      - '.cmd'
+      - '.vbs'
+      - '.hta'
+      - '.scr'
+  condition: selection_remote_writer and selection_payload
+falsepositives:
+  - "Software distribution. Client-push installation and remote deployment tooling copies an installer or a service binary into ADMIN$ before running it, producing exactly this event on every targeted host; in a managed estate this is the single largest source of matches, and MITRE's UserContext knob — the accounts allowed to perform administrative transfers — is where the suppression belongs."
+  - "File servers and redirected profiles. On a server hosting home directories, departmental shares or roaming profiles, every user who copies a script or an installer onto a share matches, which makes the rule unusable on that role until the shared paths are excluded."
+  - "Backup, imaging and migration agents restoring files onto a remote host, and replication or DFS services that write executable content to a partner server on a fixed schedule."
+  - "Ordinary remote administration — a robocopy or xcopy to an admin share while troubleshooting, or a hotfix pushed by hand to a handful of machines, both of which are indistinguishable here from staging a payload."
+level: medium

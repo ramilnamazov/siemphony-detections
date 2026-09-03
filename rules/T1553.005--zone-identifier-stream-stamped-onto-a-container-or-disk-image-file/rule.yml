@@ -1,0 +1,58 @@
+title: Zone.Identifier stream stamped onto a container or disk image file
+id: be41f99a-b438-4b87-8a92-6a36eb516405
+status: experimental
+description: |
+  AN0712 wants a three-way correlation: a container/archive/disk-image file
+  arriving from the Internet, its contained files failing to inherit
+  Zone.Identifier once extracted or mounted, and an untrusted binary executing
+  from inside it. MITRE's TimeWindow knob names the join and Sigma has no
+  operator to hold it together, and no logsource in this brief carries
+  process_creation at all — only file_event, a 4670/4656 permission-change
+  pairing, and create_stream_hash — so the execution leg is unreachable from
+  here regardless of what the analytic description asks for. What a single
+  event CAN carry is the precursor: the moment the container file itself is
+  tagged with the Internet zone, which is the precondition for this bypass to
+  matter at all (a container built locally never triggers it). This rule
+  matches Sysmon EventID 15 where the streamed file is one of the watched
+  container/archive/disk-image extensions and the stream content records
+  ZoneId=3, the Internet zone specifically (not Intranet, Trusted or
+  Restricted). It cannot see whether files subsequently extracted or mounted
+  from that container inherited MOTW or not — that absence is not an event
+  Sigma can match on — so a hit here means "an archive arrived from the
+  Internet," not "MOTW was bypassed"; treat it as a lead for a manual check of
+  the contents, not as confirmation of the technique. EventID 15 is not
+  emitted by a bare Sysmon install, and most shipped configurations restrict
+  stream hashing to a short extension list that excludes archive and
+  disk-image types, so confirm MITRE's WatchedExtensions knob is actually
+  configured to cover these before relying on silence.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0257, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1553/005
+  - https://attack.mitre.org/detectionstrategies/DET0257
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1553.005
+logsource:
+  category: create_stream_hash
+  product: windows
+detection:
+  selection:
+    TargetFilename|endswith:
+      - '.iso:Zone.Identifier'
+      - '.img:Zone.Identifier'
+      - '.vhd:Zone.Identifier'
+      - '.vhdx:Zone.Identifier'
+      - '.zip:Zone.Identifier'
+      - '.rar:Zone.Identifier'
+      - '.7z:Zone.Identifier'
+      - '.gz:Zone.Identifier'
+      - '.arj:Zone.Identifier'
+    Contents|contains: 'ZoneId=3'
+  condition: selection
+falsepositives:
+  - "IT and software-deployment downloads of ISO or VHD images for provisioning and imaging, such as OS media pulled by MDT, SCCM or a hypervisor's own image library — ordinary administrative work and the loudest source of matches here."
+  - "Browsers and mail clients downloading legitimate archived software, drivers or installers packaged as .zip, .rar or .7z from a vendor site, which receive the identical Zone.Identifier stream as a malicious archive."
+  - "Cloud storage and file-sync clients that write the Internet zone marker onto archives synchronised from a shared folder, independent of any user download action."
+level: low

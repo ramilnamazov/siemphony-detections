@@ -1,0 +1,77 @@
+title: Detect scheduled task registered with a suspicious action
+id: e1a2d627-d92d-4858-9448-64c9192bbfa6
+status: experimental
+description: |
+  Matches Windows Security scheduled-job registration (4698) and modification
+  (4702) where the task definition itself carries an encoded, download-oriented
+  or living-off-the-land action, so the payload is inspectable at registration
+  time rather than after svchost.exe launches it — MITRE's
+  CommandLineEntropyThreshold knob applied to the registration event. The two
+  event ids carry the task XML under different names: 4698 has `TaskContent` and
+  4702 has `TaskNewContent`, so each event id gets its own selection. ANDing one
+  field name against both event ids, as the previous version did, silently
+  killed the modification half. Two caveats a SOC needs before deploying: 4698
+  and 4702 live in the `Audit Other Object Access Events` subcategory, which is
+  off by default and is not enabled by the Microsoft or CIS baselines, so this
+  rule returns nothing at all until audit policy is changed; and the terms match
+  the whole task XML, including RegistrationInfo, so a task whose author,
+  description or URI merely mentions one of them matches without its action
+  being suspicious.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0441, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1053/005
+  - https://attack.mitre.org/detectionstrategies/DET0441
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1053.005
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_created:
+    EventID: 4698
+  selection_updated:
+    EventID: 4702
+  content_created:
+    - TaskContent|contains:
+        - 'FromBase64String'
+        - 'Invoke-Expression'
+        - 'Invoke-WebRequest'
+        - 'DownloadString'
+        - 'DownloadFile'
+        - 'mshta'
+        - 'regsvr32'
+        - 'certutil'
+        - '\AppData\Local\Temp\'
+        - '\AppData\Roaming\'
+        - '\Users\Public\'
+        - '\Windows\Temp\'
+        - '\PerfLogs\'
+    - TaskContent|re: '-e(c|n|nc|ncodedcommand)?[ :=]'
+  content_updated:
+    - TaskNewContent|contains:
+        - 'FromBase64String'
+        - 'Invoke-Expression'
+        - 'Invoke-WebRequest'
+        - 'DownloadString'
+        - 'DownloadFile'
+        - 'mshta'
+        - 'regsvr32'
+        - 'certutil'
+        - '\AppData\Local\Temp\'
+        - '\AppData\Roaming\'
+        - '\Users\Public\'
+        - '\Windows\Temp\'
+        - '\PerfLogs\'
+    - TaskNewContent|re: '-e(c|n|nc|ncodedcommand)?[ :=]'
+  condition: (selection_created and content_created) or (selection_updated and content_updated)
+falsepositives:
+  - "Group Policy Preferences Scheduled Task items. The client-side extension re-applies them on every Group Policy refresh (90 minutes plus jitter) and at every boot and logon, writing a fresh 4698 each time on every host in scope, and GPP tasks routinely stage an installer or script under `\\Windows\\Temp\\` or `\\Users\\Public\\`. On a domain with a handful of GPP task items this alone can outproduce the rest of the rule. MITRE's TaskNamePattern knob is where the recurring names belong."
+  - "Software deployment and patching platforms that register short-lived tasks pointing at a staged installer under `\\Windows\\Temp\\`, `\\Users\\Public\\` or a user profile. These fire under SYSTEM at predictable maintenance times, which is what MITRE's UserContext knob is for."
+  - "In-house administrative PowerShell that passes an encoded command to survive quoting problems in the task XML. Encoding is a convenience there, not evasion, so allow-list by the registering account and the task path rather than dropping the encoded-command pattern, which is the rule's best term."
+  - "Any edit to an existing task re-logs the complete new definition in 4702, so changing a trigger on a known-good task that happens to contain a matched string re-alerts every time it is touched, with nothing new having been added to the action."
+level: high

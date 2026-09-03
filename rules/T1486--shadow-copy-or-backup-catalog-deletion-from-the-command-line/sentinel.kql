@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((ProcessCommandLine contains "vssadmin" and ProcessCommandLine contains "delete shadows") or (ProcessCommandLine contains "vssadmin" and ProcessCommandLine contains "resize shadowstorage") or (ProcessCommandLine contains "shadowcopy" and ProcessCommandLine contains "delete") or (ProcessCommandLine contains "wbadmin" and ProcessCommandLine contains "delete") or (ProcessCommandLine contains "bcdedit" and ProcessCommandLine contains "recoveryenabled") or (ProcessCommandLine contains "bcdedit" and ProcessCommandLine contains "ignoreallfailures"))

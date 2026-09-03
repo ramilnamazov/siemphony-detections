@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(registry.path) LIKE "*\\\\control panel\\\\desktop\\\\scrnsave.exe" AND (TO_LOWER(registry.data.strings) LIKE "*\\\\users\\\\*" OR TO_LOWER(registry.data.strings) LIKE "*\\\\appdata\\\\*" OR TO_LOWER(registry.data.strings) LIKE "*\\\\programdata\\\\*" OR TO_LOWER(registry.data.strings) LIKE "*\\\\windows\\\\temp\\\\*" OR TO_LOWER(registry.data.strings) LIKE "*\\\\perflogs\\\\*" OR TO_LOWER(registry.data.strings) LIKE "*\\\\$recycle.bin\\\\*"))

@@ -1,0 +1,64 @@
+title: Document or archive accessed inside a hidden administrative share
+id: 70962fc6-a0aa-4dc3-8c3a-4ff249302a1e
+status: experimental
+description: |
+  Covers the share-access leg of AN1145 on the only field set that carries it:
+  Security EventID 5145 records the share, the file within the share and the
+  account that asked for it, so a request for a document, mailbox archive or
+  compressed container inside a hidden administrative share is visible as one
+  event. The share list is MITRE's ShareName knob populated here with the
+  default hidden shares, and the file list stands in for "files of interest",
+  which the analytic describes but does not enumerate. Two things the analytic
+  asks for are not available: 5145 is written by the server hosting the share,
+  so the local process that did the reading is nowhere in the event and the
+  ProcessName knob cannot be applied, and 5145 does not distinguish a read from
+  a write in any form that survives normalisation consistently — a site whose
+  collector preserves the raw `AccessList` codes can add ReadData to tighten
+  this, but the rule does not depend on it. The Sysmon EventID 11 leg of the
+  same analytic is not authored here: file creation records the local
+  destination of a copy, not the network source, so it cannot express reading
+  from a share at all. Requires the *Audit Detailed File Share* subcategory,
+  which is off in a clean install and in the Microsoft and CIS baselines, so an
+  empty result means blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0410, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1039
+  - https://attack.mitre.org/detectionstrategies/DET0410
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1039
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_share:
+    EventID: 5145
+    ShareName|endswith:
+      - '\C$'
+      - '\ADMIN$'
+      - '\D$'
+      - '\E$'
+  selection_files:
+    RelativeTargetName|endswith:
+      - '.doc'
+      - '.docx'
+      - '.xls'
+      - '.xlsx'
+      - '.ppt'
+      - '.pptx'
+      - '.pdf'
+      - '.zip'
+      - '.7z'
+      - '.rar'
+      - '.pst'
+      - '.ost'
+      - '.kdbx'
+  condition: selection_share and selection_files
+falsepositives:
+  - "Helpdesk and migration work. Pulling a user's documents or an Outlook .pst off a workstation through \\host\\C$ before a rebuild or a hardware refresh is the same account reaching the same share for the same file types as an operator staging collection, and nothing in 5145 separates them. In most estates this is the largest benign source."
+  - "Backup, DLP and eDiscovery products whose collectors run remotely rather than as a local agent, which read documents and mailbox archives over administrative shares on a schedule and fan out across many hosts in a short window."
+  - "Credentialed inventory and vulnerability scanning that walks the filesystem over C$, which touches archives and documents incidentally while it is looking for software versions and unpatched components."
+  - "Administrators retrieving log bundles or exported configuration that happen to be .zip or .7z from a remote server's C$ during ordinary troubleshooting."
+level: medium

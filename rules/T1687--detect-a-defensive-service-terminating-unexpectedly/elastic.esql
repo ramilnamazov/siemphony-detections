@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(winlog.provider_name) == "service control manager" AND (event.code == 7031 OR event.code == 7034) AND (TO_LOWER(param1) LIKE "*defender*" OR TO_LOWER(param1) LIKE "*firewall*" OR TO_LOWER(param1) LIKE "*security center*" OR TO_LOWER(param1) LIKE "*windows security*" OR TO_LOWER(param1) LIKE "*system guard*" OR TO_LOWER(param1) LIKE "*sysmon*" OR TO_LOWER(param1) LIKE "*windows event log*"))

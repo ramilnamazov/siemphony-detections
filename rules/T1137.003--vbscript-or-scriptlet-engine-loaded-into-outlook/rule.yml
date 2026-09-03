@@ -1,0 +1,61 @@
+title: VBScript or scriptlet engine loaded into Outlook
+id: febaae81-6e88-4667-8069-15b86f98bff2
+status: experimental
+description: |
+  AN0085's process-creation leg — outlook.exe as ParentImage, a script host or
+  staging binary as the child — is not written here. Thirteen of that leg's
+  sixteen child images (powershell, pwsh, cmd, wscript, cscript, mshta,
+  rundll32, regsvr32, certutil, bitsadmin, curl, schtasks, msiexec) and
+  outlook.exe as a parent are already present in this corpus's T1203 rule
+  (data/detections/T1203/rule.yml), so every event the process-creation leg
+  would match also matches T1203, and nothing on either event says which of a
+  malicious form, an Outlook rule (T1137.005), a folder home page (T1137), an
+  opened attachment (T1204.002) or an exploited Outlook (T1203) produced it.
+  That leg is dropped as already covered, in favour of AN0085's other in-brief
+  source: Sysmon EventID 7, where outlook.exe loads vbscript.dll or scrobj.dll
+  to run a form's script. This is at least form-specific in a way the child
+  process never was — a VBA macro loads VBE7.dll instead, not the classic
+  script engine, so this event separates the scripted-form path from the
+  macro path, and it is also earlier in the chain than the eventual child
+  process, catching a form whose script never spawns anything external.
+  Prerequisite, and it is a hard one: since the 2017 Outlook security updates,
+  script in a custom form does not run at all unless
+  HKCU\Software\Microsoft\Office\<version>\Outlook\Security!DisableCustomFormItemScript
+  (a REG_DWORD value, not a subkey) is set to 0 — Ruler-style tooling flips it
+  as part of the attack. On a patched estate with the default left in place,
+  this rule's entire observable never happens and a quiet result reads as "no
+  forms persistence" when the real event was the registry write that enabled
+  it, for which the brief supplies no log source; a companion rule outside
+  this brief would have to carry that signal. Sysmon EventID 7 is itself off
+  in a bare install and, even enabled, commonly restricted to a named DLL
+  allowlist — confirm vbscript.dll and scrobj.dll are in the running
+  configuration before reading an empty result as quiet rather than blind.
+  The remaining two legs of AN0085 are not attempted: the PowerShell
+  form-enumeration script is a separate feed this rule does not read, and
+  MITRE's TimeWindow, OutlookVersion and UserContext knobs describe
+  correlation and baselining lib/sigma cannot express.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0029, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1137/003
+  - https://attack.mitre.org/detectionstrategies/DET0029
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.t1137.003
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection:
+    Image|endswith: '\outlook.exe'
+    ImageLoaded|endswith:
+      - '\vbscript.dll'
+      - '\scrobj.dll'
+  condition: selection
+falsepositives:
+  - "Legitimate custom Outlook forms still deployed on estates that have deliberately set DisableCustomFormItemScript to 0 for an internal workflow — approval routing, helpdesk ticketing or a scripted IPM.Note class built years ago and never retired. On those hosts, and only those hosts, this is the dominant source of matches, which is why the level is not higher."
+  - "Previewing or opening a message whose attachment or embedded object is a Windows Script Component (.sct) or another OLE object that the reading pane's preview handler renders, which can load scrobj.dll in-process without any custom form being involved."
+  - "Third-party or in-house Outlook add-ins built on the classic Windows Script host rather than VSTO or a modern COM add-in framework, which load vbscript.dll on startup the same way a malicious form's script would."
+  - "Endpoint DLP or email-security agents that hook Outlook to inspect message and attachment content for embedded scripts, loading the same script engine into outlook.exe as part of that inspection."
+level: medium

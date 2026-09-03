@@ -1,0 +1,75 @@
+title: Deletion of a Linux system log file recorded by auditd
+id: fba96e68-528a-49df-9b82-c26eb2399858
+status: experimental
+description: |
+  AN1438 asks for "anomalous deletions or truncations of system logs"
+  correlated with the command that caused them. That correlation is out of
+  reach — auditd splits one event across a SYSCALL record, carrying the exe,
+  uid and command, and a PATH record, carrying the filename and how it was
+  touched, and lib/sigma has no join across them — so this rule keeps only
+  the file-side half, on the one PATH field that says what actually happened
+  to the name: `nametype`. A value of `DELETE` means the path was unlinked,
+  which is what `rm`, `shred -u` and a rotate-then-remove sequence all produce
+  on the log file itself. It is deliberately not the whole of AN1438: `echo >
+  /var/log/auth.log`, `truncate -s 0` and `cat /dev/null >` all clear a log's
+  contents through `open(O_TRUNC)` without unlinking the path, so `nametype`
+  stays `NORMAL` for every one of them and this selector is blind to the
+  method MITRE's own citation (Linux Logs) implies is the more common one.
+  The path list is the seven files and one directory the technique's own
+  description names verbatim — /var/log/messages, /var/log/secure,
+  /var/log/auth.log, /var/log/utmp, /var/log/wtmp, /var/log/kern.log,
+  /var/log/cron.log, /var/log/maillog and /var/log/httpd/ — not MITRE's
+  LogFilePathPattern knob restated, since the brief gives no regex, only this
+  prose list. A second selector, `key: 'log_tamper'`, is this pipeline's own
+  suggested audit-key convention, offered as a second path to the same event
+  for a deployment whose watch tags truncating syscalls (`truncate`,
+  `ftruncate`, `unlink`, `unlinkat`, `rename`, `renameat`) under that name
+  instead of relying on `nametype` alone; MITRE supplies the knob's intent,
+  the key string is this pipeline's, not MITRE's. UserContext (higher severity
+  for root) cannot be applied inside a PATH selection: uid and auid live only
+  on the SYSCALL record. AN1439, the macOS arm, is not attempted: its one
+  logsource, {product: macos, service: unifiedlog}, has no standardised Sigma
+  field vocabulary anywhere in this corpus, the same ground T1546.004 and
+  T1027.011 already declined their macOS legs on — inventing field names for
+  it would parse in four backends and match nothing.
+  Prerequisite: auditd watches none of these paths by default. Both selectors
+  need an explicit watch loaded first, for example `-w /var/log/auth.log -p
+  wa -k log_tamper` repeated per path above (and per distribution equivalent —
+  RHEL-family hosts use /var/log/secure where Debian-family hosts use
+  /var/log/auth.log), and zero rows without it reads as quiet when it
+  actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0520, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1685/006
+  - https://attack.mitre.org/detectionstrategies/DET0520
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1685.006
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_log_deleted:
+    type: 'PATH'
+    nametype: 'DELETE'
+    name|contains:
+      - '/var/log/messages'
+      - '/var/log/secure'
+      - '/var/log/auth.log'
+      - '/var/log/utmp'
+      - '/var/log/wtmp'
+      - '/var/log/kern.log'
+      - '/var/log/cron.log'
+      - '/var/log/maillog'
+      - '/var/log/httpd/'
+  selection_watch_key:
+    key: 'log_tamper'
+  condition: 1 of selection*
+falsepositives:
+  - "logrotate's default nightly rotation of every path in this list — auth.log/secure, messages, maillog and cron.log all get renamed and recreated on essentially every mainstream distribution's stock logrotate.d config, which is exactly the unlink-and-recreate sequence the nametype=DELETE selector is built to catch, and is the loudest source here by a wide margin."
+  - "Apache's own log rotation for /var/log/httpd/ — a piped rotatelogs or cronolog target recreates the access and error log on its own internal schedule independent of logrotate, on any moderately busy web server."
+  - "Package installation, removal or reinstallation of a syslog implementation such as rsyslog or sysklogd, whose postinst and prerm maintainer scripts create or truncate these exact default log files as part of setup and teardown."
+  - "An administrator's own disk-space remediation during an incident — manually clearing a runaway auth.log or maillog with a redirect or truncate — which is the same operator-driven event the key-based selector is meant to catch and is indistinguishable from the technique by this rule alone."
+level: low

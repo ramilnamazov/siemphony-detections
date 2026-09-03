@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (((TO_LOWER(process.executable) LIKE "*\\\\net.exe" OR TO_LOWER(process.executable) LIKE "*\\\\net1.exe") AND TO_LOWER(process.command_line) LIKE "* accounts*") OR (TO_LOWER(process.executable) LIKE "*\\\\secedit.exe" AND TO_LOWER(process.command_line) LIKE "*/export*") OR ((TO_LOWER(process.executable) LIKE "*\\\\powershell.exe" OR TO_LOWER(process.executable) LIKE "*\\\\pwsh.exe") AND (TO_LOWER(process.command_line) LIKE "*get-addefaultdomainpasswordpolicy*" OR TO_LOWER(process.command_line) LIKE "*get-adfinegrainedpasswordpolicy*")))

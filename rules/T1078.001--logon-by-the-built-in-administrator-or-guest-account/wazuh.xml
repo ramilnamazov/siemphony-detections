@@ -1,0 +1,25 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4624$</field>
+    <field name="LogonType" type="pcre2">(?i)(^2$|^3$|^10$)</field>
+    <field name="TargetUserName" type="pcre2">(?i)(^Administrator$|^Guest$)</field>
+    <description>Logon by the built-in Administrator or Guest account (1/2)</description>
+    <mitre>
+      <id>T1078.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4648$</field>
+    <field name="TargetUserName" type="pcre2">(?i)(^Administrator$|^Guest$)</field>
+    <description>Logon by the built-in Administrator or Guest account (2/2)</description>
+    <mitre>
+      <id>T1078.001</id>
+    </mitre>
+  </rule>
+</group>

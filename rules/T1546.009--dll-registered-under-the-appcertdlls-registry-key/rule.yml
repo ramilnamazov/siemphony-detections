@@ -1,0 +1,53 @@
+title: DLL registered under the AppCertDLLs registry key
+id: ecf2604e-06b6-4ed7-b24f-fdc0a7d88f5a
+status: experimental
+description: |
+  Matches a write beneath the AppCertDLLs key under
+  `HKLM\System\CurrentControlSet\Control\Session Manager\`, whose contents are
+  loaded into every process that calls the CreateProcess family or WinExec —
+  the registry half of AN1029. AppCertDLLs is a key, not a value: the DLL path
+  an operator installs is an arbitrarily named value one level beneath it, so a
+  real write produces a TargetObject ending in
+  `\Session Manager\AppCertDLLs\<ValueName>`. The match is therefore a contains
+  on `\Session Manager\AppCertDLLs\` including the trailing separator, which
+  catches the write whatever the operator names the value; an endswith on the
+  key name itself would only match a value literally called AppCertDLLs sitting
+  directly under Session Manager, which is not how this mechanism works.
+  Unlike the AppInit_DLLs value used by the sibling T1546.010 rule, Session
+  Manager lives under HKLM\SYSTEM, which WOW64 does not redirect, so there is no
+  Wow6432Node twin to also cover. The two techniques are siblings but not the
+  same shape: AppInit_DLLs is loaded by user32.dll into GUI processes, while
+  AppCertDLLs is loaded by the kernel32 process-creation path itself, so it
+  reaches console and service processes that AppInit never touches, and this
+  rule targets that key specifically rather than reusing AppInit's selector. The
+  brief maps this from Security EventID 4657 onto Sigma's registry_set category,
+  which is Sysmon-shaped (TargetObject); that is the vocabulary chosen here, and
+  a deployment relying on 4657 alone — which needs Audit Registry auditing and a
+  SACL on this key, neither on by default — would need ObjectName/ObjectValueName
+  mapped onto TargetObject first. The analytic's DLL-load correlation (linking
+  the write to a subsequent unexpected module load) needs a cross-event join
+  Sigma cannot express and is not attempted. Sysmon registry monitoring is an
+  allowlist of paths; confirm this key is included before reading silence as a
+  clean result.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0362, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/009
+  - https://attack.mitre.org/detectionstrategies/DET0362
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.009
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains: '\Session Manager\AppCertDLLs\'
+  condition: selection
+falsepositives:
+  - "Long-lived enterprise images still carrying a legacy antivirus or host intrusion-prevention suite from a vendor generation (pre-Windows 10 era McAfee/Symantec builds are the well-known examples) that hooked process creation through AppCertDLLs before AppInit and AMSI became the preferred mechanism; the value is set once at install and rarely touched again."
+  - "Application-compatibility or license-enforcement shims from older enterprise packaging tools that register a process-creation hook here to monitor launches for compatibility or license-compliance checks — uncommon, but a real and documented legitimate use of this exact key."
+  - "Endpoint management, asset-inventory and EDR agents writing or clearing their own value under this key during install, upgrade or repair, which produces the same event as an operator installing one and is distinguishable only by the DLL path and the writing process."
+level: high

@@ -1,0 +1,13 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^5136$</field>
+    <field name="ObjectClass" type="pcre2">(?i)^trustedDomain$</field>
+    <field name="AttributeLDAPDisplayName" type="pcre2">(?i)(^trustPartner$|^trustDirection$|^trustType$|^trustAttributes$|^msDS-TrustForestTrustInfo$)</field>
+    <description>Active Directory domain trust object attribute modified</description>
+    <mitre>
+      <id>T1484.002</id>
+    </mitre>
+  </rule>
+</group>

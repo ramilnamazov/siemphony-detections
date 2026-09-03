@@ -1,0 +1,55 @@
+title: Unexpected child process spawned by msiexec.exe
+id: c19abfd3-effb-42f6-b028-64252185b30f
+status: experimental
+description: |
+  Matches AN0940's Windows leg: `msiexec.exe` — the Windows Installer engine
+  that runs every `.msi` package's custom actions — spawning a scripting host
+  or living-off-the-land binary as a direct child, the shape a malicious
+  postinstall or custom-action script takes once it needs to execute beyond
+  what MSI's own actions provide. This is the only one of the brief's three
+  platform analytics with log sources concrete enough to author against:
+  AN0938's macOS leg and AN0939's Linux leg point at `/usr/sbin/installer` and
+  dpkg/rpm maintainer scripts respectively, but their `sigmaLogsource` objects
+  carry no `eventIds` and the brief gives no field-level detail for
+  `unifiedlog` or `auditd:SYSCALL` beyond prose, so no field is asserted for
+  those platforms here. `ParentImage` is scoped to `msiexec.exe` itself rather
+  than a third-party wrapper like `setup.exe`, because AN0940's
+  `InstallerParent` knob names wrappers as a separate case this rule does not
+  attempt to enumerate. A legitimate MSI custom action calling `cscript.exe`
+  to run a bundled VBScript looks identical here to one calling it to run a
+  dropped payload; only the file's origin path, visible by pivoting into the
+  Sysmon EventID 11 file-creation leg AN0940 also lists, actually separates
+  them.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0330, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/016
+  - https://attack.mitre.org/detectionstrategies/DET0330
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.016
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent:
+    ParentImage|endswith: '\msiexec.exe'
+  selection_child:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+  condition: selection_parent and selection_child
+falsepositives:
+  - "Legitimate MSI custom actions that call cscript.exe or wscript.exe to run a bundled VBScript, or PowerShell to run a signed post-install configuration script — a common pattern in enterprise packaging (InstallShield, WiX, Advanced Installer) and the dominant source of matches on any host that runs software deployment regularly."
+  - "Software deployment tooling (SCCM, Intune, third-party RMM) that wraps its own package installation in msiexec.exe and then calls rundll32.exe or regsvr32.exe to register a component as part of the same install transaction."
+  - "IT-run silent installs of common enterprise applications (Office, Java, browser plugins) whose installers shell out to cmd.exe to set an environment variable or check a precondition before continuing."
+level: medium

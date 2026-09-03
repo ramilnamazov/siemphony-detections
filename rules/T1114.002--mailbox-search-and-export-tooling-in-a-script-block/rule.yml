@@ -1,0 +1,62 @@
+title: Mailbox search and export tooling in a script block
+id: ec936456-d20b-45c7-a947-520b183dae43
+status: experimental
+description: |
+  Matches the scripted-access half of AN0131: a PowerShell script block that
+  names a bulk mailbox search or export cmdlet, one of the published
+  mail-harvesting toolkits, the Graph message-reading cmdlets, or the Exchange
+  Web Services assembly. The whole selection sits on `ScriptBlockText` under
+  EventID 4104, which is the only field in this log source that carries the
+  script text as the engine compiled it — so an `-EncodedCommand` payload
+  arrives decoded, but decoded is not deobfuscated: name splitting
+  (`"Sea"+"rch-Mailbox"`), backtick insertion and wildcard command resolution
+  (`&(gcm Sear*-Mailbox)`) all survive compilation and defeat every literal
+  term below. The interactive-administration cmdlet Connect-ExchangeOnline is
+  deliberately left out: it is how every legitimate session to the service also
+  begins, so including it would make the rule fire on ordinary administration.
+  The rule can only see a host whose PowerShell is being logged — an adversary
+  reaching the mailbox from an unmanaged machine, a browser session or a direct
+  Graph call writes nothing here, and the Office Suite side of this technique
+  lives in the tenant's own audit log rather than in any Windows event channel.
+  The brief's other two log sources, Sysmon EventID 3 and 22, were not used: a
+  connection or a DNS lookup to a mail service endpoint is what every mail
+  client on the estate does all day, so neither carries a signal at the
+  single-event level. EventID 4104 requires *Script Block Logging* to be
+  enabled by policy; it is off in a default install, and with it off this rule
+  returns zero rows, which reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0048, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1114/002
+  - https://attack.mitre.org/detectionstrategies/DET0048
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1114.002
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection:
+    EventID: 4104
+    ScriptBlockText|contains:
+      - 'Invoke-GlobalMailSearch'
+      - 'Invoke-SelfSearch'
+      - 'Invoke-OpenInboxFinder'
+      - 'Get-GlobalAddressList'
+      - 'Search-Mailbox'
+      - 'New-MailboxSearch'
+      - 'New-MailboxExportRequest'
+      - 'New-ComplianceSearchAction'
+      - 'Get-MgUserMessage'
+      - 'Get-MgUserMailFolderMessage'
+      - 'Microsoft.Exchange.WebServices'
+      - 'AADInternals'
+  condition: selection
+falsepositives:
+  - "Mailbox migration and offboarding runbooks, which call New-MailboxExportRequest once per migrated user and so produce a dense burst of matches from a service account for the whole length of a migration window. An allowlist of the migration service accounts is the first tuning step, and it is a local one — MITRE's knobs for this analytic are UserAgentPattern, TimeWindow, KnownIPLocations and PrivilegedUserList, and the last of those is a list of accounts to scrutinise harder, not accounts to excuse."
+  - "Compliance and legal-hold work, where Search-Mailbox, New-MailboxSearch and New-ComplianceSearchAction are the supported way to run an eDiscovery search or pull a phishing message out of every mailbox in the tenant — the same cmdlets an adversary would reach for, run by the team whose job it is."
+  - "Reporting, archiving and backup scripts built on the Graph SDK that page through Get-MgUserMessage across many mailboxes on a schedule, usually as an app-only identity at a fixed hour."
+  - "Authorised assessment and phishing-simulation work, where MailSniper is the standard tool and Invoke-GlobalMailSearch is its headline function; an internal red team exercise will match every entry in the first group of terms."
+  - "Identity administrators importing AADInternals for legitimate tenant investigation and token work, which matches on the module name alone with no mailbox access at all."
+level: medium

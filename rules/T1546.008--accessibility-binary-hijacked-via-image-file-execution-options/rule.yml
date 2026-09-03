@@ -1,0 +1,45 @@
+title: Accessibility binary hijacked via Image File Execution Options
+id: c48a6f21-0b93-4d7e-9a16-5f2c8e70b4d3
+status: experimental
+description: |
+  Matches a registry value written under an Image File Execution Options subkey
+  named after one of the accessibility binaries reachable from the logon screen,
+  which is the redirection half of MITRE's AN0094. Both conditions are tested on
+  TargetObject because a single Sysmon EventID 13 record carries the full key path
+  — the IFEO prefix and the hijacked binary name are two substrings of the same
+  value, so requiring both keeps unrelated IFEO writes out. The other half of the
+  analytic, cmd.exe spawned by winlogon.exe as SYSTEM shortly after the key
+  changed, is a two-event correlation over MITRE's TimeWindow knob and cannot be
+  expressed in Sigma, so it is not attempted here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0033, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/008
+  - https://attack.mitre.org/detectionstrategies/DET0033
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.008
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_ifeo:
+    TargetObject|contains: '\Image File Execution Options\'
+  selection_target:
+    TargetObject|contains:
+      - '\sethc.exe'
+      - '\utilman.exe'
+      - '\osk.exe'
+      - '\magnify.exe'
+      - '\narrator.exe'
+      - '\displayswitch.exe'
+      - '\atbroker.exe'
+      - '\hh.exe'
+  condition: selection_ifeo and selection_target
+falsepositives:
+  - "A developer or support engineer attaching a debugger to an accessibility binary through IFEO, for example gflags or windbg while reproducing a Narrator or Magnifier crash. MITRE's TargetBinaryNames knob is where the monitored set gets narrowed if this is routine on engineering builds."
+  - "Assistive-technology products that substitute their own on-screen keyboard or screen reader by redirecting osk.exe or narrator.exe through IFEO at install time. The write is legitimate but structurally identical, so suppress on the installing process rather than removing the binary from the list."
+  - "Application Verifier or a QA imaging step enabling GlobalFlag values across a broad sweep of system binaries, which catches the accessibility executables incidentally. These arrive as a burst from one process on a build host, which is what MITRE's UserContext and ParentProcess knobs are meant to separate."
+level: high

@@ -1,0 +1,88 @@
+title: Windows DACL or ownership seized with a built-in permissions tool
+id: bd80c2d3-662d-4202-bc6d-3b562611b228
+status: experimental
+description: |
+  AN1177 describes a five-stage chain — a permissions utility launches, its
+  command line reveals intent, a 4670 DACL change follows, a 4663 access
+  succeeds, and persistence follows that. Only the first two stages survive the
+  Sigma subset this corpus models: the analytic's own TemporalCorrelationWindow
+  knob asks for a 300-second join across three event ids, and lib/sigma has no
+  aggregation, no timeframe and no near, so the correlation is simply absent
+  here and a match means one command ran, not that any access actually changed
+  hands. The rule therefore takes the process-creation leg and gates it twice —
+  the tool must be a DACL editor and the command line must carry an
+  access-changing switch — because those binaries are also the standard way to
+  *read* an ACL, and an unqualified `icacls C:\path` is a query, not a
+  modification. The two tool families need separate gates because their switch
+  vocabularies do not overlap: icacls takes /grant, /deny, /setowner and
+  /inheritance:r, while the older cacls and xcacls spell the same operations
+  /g, /r, /p and /d, so one switch list checked against both would leave the
+  legacy binaries permanently unmatched. attrib.exe, which the analytic also
+  names, is deliberately out of scope: it sets file attributes rather than a
+  DACL, and hiding a file with attrib +h is T1564.001.
+  takeown.exe gets its own selection
+  with no argument gate: it has no read-only mode, so every invocation is an
+  ownership seizure. A third selection covers the .NET/PowerShell equivalents
+  the analytic names, matched on the command line of any process, which catches
+  only one-liners — an ACL rewritten inside a .ps1 body or by a compiled binary
+  calling SetSecurityInfo directly produces no process-creation record at all
+  and is invisible here. Two deployment caveats. The brief maps this leg to
+  Security EventID 4688, so the rule is written in the Sysmon-shaped
+  `process_creation` vocabulary (Image, CommandLine) that Sigma backends map
+  onto NewProcessName and CommandLine for 4688; if 4688 is the feed, *Audit
+  Process Creation* must be enabled AND the separate *Include command line in
+  process creation events* policy must be on, or every CommandLine term below is
+  blind and the rule returns zero rows while looking healthy. MITRE's
+  SuspiciousCommandLinePatterns and SensitivePathWhitelist knobs name where the
+  tuning goes; the switch list and the tool list below were assembled here, not
+  taken from MITRE.
+  UNVERIFIED — derived from MITRE ATT&CK DET0418 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1222/001
+  - https://attack.mitre.org/detectionstrategies/DET0418
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1222.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_icacls_tool:
+    Image|endswith: '\icacls.exe'
+  selection_icacls_switch:
+    CommandLine|contains:
+      - '/grant'
+      - '/deny'
+      - '/remove'
+      - '/setowner'
+      - '/inheritance:r'
+      - '/reset'
+      - '/setintegritylevel'
+  selection_legacy_tool:
+    Image|endswith:
+      - '\cacls.exe'
+      - '\xcacls.exe'
+  selection_legacy_switch:
+    CommandLine|contains:
+      - ' /g '
+      - ' /r '
+      - ' /p '
+      - ' /d '
+  selection_takeown:
+    Image|endswith: '\takeown.exe'
+  selection_managed_acl:
+    CommandLine|contains:
+      - 'Set-Acl'
+      - 'SetAccessRule'
+      - 'AddAccessRule'
+      - 'SetAccessRuleProtection'
+      - 'SetOwner'
+  condition: (selection_icacls_tool and selection_icacls_switch) or (selection_legacy_tool and selection_legacy_switch) or selection_takeown or selection_managed_acl
+falsepositives:
+  - "Application installers and MSI custom actions. A large share of line-of-business software, driver packages and game launchers run icacls /grant against their own Program Files subdirectory, log folder or ProgramData store during setup and again on every version upgrade, and many run icacls /reset or /inheritance:r first. On a fleet with active patching this is the highest-volume match by a wide margin and it is why this rule is scored medium rather than high."
+  - "Helpdesk and migration remediation. Recovering a user profile, a departed employee's home directory or a moved file share is routinely done as takeown /f /r /d y followed by icacls /grant, which is exactly the two-command sequence this rule is shaped to catch, run by an administrator with a ticket number."
+  - "Build agents and container image builds. CI workers and Dockerfile RUN steps call icacls /grant or /reset on a workspace, a NuGet cache or an IIS content directory on every job, so a busy pipeline produces the same event hundreds of times a day under a service account."
+  - "Windows servicing and OEM provisioning scripts. SetupComplete.cmd, sysprep specialise-pass scripts and some cumulative-update cleanup routines invoke takeown and icacls under SYSTEM during boot, which trips the unconditional takeown selection on every freshly imaged host."
+level: medium

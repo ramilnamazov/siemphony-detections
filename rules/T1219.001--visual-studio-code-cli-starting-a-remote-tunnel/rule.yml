@@ -1,0 +1,47 @@
+title: Visual Studio Code CLI starting a remote tunnel
+id: aa430f16-6a4c-4b99-a56b-903194e3f473
+status: experimental
+description: |
+  AN0375 pairs the creation of an IDE tunnelling profile with the persistent
+  remote session that follows, and the process-creation half of that pair is a
+  single event: the Visual Studio Code CLI invoked with the `tunnel` verb, which
+  is what registers the machine with the vendor's relay and yields a
+  browser-reachable session over an outbound connection. Both the desktop
+  installation and the standalone CLI are covered, because `code tunnel` on a
+  desktop install delegates to the separate `code-tunnel.exe` shipped beside it
+  and matching only `code.exe` would miss the process that actually holds the
+  tunnel. The same verb covers the persistence variant — `tunnel service
+  install` registers the tunnel to start at logon — so re-registration after a
+  reboot appears here too. The JetBrains Gateway leg of the analytic is
+  deliberately not written: its Windows launcher name varies with the Toolbox
+  installation and a guessed binary name would be a selector that can never
+  fire. MITRE's TunnelDomainPatterns knob applies to the network leg of the
+  strategy, which this event does not carry; corroborate a hit with the
+  `.vscode-cli\code_tunnel.json` profile write (Sysmon EventID 11), the other
+  log source in this analytic.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0133, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1219/001
+  - https://attack.mitre.org/detectionstrategies/DET0133
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1219.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+    Image|endswith:
+      - '\code.exe'
+      - '\code-tunnel.exe'
+      - '\code-insiders.exe'
+  selection_verb:
+    CommandLine|contains: ' tunnel'
+  condition: selection_image and selection_verb
+falsepositives:
+  - "Sanctioned remote development. A developer running `code tunnel` to reach their own workstation or a build VM produces exactly this event; on an engineering estate this is the dominant source of matches and only the account and the host it runs on separate it from abuse, which is what MITRE's AuthorizedUserList knob is for."
+  - "The tunnel service restarting. Once `tunnel service install` has been run legitimately, every logon re-launches the CLI with the same verb, so one approved setup keeps generating events indefinitely."
+  - "Support and lab automation that stands up a tunnel into a short-lived test or demo machine as part of provisioning, run by IT rather than by the machine's user."
+level: medium

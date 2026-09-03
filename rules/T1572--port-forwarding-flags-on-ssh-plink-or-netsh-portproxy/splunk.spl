@@ -1,0 +1,1 @@
+index=* | where (((match(Image, "(?i)\\\\ssh\\.exe$") OR match(Image, "(?i)\\\\plink\\.exe$")) AND match(CommandLine, " -[LRD][ ]?[0-9]")) OR (match(Image, "(?i)\\\\netsh\\.exe$") AND (match(CommandLine, "(?i)portproxy") AND match(CommandLine, "(?i)connectaddress"))))

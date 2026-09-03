@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "SECURITY\\Policy\\Secrets" or ProcessCommandLine contains "HKLM\\SECURITY\\Policy" or ProcessCommandLine contains "HKLM:\\SECURITY\\Policy" or ProcessCommandLine contains "lsadump::secrets" or ProcessCommandLine contains "lsadump::lsa" or ProcessCommandLine contains "Invoke-Mimikatz")

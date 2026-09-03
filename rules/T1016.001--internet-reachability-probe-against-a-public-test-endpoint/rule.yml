@@ -1,0 +1,77 @@
+title: Internet reachability probe against a public test endpoint
+id: 34daedcd-15b5-44d1-9ab5-e27dc5d1b61b
+status: experimental
+description: |
+  Matches AN1015's Windows shape: one of the built-in reachability utilities
+  (ping, tracert, pathping, curl) or the PowerShell Test-NetConnection /
+  Test-Connection cmdlets invoked with a destination that only exists to prove
+  the host can reach the Internet. Both halves are required, because the
+  utility on its own is ordinary internal troubleshooting and the destination
+  string on its own appears in any script that mentions a public site — it is
+  the pairing that says "confirm this box can talk to the outside world", which
+  is the discovery step MITRE describes before a C2 attempt. The destination
+  list is MITRE's DestinationIP knob, populated here with the public resolvers,
+  the Microsoft NCSI endpoints and the what-is-my-IP services an operator
+  typically reaches for; an adversary who probes their own domain instead
+  matches nothing, so the list is the first thing to extend per environment.
+  Two limits are structural rather than tunable. Bare `Test-NetConnection`
+  with no argument tests internetbeacon.msedge.net implicitly and carries no
+  destination on the command line, so it is invisible here; and commands typed
+  into an already-running interactive console never reach a process-creation
+  event at all. The brief's Security 5156/5157 log source was not used: the
+  Filtering Platform records a socket, not a command line or a hostname, so
+  every outbound connection on the estate looks identical to a connectivity
+  test there. This rule is written in the Sysmon EventID 1 vocabulary (Image,
+  CommandLine); where the same category is fed by Security EventID 4688
+  instead, that channel needs *Audit Process Creation* and the separate
+  *Include command line in process creation events* policy before CommandLine
+  is populated at all, and a field mapping to NewProcessName first.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0357, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1016/001
+  - https://attack.mitre.org/detectionstrategies/DET0357
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1016.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_native:
+    Image|endswith:
+      - '\ping.exe'
+      - '\tracert.exe'
+      - '\pathping.exe'
+      - '\curl.exe'
+  selection_cmdlet:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+    CommandLine|contains:
+      - 'Test-NetConnection'
+      - 'Test-Connection'
+  selection_target:
+    CommandLine|contains:
+      - '8.8.8.8'
+      - '8.8.4.4'
+      - '1.1.1.1'
+      - '9.9.9.9'
+      - '208.67.222.222'
+      - 'google.com'
+      - 'example.com'
+      - 'msftconnecttest.com'
+      - 'msftncsi.com'
+      - 'icanhazip.com'
+      - 'ifconfig.me'
+      - 'ipinfo.io'
+      - 'api.ipify.org'
+      - 'checkip.amazonaws.com'
+  condition: (selection_native or selection_cmdlet) and selection_target
+falsepositives:
+  - "Helpdesk and administrator troubleshooting, where `ping 8.8.8.8` and `tracert 8.8.8.8` are the first two commands typed in essentially every connectivity investigation. On any estate with a support desk this is the highest-volume match by a wide margin and it will look exactly like the technique."
+  - "Logon scripts, SCCM task sequences and monitoring-agent wrappers that shell out to ping or curl a public endpoint to confirm Internet access before downloading content, which fires on a schedule on every host that runs them."
+  - "Windows NCSI diagnostics, where a technician curls www.msftconnecttest.com by hand to work out why the network icon shows no Internet — the endpoint is Microsoft's own and is in the destination list precisely because adversaries use it too."
+  - "Build agents, deployment scripts and VPN client checks that call curl against api.ipify.org or checkip.amazonaws.com to record the current egress address for a firewall allowlist."
+level: low

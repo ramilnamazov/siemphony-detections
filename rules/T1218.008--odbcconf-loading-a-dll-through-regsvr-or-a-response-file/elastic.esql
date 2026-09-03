@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) LIKE "*\\\\odbcconf.exe" AND (TO_LOWER(process.command_line) LIKE "*regsvr*" OR (TO_LOWER(process.command_line) LIKE "*-f *" OR TO_LOWER(process.command_line) LIKE "*/f *" OR TO_LOWER(process.command_line) LIKE "*–f *" OR TO_LOWER(process.command_line) LIKE "*—f *" OR TO_LOWER(process.command_line) LIKE "*―f *")))

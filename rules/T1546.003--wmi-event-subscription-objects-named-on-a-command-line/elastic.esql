@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*__eventfilter*" OR TO_LOWER(process.command_line) LIKE "*__filtertoconsumerbinding*" OR TO_LOWER(process.command_line) LIKE "*eventconsumer*" OR TO_LOWER(process.command_line) LIKE "*register-wmievent*" OR TO_LOWER(process.command_line) LIKE "*register-cimindicationevent*" OR TO_LOWER(process.command_line) LIKE "*root\\\\subscription*" OR TO_LOWER(process.command_line) LIKE "*root/subscription*" OR TO_LOWER(process.command_line) LIKE "*mofcomp*")

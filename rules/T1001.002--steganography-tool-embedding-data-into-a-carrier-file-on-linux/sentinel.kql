@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "/steghide" or FolderPath endswith "/outguess" or FolderPath endswith "/stegsnow" or FolderPath endswith "/stegify") and (ProcessCommandLine contains " embed" or ProcessCommandLine contains " encode" or ProcessCommandLine contains " -d " or ProcessCommandLine contains " -m "))

@@ -1,0 +1,42 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 4 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\icacls\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(/grant|/deny|/remove|/setowner|/inheritance:r|/reset|/setintegritylevel)</field>
+    <description>Windows DACL or ownership seized with a built-in permissions tool (1/4)</description>
+    <mitre>
+      <id>T1222.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\cacls\.exe$|\\xcacls\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i)( /g | /r | /p | /d )</field>
+    <description>Windows DACL or ownership seized with a built-in permissions tool (2/4)</description>
+    <mitre>
+      <id>T1222.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\takeown\.exe$</field>
+    <description>Windows DACL or ownership seized with a built-in permissions tool (3/4)</description>
+    <mitre>
+      <id>T1222.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100003" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(Set-Acl|SetAccessRule|AddAccessRule|SetAccessRuleProtection|SetOwner)</field>
+    <description>Windows DACL or ownership seized with a built-in permissions tool (4/4)</description>
+    <mitre>
+      <id>T1222.001</id>
+    </mitre>
+  </rule>
+</group>

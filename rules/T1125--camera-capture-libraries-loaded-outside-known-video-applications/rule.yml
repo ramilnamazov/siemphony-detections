@@ -1,0 +1,55 @@
+title: Camera capture libraries loaded outside known video applications
+id: 7ebd0421-d6b8-4961-9496-b3d4f8bb60c7
+status: experimental
+description: |
+  MITRE's Windows analytic opens with a non-standard process loading the
+  camera and video-capture libraries before any video artefact reaches disk,
+  and module load is the only one of the listed log sources that names both
+  the loading process and the library in a single event. The selection matches
+  the capture-specific modules MITRE cites — the Video for Windows capture
+  shim, the kernel-streaming DirectShow proxy and the Media Foundation capture
+  engine — while the exclusion is MITRE's AllowedProcesses knob made concrete
+  with the conferencing, browser and streaming binaries that legitimately open
+  a webcam. MITRE's generic mf.dll is deliberately not matched: Media
+  Foundation core loads for any media playback and would drown the signal.
+  The file-write and egress steps of the chain are a timed correlation that
+  Sigma cannot express, so this rule is the device-access precursor only.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0197, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1125
+  - https://attack.mitre.org/detectionstrategies/DET0197
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1125
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection:
+    ImageLoaded|endswith:
+      - '\avicap32.dll'
+      - '\ksproxy.ax'
+      - '\mfcaptureengine.dll'
+  filter_video_apps:
+    Image|endswith:
+      - '\Teams.exe'
+      - '\ms-teams.exe'
+      - '\Zoom.exe'
+      - '\CptHost.exe'
+      - '\Webex.exe'
+      - '\slack.exe'
+      - '\obs64.exe'
+      - '\obs32.exe'
+      - '\WindowsCamera.exe'
+      - '\chrome.exe'
+      - '\msedge.exe'
+      - '\firefox.exe'
+  condition: selection and not filter_video_apps
+falsepositives:
+  - "Conferencing and streaming software not covered by the exclusion list — every estate runs a different set, and MITRE exposes AllowedProcesses for exactly this reason. Extend the filter with the camera consumers your image actually ships rather than lowering the level."
+  - "Camera and chipset driver installers, OEM webcam utilities and firmware updaters, which enumerate capture devices once during a deployment window and load the same DirectShow and Media Foundation modules while doing so."
+  - "Device-management and endpoint agents that inventory attached peripherals on a schedule. MITRE's ParentProcessAllowList knob is aimed at these brokers, but module load events carry no parent, so they can only be filtered on Image here."
+  - "Barcode scanners, document cameras and virtual-camera drivers used by kiosk or point-of-sale applications, which are capture devices as far as these libraries are concerned."
+level: medium

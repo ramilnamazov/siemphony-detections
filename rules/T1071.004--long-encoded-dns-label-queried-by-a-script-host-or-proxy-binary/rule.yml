@@ -1,0 +1,59 @@
+title: Long encoded DNS label queried by a script host or proxy binary
+id: 8ed8a425-0c85-4725-ac51-d63578d5ddfb
+status: experimental
+description: |
+  AN1121 describes DNS tunnelling as anomalous lookups issued by non-browser,
+  non-system processes, and the Sysmon DNS query event is the one Windows source
+  that names the process which actually called the resolver, so it can bind an
+  encoded lookup to the interpreter that made it — unlike the network connection
+  event, where a DNS query is attributed to the service host rather than the
+  caller. The rule requires both halves: an image from the script host, signed
+  proxy and interpreter set that has no business resolving names in bulk, and a
+  leftmost DNS label of forty characters or more, which is the shape a base32 or
+  base64 payload takes inside a query. The length gate stands in for MITRE's
+  QueryLengthThreshold knob and the image list for its ProcessImageFilter knob;
+  both sets of values are authored here, not supplied by MITRE. The remaining
+  knobs, TimeWindow and query rate, need counting over an interval and Sigma has
+  no way to express that, which is why this is a shape test rather than a
+  frequency test. Two consequences follow and neither is tunable away: a
+  compiled tunnelling client resolves under its own image and will not match the
+  list, and an operator who keeps labels short to stay under a threshold defeats
+  the regex. Sysmon EventID 22 needs Sysmon 10 or later with DNS query logging
+  enabled, and most shipped configurations filter or exclude it outright, so
+  confirm it is being collected before reading a quiet result as a clean one.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0400, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1071/004
+  - https://attack.mitre.org/detectionstrategies/DET0400
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1071.004
+logsource:
+  category: dns_query
+  product: windows
+detection:
+  selection_process:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\mshta.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\nslookup.exe'
+      - '\certutil.exe'
+      - '\python.exe'
+      - '\msbuild.exe'
+      - '\installutil.exe'
+  selection_encoded_label:
+    QueryName|re: '^[A-Za-z0-9_-]{40,}\.'
+  condition: selection_process and selection_encoded_label
+falsepositives:
+  - "Developer and build hosts running python.exe or pwsh.exe against cloud SDKs, where per-object, per-tenant and per-request endpoints are resolved as generated hostnames whose leftmost label runs well past forty characters — one busy build agent can produce a steady stream of matches and this is the loudest entry here."
+  - "Endpoint security and reputation tooling that encodes a file hash or telemetry blob into the leftmost DNS label of a vendor lookup domain, which is the same query shape as a tunnel; when such a lookup is driven from a management script under powershell.exe it matches both halves of this rule."
+  - "An administrator resolving a long auto-generated cloud endpoint by hand with Resolve-DnsName inside a PowerShell session during troubleshooting, which needs no repetition to alert — a single lookup of a front-door, load-balancer or CDN hostname is enough."
+  - "Scheduled PowerShell tasks that call update, licensing or certificate-transparency services addressing each request through a randomised hostname, which resolve on a fixed interval whether or not anyone is at the keyboard."
+level: low

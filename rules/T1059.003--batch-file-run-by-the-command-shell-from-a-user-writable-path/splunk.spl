@@ -1,0 +1,1 @@
+index=* ((Image="*\\cmd.exe" AND (CommandLine="*.bat*" OR CommandLine="*.cmd*")) AND (CommandLine="*\\AppData\\Local\\Temp\\*" OR CommandLine="*\\AppData\\Roaming\\*" OR CommandLine="*\\Windows\\Temp\\*" OR CommandLine="*\\Users\\Public\\*" OR CommandLine="*\\Downloads\\*" OR CommandLine="*\\ProgramData\\*" OR CommandLine="*\\$Recycle.Bin\\*"))

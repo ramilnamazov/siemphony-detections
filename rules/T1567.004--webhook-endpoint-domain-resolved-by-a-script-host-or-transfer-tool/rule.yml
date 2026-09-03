@@ -1,0 +1,61 @@
+title: Webhook endpoint domain resolved by a script host or transfer tool
+id: 32cc1959-e7d5-42dc-8291-096d7f238b6d
+status: experimental
+description: |
+  Matches a DNS lookup for a webhook-dedicated hostname — hooks.slack.com or
+  webhook.site — made by a scripting host or a command-line transfer tool, which
+  is the outbound leg of AN0436 reduced to a single event. The domain list
+  populates MITRE's WebhookDomains knob, but the two values are chosen here, and
+  chosen narrowly: only hostnames that exist to serve webhooks qualify.
+  discord.com and discordapp.com were removed because Discord has no dedicated
+  webhook subdomain, so at the DNS layer a webhook post is indistinguishable
+  from the chat client, and because both names are already in the published
+  parent T1567 rule paired with a superset of this rule's process list — every
+  event they could match here matches there, under the parent ID, with no
+  webhook-specific evidence added. The only sibling that genuinely uses this
+  dns_query pattern is T1567.001 (code repositories); T1567.002 moved to
+  process_creation to avoid duplicating the parent, and T1567.003 was declined
+  outright for that duplication, so this rule follows one precedent rather than
+  three. The process gate is what keeps a match meaningful: pairing the lookup
+  with a scripting engine or transfer utility separates a scripted post from a
+  browser session. AN0436's
+  other legs — the HTTP method (POST/PUT), MITRE's UploadSizeThreshold knob, and
+  the file-access step that is supposed to precede the post — need a request
+  body, a numeric comparison and a correlation that Sigma cannot express, so
+  this rule sees only that a webhook domain was contacted, never what was sent
+  or whether a file was read first. It also sees nothing at all unless the
+  running Sysmon configuration enables DNS query logging, which is off in a
+  default Sysmon deployment and has to be added explicitly.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0153, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1567/004
+  - https://attack.mitre.org/detectionstrategies/DET0153
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.exfiltration
+  - attack.t1567.004
+logsource:
+  category: dns_query
+  product: windows
+detection:
+  selection_process:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cscript.exe'
+      - '\wscript.exe'
+      - '\mshta.exe'
+      - '\curl.exe'
+      - '\certutil.exe'
+  selection_webhook:
+    QueryName|endswith:
+      - 'hooks.slack.com'
+      - 'webhook.site'
+  condition: selection_process and selection_webhook
+falsepositives:
+  - "CI/CD pipelines and monitoring agents posting build, deployment or alert notifications to a Slack webhook from PowerShell or curl.exe on a build or admin host — this is the single largest legitimate use of hooks.slack.com and is likely the dominant source of matches by volume."
+  - "Developers and QA engineers deliberately resolving webhook.site via a curl.exe smoke-test script while building or debugging an HTTP integration, which is the tool's entire supported purpose."
+  - "ChatOps bots and RPA scripts that bridge ticketing, backup or patch-compliance status into a Slack channel on a fixed schedule, producing the same lookup from the same PowerShell wrapper on every run."
+  - "Security, backup or monitoring products with a built-in Slack notification feature, resolving hooks.slack.com from a PowerShell-based agent or connector service as part of normal, unattended operation."
+level: low

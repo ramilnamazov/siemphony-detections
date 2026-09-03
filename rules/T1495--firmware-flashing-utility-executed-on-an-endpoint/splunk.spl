@@ -1,0 +1,1 @@
+index=* (Image="*\\flashrom.exe" OR Image="*\\afuwin.exe" OR Image="*\\afuwinx64.exe" OR Image="*\\afuwingui.exe" OR Image="*\\fpt.exe" OR Image="*\\fptw.exe" OR Image="*\\fptw64.exe" OR Image="*\\flash64w.exe" OR Image="*\\winflash.exe" OR Image="*\\winflash64.exe" OR Image="*\\nvflash.exe" OR Image="*\\nvflash64.exe" OR Image="*\\amdvbflash.exe" OR Image="*\\atiflash.exe")

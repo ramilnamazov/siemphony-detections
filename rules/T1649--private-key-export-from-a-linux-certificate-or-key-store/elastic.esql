@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*/openssl" AND (TO_LOWER(process.command_line) LIKE "*pkcs12*" OR TO_LOWER(process.command_line) LIKE "*pkcs8*")) OR ((TO_LOWER(process.executable) LIKE "*/pk12util" OR TO_LOWER(process.executable) LIKE "*/certutil") AND (TO_LOWER(process.command_line) LIKE "*/nssdb*" OR TO_LOWER(process.command_line) LIKE "*/.pki*")) OR (TO_LOWER(process.executable) LIKE "*/keytool" AND (TO_LOWER(process.command_line) LIKE "*-importkeystore*" OR TO_LOWER(process.command_line) LIKE "*-exportcert*")))

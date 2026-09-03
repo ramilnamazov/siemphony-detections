@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE TO_LOWER(file.code_signature.signed) == "false"

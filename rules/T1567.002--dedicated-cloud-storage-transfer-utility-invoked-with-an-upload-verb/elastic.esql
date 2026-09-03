@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\rclone.exe" OR TO_LOWER(process.executable) LIKE "*\\\\azcopy.exe" OR TO_LOWER(process.executable) LIKE "*\\\\megacmd.exe" OR TO_LOWER(process.executable) LIKE "*\\\\megasync.exe") AND (TO_LOWER(process.command_line) LIKE "*copy*" OR TO_LOWER(process.command_line) LIKE "*sync*" OR TO_LOWER(process.command_line) LIKE "*copyto*" OR TO_LOWER(process.command_line) LIKE "*moveto*" OR TO_LOWER(process.command_line) LIKE "*put*"))

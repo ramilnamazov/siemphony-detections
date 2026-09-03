@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(file.path) LIKE "*\\\\windowspowershell\\\\profile.ps1" OR TO_LOWER(file.path) LIKE "*\\\\windowspowershell\\\\microsoft.powershell_profile.ps1" OR TO_LOWER(file.path) LIKE "*\\\\windowspowershell\\\\microsoft.powershellise_profile.ps1" OR TO_LOWER(file.path) LIKE "*\\\\windowspowershell\\\\microsoft.vscode_profile.ps1" OR TO_LOWER(file.path) LIKE "*\\\\powershell\\\\profile.ps1" OR TO_LOWER(file.path) LIKE "*\\\\powershell\\\\microsoft.powershell_profile.ps1" OR TO_LOWER(file.path) LIKE "*\\\\powershell\\\\microsoft.vscode_profile.ps1")

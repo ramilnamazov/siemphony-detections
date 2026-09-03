@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\winword\.exe$|\\excel\.exe$|\\powerpnt\.exe$|\\acrord32\.exe$|\\chrome\.exe$|\\msedge\.exe$|\\firefox\.exe$|\\7zFM\.exe$|\\winrar\.exe$)</field>
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\cmd\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\rundll32\.exe$|\\regsvr32\.exe$|\\msiexec\.exe$|\\curl\.exe$|\\bitsadmin\.exe$|\\pcalua\.exe$|\\expand\.exe$|\\tar\.exe$)</field>
+    <description>Detect a document or archive application spawning a system utility</description>
+    <mitre>
+      <id>T1204</id>
+    </mitre>
+  </rule>
+</group>

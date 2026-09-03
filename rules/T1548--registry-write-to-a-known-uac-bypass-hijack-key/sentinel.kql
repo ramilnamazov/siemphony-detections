@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey contains "\\Software\\Classes\\ms-settings\\shell\\open\\command" or RegistryKey contains "\\Software\\Classes\\mscfile\\shell\\open\\command" or RegistryKey contains "\\Software\\Classes\\Folder\\shell\\open\\command" or RegistryKey contains "\\Software\\Classes\\exefile\\shell\\runas\\command\\isolatedCommand" or RegistryKey contains "\\Software\\Classes\\AppX82a6gwre4fdg3bt635tn5ctqjf8msdd2\\Shell\\open\\command" or RegistryKey contains "\\Environment\\windir")

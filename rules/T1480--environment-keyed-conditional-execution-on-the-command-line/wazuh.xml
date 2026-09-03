@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(env:COMPUTERNAME|env:USERDOMAIN|env:USERDNSDOMAIN|env:LOGONSERVER|Win32_ComputerSystem|Win32_ComputerSystemProduct|csproduct get uuid|computersystem get domain|GetHostByName|GetIPGlobalProperties|Get-ADDomain|DirectoryServices\.ActiveDirectory|NetworkInformation\.NetworkInterface)</field>
+    <field name="CommandLine" type="pcre2">(?i)( -eq | -ne | -match | -like | -contains |\.Equals\(|if\(|if \()</field>
+    <description>Environment-keyed conditional execution on the command line</description>
+    <mitre>
+      <id>T1480</id>
+    </mitre>
+  </rule>
+</group>

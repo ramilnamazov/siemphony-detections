@@ -1,0 +1,68 @@
+title: Named pipe created with a known command-relay pipe name
+id: 70a46951-2fa4-40ad-a3f0-8bf411e30211
+status: experimental
+description: |
+  Windows named pipes are the one IPC mechanism in AN1357 that has no
+  sub-technique of its own — COM is T1559.001 and DDE is T1559.002 — so the pipe
+  leg is where a parent-level rule belongs. This matches Sysmon pipe events
+  (EventID 17 creation and 18 connection — the selection carries no EventID
+  constraint, so both are captured, and the connecting client is often the more
+  interesting half for a relay pipe) on two families of pipe name.
+  selection_cmd_relay covers pipes whose purpose is to relay a remotely
+  executed command's stdin/stdout back to the caller: the post-exploitation job
+  pipes of a widely deployed offensive framework (postex_, status_), and
+  PsExec's own service pipe (PSEXESVC). PSEXESVC is dual-filed — the SMB
+  service install that creates it is T1569.002 with T1021.002 for the transport
+  — but the pipe itself carries the executed command's I/O, which is the local
+  IPC behaviour this rule is filed under, so it stays. selection_peer_channel
+  covers msagent_ and MSSE-, the same framework's SMB peer-to-peer beacon
+  channel; this is C2 traffic riding a named pipe rather than command relay and
+  is dual-filed under T1090.001/T1572 — a hit on this arm should be triaged as
+  a beacon channel, not as local command execution. paexec, remcom_ and
+  csexecsvc were dropped from an earlier draft: they are the same class of
+  service-based remote-execution pipe as svcctl and atsvc, which this rule
+  already excludes on the grounds that their abuse is the observable of remote
+  service execution rather than local IPC — the same reasoning now applies
+  consistently across all of them. MITRE names the PipeNamePattern knob and
+  offers only the svcctl example, which this rule does not use for that reason;
+  every prefix below was assembled here, not taken from the brief. The status_
+  prefix is a generic word matched with nothing beyond startswith, so an
+  unrelated product that names a pipe that way will also match — that is a
+  precision limit on selection_cmd_relay, not a false positive, since no real
+  benign source can be named for it. Two further limits are structural. A pipe
+  name is a default, so an operator who changes it leaves nothing here, and
+  this rule therefore ages out rather than generalising. The other two Windows
+  log sources in the analytic cannot substitute: the brief maps Security 4663
+  onto the Sysmon-shaped file_event category, whose TargetFilename cannot carry
+  a pipe object, and the 4656/4670 leg needs a SACL on the named-pipe device
+  that no default or CIS baseline sets. Sysmon must also be configured with a
+  PipeEvent section — pipe creation is not logged by a stock or minimal
+  configuration, and a silent rule here means blind, not quiet.
+  UNVERIFIED — derived from MITRE ATT&CK DET0493 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1559
+  - https://attack.mitre.org/detectionstrategies/DET0493
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1559
+logsource:
+  category: pipe_created
+  product: windows
+detection:
+  selection_cmd_relay:
+    PipeName|startswith:
+      - '\postex_'
+      - '\status_'
+      - '\PSEXESVC'
+  selection_peer_channel:
+    PipeName|startswith:
+      - '\msagent_'
+      - '\MSSE-'
+  condition: 1 of selection_*
+falsepositives:
+  - "Sanctioned use of Sysinternals PsExec, a standard administration tool embedded in software distribution scripts, remote-support tooling, imaging task sequences and ad hoc break-fix work; every invocation creates the PSEXESVC pipe on the target and matches selection_cmd_relay. In an estate that still permits PsExec this is the dominant match on that arm, which is why this rule is scored medium rather than higher."
+  - "Purple-team and control-validation runs, and licensed red-team engagements, using the offensive framework whose default pipe prefixes are listed here. These produce clean matches on every exercise and are indistinguishable from an intrusion at the level of a pipe name."
+  - "Monitoring, backup and patch agents that ship a bundled copy of Sysinternals PsExec to run a command on a peer, so the PSEXESVC pipe appears on a schedule from a service account rather than from an interactive session."
+level: medium

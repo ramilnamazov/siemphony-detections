@@ -1,0 +1,61 @@
+title: Active Directory domain trust object attribute modified
+id: 54044358-0fac-49f5-b521-5eb9c9e72670
+status: experimental
+description: |
+  Matches AN1259's core observable directly: a directory-service object
+  modification (Security 5136) whose ObjectClass is trustedDomain and whose
+  changed attribute is one that defines the trust relationship itself —
+  trustPartner (the far-side domain or tenant), trustDirection and trustType
+  (which way authentication flows and what kind of trust it is),
+  trustAttributes (forest-trust and SID-filtering flags), or
+  msDS-TrustForestTrustInfo (the namespace list a forest trust honours).
+  Creating a new trust or repointing an existing one always rewrites at
+  least one of these five, which is what MITRE's ObjectType and
+  AttributeModified knobs name; the attribute list itself is authored here,
+  not supplied by MITRE beyond the two example names it gives. The brief's
+  other two logsources are deliberately not used: Security 4704 (user right
+  assignment) fires whenever any right is granted to any account, not only
+  SeEnableDelegationPrivilege on a trust-related principal, so folding it in
+  as an OR would turn a trust-object rule into a generic privilege-grant
+  rule and lose the technique-specific signal; and AN1259's process-side
+  evidence (netdom.exe, nltest.exe or a PowerShell trust cmdlet) is the tool
+  that makes the change, not the change itself, and a command-line selection
+  for it would duplicate rather than add to the object-level signal 5136
+  already carries. MITRE's TimeWindow knob — correlating the trust edit with
+  a nearby logon or certificate modification — is a cross-event join
+  lib/sigma cannot express, so this fires on the object modification alone.
+  Prerequisite: 5136 needs the *Audit Directory Service Changes* subcategory
+  enabled on domain controllers and an auditing SACL covering the
+  Configuration partition's trust objects; neither is on in a default
+  install or in the Microsoft and CIS baselines, so an empty result means
+  blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0458, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1484/002
+  - https://attack.mitre.org/detectionstrategies/DET0458
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1484.002
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_object:
+    EventID: 5136
+    ObjectClass: 'trustedDomain'
+  selection_attribute:
+    AttributeLDAPDisplayName:
+      - 'trustPartner'
+      - 'trustDirection'
+      - 'trustType'
+      - 'trustAttributes'
+      - 'msDS-TrustForestTrustInfo'
+  condition: selection_object and selection_attribute
+falsepositives:
+  - "Legitimate creation of a new external, forest or shortcut trust by AD administrators during domain consolidation, a merger or acquisition onboarding, or a new federation build-out, which rewrites all five attributes at once on the new trustedDomain object."
+  - "Scheduled trust maintenance such as resetting the trust password (netdom trust /resetsecuritypassword) or adjusting SID-filtering and quarantine settings, which rewrites trustAttributes without changing the trust's direction or partner."
+  - "Azure AD Connect or AD FS federation configuration tooling that provisions or updates a federation trust object as part of a scheduled sync job or an administrator-run federation setup wizard."
+level: medium

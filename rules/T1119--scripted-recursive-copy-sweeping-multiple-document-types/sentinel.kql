@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((((FolderPath endswith "\\powershell.exe" or FolderPath endswith "\\pwsh.exe") and ProcessCommandLine contains "copy-item") and ProcessCommandLine contains "recurse") and (ProcessCommandLine contains ".doc" or ProcessCommandLine contains ".xls" or ProcessCommandLine contains ".ppt" or ProcessCommandLine contains ".pdf" or ProcessCommandLine contains ".csv" or ProcessCommandLine contains ".txt"))

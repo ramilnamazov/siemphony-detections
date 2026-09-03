@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\vboxmanage.exe" AND (TO_LOWER(process.command_line) LIKE "*startvm*" AND TO_LOWER(process.command_line) LIKE "*headless*")) OR TO_LOWER(process.executable) LIKE "*\\\\vboxheadless.exe" OR (TO_LOWER(process.executable) LIKE "*\\\\vmrun.exe" AND TO_LOWER(process.command_line) LIKE "*nogui*"))

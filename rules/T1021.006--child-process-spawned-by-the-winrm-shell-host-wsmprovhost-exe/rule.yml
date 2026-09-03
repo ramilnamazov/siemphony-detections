@@ -1,0 +1,39 @@
+title: Child process spawned by the WinRM shell host wsmprovhost.exe
+id: 69a5b93a-35db-4be2-802e-f3142b7765d6
+status: experimental
+description: |
+  Matches a process created with `wsmprovhost.exe` as its parent — the
+  WS-Management provider host that WinRM launches to run every remote
+  PowerShell or cmd session it hosts, so any child of it is evidence execution
+  reached this box specifically over WinRM. That is the differentiator asked
+  for: the published T1021.001 rule keys on port 3389 and the mstsc/msrdc
+  clients, and T1021.002 keys on Security EventID 5140's `ShareName` field for
+  ADMIN$/C$, while this rule keys on the one process that only exists on the
+  WinRM path (5985/5986), whichever account or tool drove it. AN1313 also
+  lists the Security EventID 4624/4648 logon pair and the WinRM Operational
+  channel's EventID 6, but both only confirm a session opened, not what ran
+  inside it — joining "session opened" to "process created" within a window is
+  the correlation MITRE's `TimeWindow` knob describes, and Sigma has no
+  construct for it, so this rule stays on the process-creation leg alone.
+  `UserContext` and `KnownAdminHosts` remain manual triage once this fires.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0477, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1021/006
+  - https://attack.mitre.org/detectionstrategies/DET0477
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1021.006
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    ParentImage|endswith: '\wsmprovhost.exe'
+  condition: selection
+falsepositives:
+  - "Legitimate PowerShell Remoting: administrators and helpdesk staff running Enter-PSSession or Invoke-Command against this host, which is the intended purpose of WinRM and is the dominant source of matches on any host with remoting enabled."
+  - "Configuration-management and orchestration tooling that targets Windows hosts over WinRM — Ansible's winrm connector, PowerShell DSC pulls, and Server Manager's multi-server console all spawn commands through wsmprovhost.exe as their normal operating mode."
+  - "Monitoring and inventory agents that poll a host over PowerShell Remoting on a fixed schedule, appearing as recurring wsmprovhost.exe children from the same service account."
+level: low

@@ -1,0 +1,76 @@
+title: Database or ledger file created by a script host or LOLBin
+id: e8c7777d-947b-4c81-b66b-99b383861226
+status: experimental
+description: |
+  Matches a file-create event where a database, ledger or embedded-store file is
+  laid down by a scripting host, a signed-binary proxy or a transfer utility
+  rather than by the engine that owns it, which is the "abnormal changes to
+  structured data outside expected business process activity" half of AN0162.
+  Read the scope narrowly: this is suspicious data-store file *creation*, not
+  detection of records being altered in place. Sysmon EventID 11 fires on
+  create and overwrite only, so a row edited through the application or through
+  SQL produces nothing here, and a freshly dropped store is at least as
+  consistent with T1074-style local staging as with manipulation meant to
+  deceive — the rule cannot separate the two. The brief's EventID 2
+  (`file_change`) source sits closer to genuine in-place manipulation but is a
+  different logsource and needs its own rule. It also stands in for the
+  stored-data case at the parent level: this is really T1565.001 territory, and
+  when a T1565.001 rule is authored the two should be revisited and merged,
+  with the parent left to carry .002 (transmitted) and .003 (runtime), neither
+  of which this logic touches. Both lists are assembled here: MITRE names the
+  `MonitoredFilePaths` and `AuthorizedProcesses` knobs, and a site should
+  replace the extension list with its own critical data formats and the process
+  list with the services that are actually entitled to write them. The rule is
+  written in the Sysmon EventID 11 vocabulary (`TargetFilename`, `Image`); the
+  Security EventID 4663 feed the brief also maps onto `file_event` splits the
+  same facts into `ObjectName` and `ProcessName`, so it needs a field mapping
+  before a SACL on the data directory would buy anything.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0059, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1565
+  - https://attack.mitre.org/detectionstrategies/DET0059
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1565
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_data:
+    TargetFilename|endswith:
+      - '.mdf'
+      - '.ldf'
+      - '.ndf'
+      - '.mdb'
+      - '.accdb'
+      - '.sqlite'
+      - '.sqlite3'
+      - '.db'
+      - '.dbf'
+      - '.gdb'
+      - '.qbw'
+  selection_process:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+      - '\curl.exe'
+      - '\python.exe'
+      - '\pythonw.exe'
+      - '\notepad.exe'
+  condition: selection_data and selection_process
+falsepositives:
+  - "Developer, build and automation hosts. There, Python and PowerShell create .db and .sqlite files as a matter of routine and this is the highest-volume match by a wide margin across the whole rule."
+  - "Backup, restore and migration windows: a scripted restore lays down .mdf and .ldf under a service account, and curl or PowerShell staging an .accdb or .mdb copy before a cutover matches the same way."
+  - "Endpoint protection and backup agents that quarantine and recreate a live store in place during on-access scanning, where the recreate step runs through a PowerShell or cmd wrapper rather than the agent binary itself."
+  - "Reporting and ETL jobs that regenerate an Access or dBase extract on a schedule for finance or BI teams, writing the file through cscript.exe or PowerShell on every cycle."
+  - "Application installers and first-run setup that seed an empty SQLite or Access store for a line-of-business tool, unpacked by a script wrapper rather than by the application itself."
+level: low

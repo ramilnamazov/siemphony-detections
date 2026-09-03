@@ -1,0 +1,1 @@
+index=* (CommandLine="*wlan *" AND (CommandLine="*show profile*" OR CommandLine="*show networks*" OR CommandLine="*export profile*" OR CommandLine="*key=clear*"))

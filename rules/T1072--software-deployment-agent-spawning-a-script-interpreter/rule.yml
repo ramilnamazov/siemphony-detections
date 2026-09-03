@@ -1,0 +1,72 @@
+title: Software deployment agent spawning a script interpreter
+id: a59e0d54-76dc-46ac-90de-4fc3f2d2055f
+status: experimental
+description: |
+  Anchors on the parent rather than the payload: AN0623 describes push
+  execution arriving through an endpoint-management suite, so the observable is
+  the deployment agent itself appearing as the parent of a shell or scripting
+  host. The first leg pairs a management-agent parent with an interpreter
+  child; the second leg needs no child gate at all, because `cmtrace.exe` is a
+  log viewer with a menu entry that launches arbitrary programs, and it has no
+  routine reason to be anyone's parent process. MITRE names the
+  `ParentImageList` knob and names cmtrace.exe as its example; the rest of the
+  parent list is authored here — CcmExec.exe is the Configuration Manager
+  client service, and Microsoft.Management.Services.IntuneWindowsAgent.exe with
+  AgentExecutor.exe are the pair that runs assigned scripts on an Intune-managed
+  host. Note the Intune binary name: the *service* is named
+  IntuneManagementExtension and the install folder is "Microsoft Intune
+  Management Extension", but no `IntuneManagementExtension.exe` exists on disk,
+  so matching that name yields a selector that can never fire. The brief
+  offers Security EventID 4688 for this analytic but maps it onto the
+  Sysmon-shaped `process_creation` category, and the rule is written in that
+  vocabulary (`Image`, `ParentImage`); a 4688 feed needs `NewProcessName`
+  mapped onto `Image` and `ParentProcessName` onto `ParentImage` before it can
+  match, and 4688 itself requires *Audit Process Creation*, which no default
+  install and neither the MS nor the CIS baseline enables. Two limits worth
+  stating: agents for other suites — Ansible or Chef over WinRM, AWS Systems
+  Manager, Azure Arc, Tanium, Altiris — spawn under worker-process names that
+  differ by product and version and are not in the list, so a quiet result
+  means the site's tool is unlisted rather than that no push execution
+  happened; and remote execution driven over WinRM or WMI parents under
+  wsmprovhost.exe or WmiPrvSE.exe, which is T1021.006 and T1047 and is out of
+  scope here. MITRE's `TimeWindow` and `UserContext` knobs ask for "outside the
+  maintenance window" and "not the expected service account", both of which are
+  comparisons against a baseline that a single-event rule cannot make.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0223, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1072
+  - https://attack.mitre.org/detectionstrategies/DET0223
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.lateral-movement
+  - attack.t1072
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_agent:
+    ParentImage|endswith:
+      - '\CcmExec.exe'
+      - '\Microsoft.Management.Services.IntuneWindowsAgent.exe'
+      - '\AgentExecutor.exe'
+  selection_interpreter:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+  selection_cmtrace:
+    ParentImage|endswith: '\cmtrace.exe'
+  condition: (selection_agent and selection_interpreter) or selection_cmtrace
+falsepositives:
+  - "Every sanctioned deployment on a managed fleet, because running scripts and installers as SYSTEM is precisely what these agents are for — application installs, script assignments, compliance remediations and detection scripts all match the agent leg, making it the highest-volume match by a wide margin and the reason this is rated low rather than treated as an alert on its own."
+  - "Scheduled patch and compliance cycles firing the same PowerShell or cmd wrapper on every in-scope host within the same maintenance window, producing a fleet-wide burst that has the shape of coordinated remote execution and is simply the monthly cycle."
+  - "An administrator reading deployment logs on a site server and using CMTrace's own menu to open a command prompt or launch a tool, which matches the cmtrace leg with no child gate to soften it."
+  - "Application packagers who wrap an installer in cmd.exe /c or a PowerShell script so one deployment can chain a prerequisite check, the MSI call and a post-install cleanup — a common packaging convention that puts an interpreter directly under the agent by design."
+level: low

@@ -1,0 +1,101 @@
+title: Executable or script written by a consumer messaging client
+id: 37af02a5-9579-4511-8246-3337ec241532
+status: experimental
+description: |
+  Takes the delivery leg of AN0320 and pins it to the writing process rather than
+  to a folder: a desktop chat or social client — the non-enterprise channel that
+  defines this sub-technique — creating a file of an executable, script, shortcut
+  or disk-image type on the endpoint. The mail secure-cache path used for
+  T1566.001 structurally cannot see this, because a message delivered through a
+  third-party service never touches the mail client, and a rule keyed on a
+  browser writing the file would be the drive-by logic already authored for
+  T1189, so the client process list is the discriminator that remains. These
+  clients rewrite their own program and cache trees on every release — an
+  Electron self-update unpacks hundreds of .js files under its own AppData
+  directory, under the same process name — so those trees are excluded by path,
+  and that filter is the difference between a rule that reports deliveries and
+  one that reports updates. Microsoft Teams is left out because internal chat
+  between colleagues would make sharing a build the normal case, which does mean
+  the external-tenant Teams route used in several recent intrusions is not
+  covered here. The largest blind spot is the extension list itself: a payload
+  sent as a .zip, .7z or .docm matches nothing, and those are the usual wrappers
+  precisely because users reach for an archive for anything multi-file — they
+  are excluded because they are also the bulk of what colleagues legitimately
+  exchange over chat. Two further limits: MITRE's MonitoredServices and
+  TimeWindow knobs describe a correlation across the message, the write and the
+  follow-on execution that Sigma has no construct for, so this fires on delivery
+  alone; and it requires Sysmon EventID 11 with neither these processes nor
+  these extensions excluded, which the widely deployed community configurations
+  do not leave intact.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0115, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1566/003
+  - https://attack.mitre.org/detectionstrategies/DET0115
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.t1566.003
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_service_client:
+    Image|endswith:
+      - '\Discord.exe'
+      - '\Telegram.exe'
+      - '\Signal.exe'
+      - '\slack.exe'
+      - '\Skype.exe'
+      - '\Viber.exe'
+      - '\Element.exe'
+      - '\WhatsApp.exe'
+  selection_payload:
+    TargetFilename|endswith:
+      - '.exe'
+      - '.msi'
+      - '.scr'
+      - '.pif'
+      - '.com'
+      - '.bat'
+      - '.cmd'
+      - '.ps1'
+      - '.vbs'
+      - '.vbe'
+      - '.js'
+      - '.jse'
+      - '.wsf'
+      - '.hta'
+      - '.lnk'
+      - '.chm'
+      - '.jar'
+      - '.iso'
+      - '.img'
+      - '.vhd'
+      - '.vhdx'
+  filter_client_own_tree:
+    TargetFilename|contains:
+      - '\AppData\Local\Discord\'
+      - '\AppData\Local\DiscordPTB\'
+      - '\AppData\Local\DiscordCanary\'
+      - '\AppData\Local\slack\'
+      - '\AppData\Roaming\Slack\'
+      - '\AppData\Roaming\Telegram Desktop\'
+      - '\AppData\Local\Programs\signal-desktop\'
+      - '\AppData\Roaming\Signal\'
+      - '\AppData\Local\Programs\element-desktop\'
+      - '\AppData\Roaming\Element\'
+      - '\AppData\Local\Microsoft\Skype for Desktop\'
+      - '\AppData\Roaming\Microsoft\Skype for Desktop\'
+      - '\AppData\Local\Viber\'
+      - '\AppData\Roaming\ViberPC\'
+      - '\AppData\Local\WhatsApp\'
+      - '\AppData\Local\SquirrelTemp\'
+      - '\AppData\Local\Packages\'
+  condition: selection_service_client and selection_payload and not filter_client_own_tree
+falsepositives:
+  - "Engineering and IT staff sharing builds, installers and helper scripts over chat. A colleague dropping an .exe, .msi or .jar into a Slack or Discord channel writes precisely this event, and in a software organisation it is the highest-volume match by a wide margin. Allow-list by the receiving account or the channel, not by shortening the extension list, which is the rule's only signal."
+  - "Chat client self-update staged outside the client's own directories. The path filter covers the install and cache trees, but an updater that drops its new setup .exe or .msi into %TEMP% or into the user's Downloads folder writes under the same process name and still matches, on every release train, on every installed client in the estate."
+  - "Helpdesk workflows that send a remote-support agent or a signed driver package to a user over chat instead of through the software distribution system, which is common where the user is off the corporate network."
+  - "Lab and training content, where .iso and .vhdx images and .lnk shortcuts to shared locations are ordinary attachments in engineering and course channels."
+level: low

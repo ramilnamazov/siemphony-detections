@@ -1,0 +1,1 @@
+index=* (ImageLoaded="*\\vbscript.dll" OR ImageLoaded="*\\msvbvm60.dll")

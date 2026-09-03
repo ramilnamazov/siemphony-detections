@@ -1,0 +1,1 @@
+index=* (Image="*\\nmap.exe" OR Image="*\\ncat.exe" OR Image="*\\masscan.exe" OR Image="*\\rustscan.exe" OR Image="*\\naabu.exe" OR Image="*\\fscan.exe" OR Image="*\\netscan.exe" OR Image="*\\nbtscan.exe" OR Image="*\\advanced_ip_scanner.exe" OR Image="*\\advanced_port_scanner.exe" OR Image="*\\portqry.exe")

@@ -1,0 +1,63 @@
+title: Mailbox export requests removed or mailbox content purged
+id: 632b13b8-7972-42a3-93f8-9083ada68573
+status: experimental
+description: |
+  Matches PowerShell script block logging (EventID 4104) where the recorded
+  block either removes the record of a mailbox export or import job, or issues
+  a cmdlet that permanently deletes message content. The first arm needs no
+  second gate: `Remove-MailboxExportRequest` and `Remove-MailboxImportRequest`
+  are distinctive enough on their own, and removing the request object is the
+  step that erases the evidence a PST was ever produced. The second arm is
+  gated twice — a purging cmdlet (`Search-Mailbox`,
+  `New-ComplianceSearchAction`) *and* the switch that makes it destructive
+  (`-DeleteContent`, `-Purge`) — because both cmdlets are read-only without
+  the switch and are run constantly for discovery. MITRE's
+  `PowerShellCommandMatch` and `CmdletFilter` knobs name
+  `Remove-MailboxExportRequest` and `Remove-*` actions; the purge-switch pairing
+  is authored here. Script Block Logging is off by default and is not enabled by
+  the Microsoft or CIS baselines, so without the *Turn on PowerShell Script
+  Block Logging* policy this rule returns zero rows because the host is blind,
+  not because nothing happened. Two limits are structural. 4104 records the
+  whole block, including comments and help text, so a runbook that merely
+  documents these cmdlets is logged identically to one that runs them. And an
+  Exchange Online administrator working in the admin centre, through Graph, or
+  in a session whose cmdlets execute on Microsoft's side leaves no local 4104 at
+  all — the brief's Office Suite analytic AN0740 really lives in the unified
+  audit log, which this brief's log source list does not contain. The brief's
+  other Windows legs (Sysmon EventID 23 `file_delete` with `TargetFilename`, and
+  Security 4663 with `ObjectName`/`ProcessName`) are separate feeds with their
+  own field names and are not combined here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0266, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1070/008
+  - https://attack.mitre.org/detectionstrategies/DET0266
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1070.008
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_eventid:
+    EventID: 4104
+  selection_request_cleanup:
+    ScriptBlockText|contains:
+      - 'Remove-MailboxExportRequest'
+      - 'Remove-MailboxImportRequest'
+  selection_purge_cmdlet:
+    ScriptBlockText|contains:
+      - 'Search-Mailbox'
+      - 'New-ComplianceSearchAction'
+  selection_purge_switch:
+    ScriptBlockText|contains:
+      - '-DeleteContent'
+      - '-Purge'
+  condition: selection_eventid and (selection_request_cleanup or (selection_purge_cmdlet and selection_purge_switch))
+falsepositives:
+  - "Routine Exchange administration, which is the highest-volume match here by a wide margin on any estate that exports mailboxes. `Remove-MailboxExportRequest` is the documented final step of every `New-MailboxExportRequest` job — migrations, legal-hold collections and PST archiving all end with it, usually as a scheduled loop that clears every completed request — and it looks identical to an operator deleting the record of their own export."
+  - "Phishing response by the security or messaging team, which removes a reported malicious message from every mailbox with `New-ComplianceSearchAction -Purge`; the cmdlet, the switch and often the operator account are the same ones an adversary would use to remove their own phish."
+  - "Helpdesk remediation with `Search-Mailbox -DeleteContent`, used to clear a mail storm, an oversized attachment or a mis-sent all-staff message out of an affected mailbox."
+  - "Documentation and tooling that merely mentions the cmdlets, since 4104 logs the full script block: an administrator running `Get-Help Remove-MailboxExportRequest`, opening a runbook in the ISE, or loading a module whose comment-based help contains these names all produce a matching block."
+level: low

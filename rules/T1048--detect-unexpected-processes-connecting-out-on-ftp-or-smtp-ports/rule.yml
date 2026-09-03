@@ -1,0 +1,57 @@
+title: Detect unexpected processes connecting out on FTP or SMTP ports
+id: 9a29d4e9-f4cd-4101-9bcb-81cc927a4a5d
+status: experimental
+description: |
+  Matches outbound network connections on the classic bulk-transfer and mail ports
+  (FTP control and data, TFTP, SMTP and its submission variants) initiated by a
+  process that has no business speaking those protocols — a script interpreter, a
+  transfer-capable living-off-the-land binary, or `ftp.exe` itself. The protocol is
+  inferred from `DestinationPort` because that is the most specific field this log
+  source carries; `Initiated` restricts the match to connections this host opened.
+  MITRE's DataVolumeThresholdMB and time-of-day knobs are the real discriminators
+  for exfiltration and neither is expressible in Sigma, so this rule fires on the
+  channel rather than on the volume moving through it.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0131, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1048
+  - https://attack.mitre.org/detectionstrategies/DET0131
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.exfiltration
+  - attack.t1048
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection_outbound:
+    Initiated: 'true'
+  selection_port:
+    DestinationPort:
+      - 20
+      - 21
+      - 25
+      - 69
+      - 465
+      - 587
+  selection_process:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+      - '\curl.exe'
+      - '\ftp.exe'
+      - '\tftp.exe'
+      - '\python.exe'
+  condition: selection_outbound and selection_port and selection_process
+falsepositives:
+  - "Estates where FTP is a sanctioned transfer channel — a nightly `curl.exe` or `ftp.exe` push to a partner or backup host will match every run. This is exactly MITRE's ProtocolAllowList knob: pin the allowed process, destination and port triple per host rather than dropping the port from the list."
+  - "Scripted mail. Monitoring, ticketing and report jobs that call PowerShell's `Send-MailMessage` (or a Python `smtplib` script) against an internal relay on 25 or 587 are indistinguishable here from mail-based exfiltration; only the destination separates them."
+  - "Build and developer tooling. `python.exe` and `curl.exe` reaching a package mirror or an appliance that still offers FTP, and `tftp.exe` used for network device firmware pushes from a jump box."
+level: medium

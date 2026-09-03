@@ -1,0 +1,74 @@
+title: Unix shell spawned by a network-facing service daemon
+id: e9e26c24-621b-4c22-a0ad-d61d65ca1820
+status: experimental
+description: |
+  A Unix shell running is unremarkable on any Linux host, so the parent is the
+  entire detection: this rule matches sh, bash, dash, zsh, ksh, ash or busybox
+  whose parent is a web, database or file-sharing daemon that has no business
+  execing a shell. That is MITRE's ParentProcess knob from AN1081 ("Shell
+  invoked by unexpected parents (e.g., curl, mail, apache2)"), populated here
+  with a daemon list authored for this rule rather than taken from MITRE.
+  php-fpm and uwsgi are matched with contains rather than endswith on purpose,
+  because the shipped binaries are version-suffixed (php-fpm8.2,
+  uwsgi_python311) and an endswith on the bare name never fires. sshd, cron
+  and login are deliberately absent — a shell under those is the system
+  working normally. Known gap: a service hosted inside an interpreter is not
+  selectable by name here, because the exec is the runtime's — a Tomcat, Jetty
+  or Spring Boot app appears as java and a Gunicorn worker as python3, so an
+  RCE in one of those produces a shell whose ParentImage is the runtime. The
+  osquery socket_events and syslog auth.log legs of AN1081 are not authored:
+  the shell-to-network-discovery chain and the remote-session attribution both
+  need a join across sources within a time window, which lib/sigma has no
+  construct for, and AN1082's macOS leg is macos/unifiedlog with no field
+  schema anywhere in the brief. The rule is written in the Sigma linux
+  process_creation vocabulary (Image, ParentImage); a raw auditd SYSCALL feed
+  carries the same facts as exe= and ppid and needs a field mapping first, and
+  auditd records no execve at all until an explicit execve audit rule is
+  loaded.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0384, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1059/004
+  - https://attack.mitre.org/detectionstrategies/DET0384
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.execution
+  - attack.t1059.004
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_shell:
+    Image|endswith:
+      - '/sh'
+      - '/bash'
+      - '/dash'
+      - '/zsh'
+      - '/ksh'
+      - '/ash'
+      - '/busybox'
+  selection_parent_daemon:
+    ParentImage|endswith:
+      - '/httpd'
+      - '/apache2'
+      - '/nginx'
+      - '/lighttpd'
+      - '/mysqld'
+      - '/mariadbd'
+      - '/postgres'
+      - '/redis-server'
+      - '/memcached'
+      - '/vsftpd'
+      - '/proftpd'
+      - '/smbd'
+  selection_parent_versioned:
+    ParentImage|contains:
+      - '/php-fpm'
+      - '/uwsgi'
+  condition: selection_shell and (selection_parent_daemon or selection_parent_versioned)
+falsepositives:
+  - "Web applications that shell out by design from PHP — WordPress, Nextcloud and Magento cron runners, ImageMagick and ffmpeg thumbnail helpers, and backup plugins that call sh -c mysqldump, all reached through exec() or shell_exec() under php-fpm. On a CMS or shared-hosting box this is the highest-volume match by a wide margin and fires on the application's own schedule rather than on human activity."
+  - "PostgreSQL archive_command and restore_command, which the archiver process runs through /bin/sh once per WAL segment, so a busy database emits a steady stream of postgres-parented shells that no operator ever sees."
+  - "Apache mod_cgi and suexec serving shell CGI scripts, where a .sh or .cgi file with a #!/bin/sh shebang makes httpd or apache2 the parent of /bin/sh every time the page is requested."
+  - "Samba print and VFS commands and vsftpd upload hooks, which are configured as shell command strings and are therefore executed as a child shell of smbd or vsftpd on every matching client operation."
+level: medium

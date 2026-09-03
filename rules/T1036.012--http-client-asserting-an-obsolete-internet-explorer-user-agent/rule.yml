@@ -1,0 +1,51 @@
+title: HTTP client asserting an obsolete Internet Explorer user agent
+id: b50361d5-9864-4472-a956-a46a52e9828c
+status: experimental
+description: |
+  AN2031 asks for outbound HTTP whose User-Agent has been shaped to look like a
+  browser when the client is not one. Of the log sources in this strategy, Zeek
+  http.log is the only one that records the header at all — Sysmon EventID 3 and
+  EventID 22, offered by AN2029 for the same technique, carry connection and
+  DNS metadata with no HTTP headers in them, so no selector written against
+  those could ever see a User-Agent. The logic keys on the cheapest and most
+  visible forgery: a client declaring itself as pre-IE11 Internet Explorer, or
+  carrying the Mozilla/4.0 prefix, neither of which any currently shipping
+  browser sends and both of which are long-standing hard-coded values in
+  downloader and implant code. Note what is deliberately absent. A default
+  PowerShell, curl or python-requests agent names its own stack, which is
+  evidence that no browser identity was forged at all, so selecting on it would
+  fill the rule with the negation of the technique it is filed under. The
+  markers are authored here; MITRE names the knobs (HeaderSignatureMatch and
+  UserAgentFingerprint) but supplies no values. Two limits are structural. An
+  adversary who copies a current Chrome or Edge User-Agent verbatim is
+  indistinguishable on this feed and this rule will not see them — it catches
+  stale spoofing, not current spoofing. And the analytic's other half, that no
+  browser appears in the process lineage, cannot be joined here at all,
+  because Zeek carries no process identity and lib/sigma has no correlation to
+  join it with. Prerequisite: the header is only visible in cleartext, so a
+  sensor seeing TLS without interception logs the connection in conn.log and
+  contributes nothing to http.log — zero rows on an HTTPS-dominant estate means
+  blind, not quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0898, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1036/012
+  - https://attack.mitre.org/detectionstrategies/DET0898
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1036.012
+logsource:
+  product: zeek
+  service: http
+detection:
+  selection:
+    user_agent|contains:
+      - 'compatible; MSIE '
+      - 'Mozilla/4.0'
+  condition: selection
+falsepositives:
+  - "Legacy line-of-business and vendor software built on WinINet, WinHTTP or an embedded Internet Explorer control, which is the highest-volume match by a wide margin and is what sets the level here. Printer and scanner utilities, older ERP and clinical clients, and some Java and .NET installers still identify themselves as Mozilla/4.0 (compatible; MSIE 7.0) or similar, and they call fixed internal or vendor hosts on a schedule."
+  - "Web compatibility and site-monitoring tooling that deliberately sets an obsolete Internet Explorer user agent to exercise legacy code paths, plus crawler, accessibility and vulnerability scanners configured the same way, arriving as bursts from a small and knowable set of scanner hosts."
+  - "Embedded appliances and firmware HTTP clients, such as badge readers, IP cameras, print servers and building-management controllers, whose fixed Mozilla/4.0 user agent was never updated and which poll vendor or internal endpoints at a steady low rate from segments with no interactive user."
+level: low

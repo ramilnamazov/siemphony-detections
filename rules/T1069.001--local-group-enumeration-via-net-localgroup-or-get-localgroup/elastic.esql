@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (((TO_LOWER(process.executable) LIKE "*\\\\net.exe" OR TO_LOWER(process.executable) LIKE "*\\\\net1.exe") AND TO_LOWER(process.command_line) LIKE "* localgroup*") OR TO_LOWER(process.command_line) LIKE "*get-localgroup*")

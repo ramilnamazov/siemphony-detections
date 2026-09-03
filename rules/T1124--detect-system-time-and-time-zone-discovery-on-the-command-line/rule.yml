@@ -1,0 +1,42 @@
+title: Detect system time and time zone discovery on the command line
+id: 664bda20-d2a9-4bf8-a83e-9e19f4ca9578
+status: experimental
+description: |
+  Matches process-creation command lines that read the host clock or time zone:
+  `w32tm /tz`, `net time \\host` against a remote machine, `tzutil /g`, and the
+  PowerShell and .NET equivalents. These are MITRE's CommandlineKeywordList knob
+  written out as literals, kept on one field so the rule renders in every backend.
+  The analytic's second half — the same actor scheduling work or sleeping on a
+  large interval within a short window afterwards — is a time-windowed correlation
+  Sigma cannot express, so this is only the discovery precursor and will fire on
+  its own whether or not anything follows.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0151, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1124
+  - https://attack.mitre.org/detectionstrategies/DET0151
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1124
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'w32tm /tz'
+      - 'w32tm -tz'
+      - 'w32tm /query /status'
+      - 'net time \\'
+      - 'tzutil /g'
+      - 'tzutil -g'
+      - 'Get-TimeZone'
+      - '[System.TimeZoneInfo]'
+      - 'Get-Date -Format'
+  condition: selection
+falsepositives:
+  - "Time-sync troubleshooting by administrators and support staff. `w32tm /tz` and `w32tm /query /status` are the documented first steps when a host drifts off the domain clock, so a burst of these around a Kerberos failure is expected."
+  - "Management agents, logon scripts and backup jobs that stamp a timestamp or read the time zone at every run. MITRE's AllowedParents and ProcessPrevalenceThreshold knobs exist precisely for this — baseline the recurring parent and drop the ones that fire estate-wide every day."
+  - "`Get-Date -Format` and `Get-TimeZone` inside benign in-house PowerShell, where the time is used to name a log file rather than to profile the host. This term is the weakest in the list; remove it first if the rule is too loud."
+level: low

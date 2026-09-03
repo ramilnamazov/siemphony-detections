@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(\\Google\\Chrome\\User Data|\\Microsoft\\Edge\\User Data|\\BraveSoftware\\Brave-Browser\\User Data|\\Chromium\\User Data|\\Mozilla\\Firefox\\Profiles|\\Opera Software\\Opera Stable|places\.sqlite|formhistory\.sqlite)</field>
+    <field name="Image" type="pcre2">(?i)(\\cmd\.exe$|\\powershell\.exe$|\\pwsh\.exe$|\\findstr\.exe$|\\xcopy\.exe$|\\robocopy\.exe$|\\tar\.exe$|\\esentutl\.exe$|\\certutil\.exe$|\\sqlite3\.exe$|\\7z\.exe$)</field>
+    <description>Browser profile artefact named on a non-browser command line</description>
+    <mitre>
+      <id>T1217</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,55 @@
+title: Junk data generated with dd, truncate or fallocate
+id: 28d1851f-e1ec-4b2e-8a56-4ba9fa256516
+status: experimental
+description: |
+  The discriminator in every analytic under this strategy is MITRE's
+  FileSizeThresholdMB knob, and no log source in this brief carries a file size:
+  Sysmon EventID 11 emits `TargetFilename` and the writing process, Security
+  4663/4656/4670 emit the object name and the access mask, and process creation
+  events carry none — Sigma has no numeric comparison in any case. So this rule
+  takes the Linux execve leg of AN1529 and matches the padding *act* instead of
+  the padded artefact: the three utilities that generate bulk junk, gated on the
+  arguments that mean "produce or grow by a quantity" rather than any use of the
+  tool. Two limits follow directly. Shell redirection is consumed by the shell,
+  so `dd ... >> implant` never puts the append or the target in the execve argv
+  — the junk source is visible, the file it landed in is not. And padding is
+  usually done on the adversary's build host before delivery, or inside a
+  compiled dropper, neither of which produces any event on the victim at all.
+  Prerequisite: auditd ships no execve rule by default, so without an explicit
+  -a always,exit -F arch=b64 -S execve there is no process_creation telemetry on
+  the host at all and this rule returns zero rows regardless of what ran.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0553, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/001
+  - https://attack.mitre.org/detectionstrategies/DET0553
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1027.001
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_dd:
+    Image|endswith: '/dd'
+    CommandLine|contains:
+      - 'if=/dev/urandom'
+      - 'if=/dev/zero'
+      - 'if=/dev/random'
+  selection_truncate:
+    Image|endswith: '/truncate'
+    CommandLine|contains:
+      - '-s +'
+      - '--size=+'
+  selection_fallocate:
+    Image|endswith: '/fallocate'
+    CommandLine|contains: '-l'
+  condition: 1 of selection*
+falsepositives:
+  - "Swap file creation. Every cloud and distribution guide for adding swap starts with dd if=/dev/zero of=/swapfile, and provisioning and configuration-management runs repeat it on first boot of each host — this is the loudest match here by a wide margin and is the reason the level is low."
+  - "Disk throughput benchmarking and storage acceptance tests, where dd if=/dev/zero writing a large test file is the standard one-liner in ops runbooks and in monitoring or QA scripts."
+  - "Preallocation of database, VM and container disk images with fallocate -l, which is what the tool exists for and what qemu, LVM thin-pool and database initialisation scripts do routinely."
+  - "Zeroing or randomising a device before decommissioning, before shrinking a VM image or as part of a secure-erase script, using dd with /dev/zero or /dev/urandom against a whole disk or partition."
+  - "Test fixtures and quota testing that grow a sparse file in place with truncate -s +SIZE rather than writing real data."
+level: low

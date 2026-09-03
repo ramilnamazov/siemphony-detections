@@ -1,0 +1,1 @@
+index=* (Image="*\\bcdedit.exe" AND (CommandLine="*testsigning on*" OR CommandLine="*testsigning yes*" OR CommandLine="*testsigning 1*" OR CommandLine="*testsigning true*" OR CommandLine="*nointegritychecks on*" OR CommandLine="*nointegritychecks yes*" OR CommandLine="*nointegritychecks 1*" OR CommandLine="*nointegritychecks true*" OR CommandLine="*DISABLE_INTEGRITY_CHECKS*"))

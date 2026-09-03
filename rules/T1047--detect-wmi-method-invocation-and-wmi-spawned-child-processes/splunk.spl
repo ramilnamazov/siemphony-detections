@@ -1,0 +1,1 @@
+index=* (ParentImage="*\\WmiPrvSE.exe" OR (CommandLine="*process*" AND CommandLine="*call*" AND CommandLine="*create*") OR (CommandLine="*/node:*" AND CommandLine="*call*") OR (CommandLine="*Win32_Process*" AND CommandLine="*Create*") OR (CommandLine="*Invoke-WmiMethod*" OR CommandLine="*Invoke-CimMethod*"))

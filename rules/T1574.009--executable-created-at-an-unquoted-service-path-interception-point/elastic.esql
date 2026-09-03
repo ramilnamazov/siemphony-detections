@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(file.path) LIKE "*:\\\\program.exe" OR TO_LOWER(file.path) LIKE "*:\\\\program files.exe" OR TO_LOWER(file.path) LIKE "*:\\\\documents.exe" OR TO_LOWER(file.path) LIKE "*\\\\program files\\\\common.exe" OR TO_LOWER(file.path) LIKE "*\\\\program files (x86)\\\\common.exe")

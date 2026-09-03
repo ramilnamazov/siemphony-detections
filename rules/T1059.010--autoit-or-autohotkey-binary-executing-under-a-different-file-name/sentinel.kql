@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessVersionInfoOriginalFileName =~ "AutoIt3.exe" or ProcessVersionInfoOriginalFileName =~ "AutoIt.exe" or ProcessVersionInfoOriginalFileName =~ "AutoHotkey.exe" or ProcessVersionInfoOriginalFileName =~ "AutoHotkeyU32.exe" or ProcessVersionInfoOriginalFileName =~ "AutoHotkeyU64.exe" or ProcessVersionInfoOriginalFileName =~ "AutoHotkeyA32.exe")

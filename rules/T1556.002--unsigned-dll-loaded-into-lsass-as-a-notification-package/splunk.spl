@@ -1,0 +1,1 @@
+index=* (Image="*\\lsass.exe" AND NOT (SignatureStatus="Valid"))

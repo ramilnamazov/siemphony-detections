@@ -1,0 +1,65 @@
+title: clip.exe launched by a one-shot shell, script or service
+id: 03cadd3a-321b-46db-a0c3-a387c29971c7
+status: experimental
+description: |
+  Matches AN0965's Windows observable in two arms. The first is the one the
+  analytic's own CISA AA21-200B citation describes: clip.exe spawned by a shell
+  that was itself launched to run a single command — `cmd.exe /c ... | clip` or
+  `powershell -Command ... | clip` — recognised through ParentCommandLine rather
+  than through ParentImage, because the parent of clip.exe is the invoking shell
+  whether a human typed the pipeline or an implant spawned it. Excluding cmd.exe
+  and powershell.exe as parents outright, which an earlier draft did, removed the
+  most common real-world invocation of this technique rather than removing noise.
+  The second arm is the analytic's literal claim about parentage: clip.exe with a
+  parent that is not a shell or the desktop shell at all — a service, a scheduled
+  task engine, an Office application, a remote-access agent. WindowsTerminal.exe
+  is deliberately not treated as an interactive parent, because inside a Windows
+  Terminal session the parent of clip.exe is the shell hosted in the tab, not the
+  terminal process.
+  clip.exe only writes stdin to the clipboard, so the binary alone is a poor
+  collection signal and neither arm claims otherwise. PowerShell's Get-Clipboard
+  cmdlet, the other Windows observable MITRE names, leaves no distinct trace on
+  process_creation because it runs inside an already-launched powershell.exe host
+  and needs Script Block Logging to show up at all, so it is deliberately left
+  out rather than folded into a cross-field OR; a binary calling
+  OpenClipboard/GetClipboardData directly is invisible here for the same reason.
+  AN0965's TimeWindow and follow-on network correlation — clipboard read chained
+  to staging or exfiltration — is not modelled; Sigma has no event join for it.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0341, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1115
+  - https://attack.mitre.org/detectionstrategies/DET0341
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1115
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_clip:
+    Image|endswith: '\clip.exe'
+  selection_oneshot_shell:
+    ParentImage|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+    ParentCommandLine|contains|windash:
+      - '/c '
+      - '-command'
+      - '-encodedcommand'
+      - '-enc '
+  filter_interactive:
+    ParentImage|endswith:
+      - '\explorer.exe'
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  condition: selection_clip and (selection_oneshot_shell or not filter_interactive)
+falsepositives:
+  - "Administrators, support technicians and build scripts piping command output straight to the clipboard from a one-shot shell — `cmd /c ipconfig /all | clip` is a documented habit and matches the first arm exactly, which makes it the highest-volume benign source anywhere clip.exe is used at all."
+  - "RDP, Citrix and other VDI clipboard-redirection agents, which shell out to clip.exe from their own redirection service rather than from a user's shell to synchronise host and client clipboards — in any environment with remote-desktop clipboard sync enabled this dominates the second arm."
+  - "Remote-support tools (TeamViewer, AnyDesk and similar) invoking clip.exe from a background service process as part of session clipboard sharing."
+  - "Scheduled tasks and logon scripts, launched by the Task Scheduler engine rather than an interactive shell, that pipe command output through clip.exe for a technician to paste into a report."
+level: low

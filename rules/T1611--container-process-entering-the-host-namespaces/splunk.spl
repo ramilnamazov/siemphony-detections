@@ -1,0 +1,1 @@
+index=* ((Image="*/nsenter" AND (CommandLine="*-t 1 *" OR CommandLine="*--target 1 *" OR CommandLine="*--target=1 *" OR CommandLine="*/proc/1/ns*")) OR (CommandLine="*release_agent*" OR CommandLine="*notify_on_release*" OR CommandLine="*/proc/sys/kernel/core_pattern*"))

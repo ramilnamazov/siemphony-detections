@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\wevtutil.exe" AND TO_LOWER(process.command_line) LIKE "*/e:false*") OR (TO_LOWER(process.executable) LIKE "*\\\\auditpol.exe" AND (TO_LOWER(process.command_line) LIKE "*/success:disable*" OR TO_LOWER(process.command_line) LIKE "*/failure:disable*")) OR ((TO_LOWER(process.executable) LIKE "*\\\\sc.exe" OR TO_LOWER(process.executable) LIKE "*\\\\net.exe" OR TO_LOWER(process.executable) LIKE "*\\\\net1.exe") AND TO_LOWER(process.command_line) LIKE "*eventlog*"))

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "syscall" AND TO_LOWER(syscall) == "ptrace") OR (TO_LOWER(type) == "syscall" AND TO_LOWER(syscall) == "process_vm_writev"))

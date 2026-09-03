@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\ping.exe" and (ProcessCommandLine contains "127.0.0.1" or ProcessCommandLine contains "localhost" or ProcessCommandLine contains "::1")) or (FolderPath endswith "\\timeout.exe" and (ProcessCommandLine contains "-nobreak" or ProcessCommandLine contains "/nobreak" or ProcessCommandLine contains "–nobreak" or ProcessCommandLine contains "—nobreak" or ProcessCommandLine contains "―nobreak")))

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(registry.path) LIKE "*\\\\image file execution options\\\\*" AND (TO_LOWER(registry.path) LIKE "*\\\\sethc.exe*" OR TO_LOWER(registry.path) LIKE "*\\\\utilman.exe*" OR TO_LOWER(registry.path) LIKE "*\\\\osk.exe*" OR TO_LOWER(registry.path) LIKE "*\\\\magnify.exe*" OR TO_LOWER(registry.path) LIKE "*\\\\narrator.exe*" OR TO_LOWER(registry.path) LIKE "*\\\\displayswitch.exe*" OR TO_LOWER(registry.path) LIKE "*\\\\atbroker.exe*" OR TO_LOWER(registry.path) LIKE "*\\\\hh.exe*"))

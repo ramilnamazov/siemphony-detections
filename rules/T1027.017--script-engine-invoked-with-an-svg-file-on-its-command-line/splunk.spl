@@ -1,0 +1,1 @@
+index=* ((Image="*\\wscript.exe" OR Image="*\\cscript.exe" OR Image="*\\mshta.exe" OR Image="*\\rundll32.exe") AND (CommandLine="*.svg*" OR CommandLine="*.svgz*"))

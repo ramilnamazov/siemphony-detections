@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where ((RegistryKey contains "\\SystemCertificates\\Root\\Certificates\\" or RegistryKey contains "\\SystemCertificates\\AuthRoot\\Certificates\\" or RegistryKey contains "\\EnterpriseCertificates\\Root\\Certificates\\") and not (InitiatingProcessFolderPath =~ "C:\\Windows\\System32\\svchost.exe"))

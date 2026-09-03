@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "\\Login Data" or ProcessCommandLine contains "logins.json" or ProcessCommandLine contains "key4.db")

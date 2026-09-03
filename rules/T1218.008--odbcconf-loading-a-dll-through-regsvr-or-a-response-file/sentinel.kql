@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\odbcconf.exe" and (ProcessCommandLine contains "REGSVR" or (ProcessCommandLine contains "-f " or ProcessCommandLine contains "/f " or ProcessCommandLine contains "–f " or ProcessCommandLine contains "—f " or ProcessCommandLine contains "―f ")))

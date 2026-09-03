@@ -1,0 +1,1 @@
+index=* ((ImageLoaded="*\\wpcap.dll" OR ImageLoaded="*\\packet.dll") AND NOT ((Image="C:\\Program Files\\Wireshark\\*" OR Image="C:\\Program Files (x86)\\Wireshark\\*" OR Image="C:\\Program Files\\Npcap\\*" OR Image="C:\\Program Files (x86)\\Npcap\\*" OR Image="C:\\Program Files\\Nmap\\*" OR Image="C:\\Program Files (x86)\\Nmap\\*" OR Image="C:\\Windows\\System32\\Npcap\\*")))

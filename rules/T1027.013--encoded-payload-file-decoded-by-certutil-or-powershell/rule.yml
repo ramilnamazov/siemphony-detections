@@ -1,0 +1,62 @@
+title: Encoded payload file decoded by certutil or PowerShell
+id: 2930f671-270e-44a8-823b-26eaf016f0a3
+status: experimental
+description: |
+  Matches the on-disk half of AN0237 — a command line that reads an encoded or
+  encrypted file and converts it back to its original bytes. Two shapes are
+  covered: certutil's -decode / -decodehex, which takes an encoded file in and
+  writes a decoded file out, and a PowerShell invocation that combines a
+  file-read call with a Base64 or symmetric-decryption call in the same line.
+  The PowerShell branch requires both halves rather than either alone, because
+  FromBase64String on its own is an inline-string decode belonging to
+  T1027.010, whereas T1027.013 is specifically about an encoded *file*. The
+  brief maps Security 4688 onto the process_creation category; this rule is
+  written in the Sysmon process_creation vocabulary (Image, CommandLine), so a
+  4688 feed needs a field mapping — NewProcessName to Image, ParentProcessName
+  to ParentImage — before it can match at all. 4688 also needs Audit Process
+  Creation enabled plus the separate Include command line in process creation
+  events policy; neither is on by default nor in the CIS baseline, and without
+  the command-line policy every event arrives with an empty CommandLine and
+  this rule silently matches nothing. AN0237's image_load and process_access
+  legs, which cover the in-memory unpack that leaves no command-line trace, are
+  not expressible as a single event and are not attempted here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0087, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/013
+  - https://attack.mitre.org/detectionstrategies/DET0087
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1027.013
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_certutil:
+    Image|endswith: '\certutil.exe'
+    CommandLine|contains|windash:
+      - '-decode'
+      - '-decodehex'
+  selection_ps_image:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_ps_decode:
+    CommandLine|contains:
+      - 'FromBase64String'
+      - 'FromBase64Transform'
+      - 'CreateDecryptor'
+      - 'GzipStream'
+  selection_ps_file:
+    CommandLine|contains:
+      - 'Get-Content'
+      - 'ReadAllBytes'
+      - 'ReadAllText'
+      - 'OpenRead'
+  condition: selection_certutil or (selection_ps_image and selection_ps_decode and selection_ps_file)
+falsepositives:
+  - "Administrators and installer scripts using certutil -decode for its documented purpose, converting a Base64-armoured .cer or .pem certificate back to binary DER before importing it — the single most common legitimate reason that flag is ever typed."
+  - "Deployment and endpoint-management tooling — an Intune or SCCM remediation script, a CI build agent, or a bootstrap script — that stores a certificate, licence blob or configuration file Base64-encoded and reads it back with Get-Content piped into FromBase64String."
+  - "PowerShell modules and log-processing scripts that open a .gz artefact with GzipStream after reading it from disk, which satisfies the decode and file halves of the PowerShell branch without any obfuscation being involved."
+level: medium

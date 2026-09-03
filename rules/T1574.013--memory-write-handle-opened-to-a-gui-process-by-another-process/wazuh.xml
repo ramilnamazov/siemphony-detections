@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_access,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="GrantedAccess" type="pcre2">(?i)(^0x1F0FFF$|^0x1F1FFF$|^0x1F2FFF$|^0x1F3FFF$|^0x1FFFFF$|^0x1438$|^0x438$|^0x1428$|^0x428$)</field>
+    <field name="TargetImage" type="pcre2">(?i)(\\explorer\.exe$|\\notepad\.exe$|\\mspaint\.exe$|\\wordpad\.exe$|\\calc\.exe$)</field>
+    <description>Memory-write handle opened to a GUI process by another process</description>
+    <mitre>
+      <id>T1574.013</id>
+    </mitre>
+  </rule>
+</group>

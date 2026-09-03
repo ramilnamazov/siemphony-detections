@@ -1,0 +1,1 @@
+index=* (((((Image="*\\net.exe" OR Image="*\\net1.exe") AND (CommandLine="* user*" OR CommandLine="* localgroup*")) AND NOT ((CommandLine="* /do*" OR CommandLine="* -do*"))) OR (CommandLine="*Get-LocalUser*" OR CommandLine="*Get-LocalGroup*")) OR (Image="*\\wmic.exe" AND CommandLine="*useraccount*"))

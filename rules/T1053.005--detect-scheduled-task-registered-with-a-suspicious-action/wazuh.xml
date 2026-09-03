@@ -1,0 +1,24 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4698$</field>
+    <field name="TaskContent" type="pcre2">(?i)((FromBase64String|Invoke-Expression|Invoke-WebRequest|DownloadString|DownloadFile|mshta|regsvr32|certutil|\\AppData\\Local\\Temp\\|\\AppData\\Roaming\\|\\Users\\Public\\|\\Windows\\Temp\\|\\PerfLogs\\)|-e(c|n|nc|ncodedcommand)?[ :=])</field>
+    <description>Detect scheduled task registered with a suspicious action (1/2)</description>
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4702$</field>
+    <field name="TaskNewContent" type="pcre2">(?i)((FromBase64String|Invoke-Expression|Invoke-WebRequest|DownloadString|DownloadFile|mshta|regsvr32|certutil|\\AppData\\Local\\Temp\\|\\AppData\\Roaming\\|\\Users\\Public\\|\\Windows\\Temp\\|\\PerfLogs\\)|-e(c|n|nc|ncodedcommand)?[ :=])</field>
+    <description>Detect scheduled task registered with a suspicious action (2/2)</description>
+    <mitre>
+      <id>T1053.005</id>
+    </mitre>
+  </rule>
+</group>

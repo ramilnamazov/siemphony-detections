@@ -1,0 +1,12 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)\\Control\\Print\\Monitors\\</field>
+    <field name="TargetObject" type="pcre2">(?i)\\Driver$</field>
+    <description>Driver value written under a Print Monitors registry key</description>
+    <mitre>
+      <id>T1547.010</id>
+    </mitre>
+  </rule>
+</group>

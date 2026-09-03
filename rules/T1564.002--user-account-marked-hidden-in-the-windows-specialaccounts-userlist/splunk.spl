@@ -1,0 +1,1 @@
+index=* (TargetObject="*\\SpecialAccounts\\UserList\\*" AND Details="DWORD (0x00000000)")

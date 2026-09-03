@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "/etc/shadow" or FolderPath endswith "/unshadow" or (ProcessCommandLine contains "/etc/passwd" and (FolderPath endswith "/cp" or FolderPath endswith "/tar" or FolderPath endswith "/base64" or FolderPath endswith "/xxd" or FolderPath endswith "/curl" or FolderPath endswith "/scp" or FolderPath endswith "/nc" or FolderPath endswith "/nc.openbsd" or FolderPath endswith "/nc.traditional" or FolderPath endswith "/netcat" or FolderPath endswith "/ncat")))

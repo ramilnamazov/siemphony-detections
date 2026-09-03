@@ -1,0 +1,55 @@
+title: Local drive and volume enumeration from the command line
+id: bb3bcc4c-7c8b-4789-9f06-815090e9de42
+status: experimental
+description: |
+  AN0536's Windows shape: a process-creation record whose command line carries
+  one of the built-in ways to list local drives, disks and volumes with their
+  size, free space and serial number — `wmic logicaldisk get`, any reference to
+  the Win32_LogicalDisk / Win32_Volume / Win32_DiskDrive WMI classes from
+  PowerShell or a script, `Get-PSDrive`, `Get-Volume`, and the two fsutil
+  subcommands that report the drive list and free space. The gate is the command
+  line alone with no image restriction, deliberately: `logicaldisk` reaches the
+  same enumeration whether it is typed at wmic.exe, passed to
+  Get-WmiObject/Get-CimInstance, or run from a renamed copy of either, and an
+  image list would have to be re-derived for each of those.
+  Three limits are structural. The technique's Win32 API route (`GetDriveType`,
+  `GetLogicalDrives`) leaves no command line at all and is invisible here; a
+  cmdlet typed into an already-running PowerShell console never reaches a
+  process-creation event, so only `-Command`/`-EncodedCommand` style invocations
+  and scripts launched as their own process appear; and an encoded or obfuscated
+  command line defeats every substring above. This rule is written in the Sysmon
+  EventID 1 vocabulary (Image, CommandLine), which is the log source the analytic
+  names; where the same Sigma category is fed by Security EventID 4688 instead,
+  that channel needs *Audit Process Creation* plus the separate *Include command
+  line in process creation events* policy before CommandLine holds anything, and
+  a field mapping to NewProcessName first. The brief's Linux and macOS analytics
+  (AN0537, AN0538) are separate log sources and are not covered here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0188, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1680
+  - https://attack.mitre.org/detectionstrategies/DET0188
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.discovery
+  - attack.t1680
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'logicaldisk'
+      - 'Win32_Volume'
+      - 'Win32_DiskDrive'
+      - 'Get-PSDrive'
+      - 'Get-Volume'
+      - 'fsutil fsinfo drives'
+      - 'fsutil volume diskfree'
+  condition: selection
+falsepositives:
+  - "Software and hardware inventory agents — Configuration Manager hardware inventory, Lansweeper, PDQ Inventory, GLPI agents — which query Win32_LogicalDisk and Win32_DiskDrive on a schedule on every managed host. This is the highest-volume match by a wide margin in any managed estate and is why the rule is scored low; exclude the agent's own process lineage before raising it."
+  - "Disk-space monitoring checks from Zabbix, Nagios, PRTG, SolarWinds and similar, which run `wmic logicaldisk get freespace` or `fsutil volume diskfree` at a fixed interval and produce a steady per-host beat of matches."
+  - "Installers and MSI custom actions that test free space before writing, and imaging or deployment task sequences that enumerate volumes to choose a target disk — bursts of matches during patch windows and machine builds."
+  - "Logon and helpdesk scripts calling `Get-PSDrive` to verify or report mapped drives, which fires once per interactive session on the hosts that deploy them."
+level: low

@@ -1,0 +1,55 @@
+title: Windows event log cleared via wevtutil or a PowerShell log cmdlet
+id: 79c8a29d-1275-42ba-bbe1-64febdcf0cbb
+status: experimental
+description: |
+  AN1472 names three mechanisms — wevtutil, PowerShell, and direct deletion of
+  .evtx files — and this rule covers the first two on the Sysmon process-
+  creation leg, since both are new-process events that put the verb on
+  `CommandLine`. The wevtutil arm requires the binary itself (`Image` ending
+  `\wevtutil.exe`) together with its clear-log verb (`cl` or `clear-log`) on
+  the command line, so a `wevtutil` invocation for any other subcommand — `qe`,
+  `epl`, `gli` — does not match. The PowerShell arm matches
+  `Remove-EventLog`/`Clear-EventLog` by name on `CommandLine` regardless of
+  binary, since both are cmdlets rather than external tools. The brief's
+  Security 1102 leg ("The audit log was cleared") is not used here even though
+  it is the more reliable of the three: 1102 fires only when the Security
+  channel specifically is cleared, so it is silent for `wevtutil cl system` or
+  `wevtutil cl application`, and MITRE's own technique description and
+  `TargetLogName` knob are explicit that all three logs are in scope — a
+  Security-only signal would silently miss two thirds of the technique's stated
+  behaviour. Sysmon EventID 23 (file deletion of the raw .evtx files under
+  `winevt\Logs`) is likewise not used: it is a separate logsource from process
+  creation and a Sigma rule carries one, so the direct-deletion mechanism AN1472
+  names is out of scope for this rule and would need its own. This rule needs
+  Sysmon installed and EventID 1 enabled; it needs no Windows audit policy
+  change, unlike the Security 4688 alternative this brief does not offer.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0532, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1685/005
+  - https://attack.mitre.org/detectionstrategies/DET0532
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1685.005
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_wevtutil_bin:
+    Image|endswith: '\wevtutil.exe'
+  selection_wevtutil_verb:
+    CommandLine|contains:
+      - ' cl '
+      - ' clear-log '
+  selection_powershell_cmdlet:
+    CommandLine|contains:
+      - 'Remove-EventLog'
+      - 'Clear-EventLog'
+  condition: (selection_wevtutil_bin and selection_wevtutil_verb) or selection_powershell_cmdlet
+falsepositives:
+  - "Log-rotation and disk-hygiene scripts, run by IT operations on a schedule, that archive a channel to a backup .evtx and then clear it with wevtutil to keep the live log within a size budget — this is the pattern most likely to recur across a fleet."
+  - "Golden-image and sysprep preparation workflows that clear System, Application, and Security before capturing a deployable template, so no history from the build process ships in the image."
+  - "Helpdesk or support scripts that clear the Application log with Clear-EventLog to reduce noise before reproducing a reported issue for a vendor case."
+  - "Detection-engineering and atomic-test validation runs that invoke wevtutil cl or Remove-EventLog to demonstrate or self-test this analytic rather than to conceal anything."
+level: medium

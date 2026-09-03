@@ -1,0 +1,11 @@
+<group name="sigma,windows,file_event,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetFilename" type="pcre2">(?i)(\\Windows\\SoftwareDistribution\\Datastore\\|\\Windows\\SoftwareDistribution\\Download\\|\\Windows\\Security\\Database\\|\\System Volume Information\\|\\\$Recycle\.Bin\\)</field>
+    <description>File written into a default OS antivirus exclusion path</description>
+    <mitre>
+      <id>T1564.012</id>
+    </mitre>
+  </rule>
+</group>

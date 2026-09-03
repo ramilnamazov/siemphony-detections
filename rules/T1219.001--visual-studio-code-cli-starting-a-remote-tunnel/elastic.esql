@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\code.exe" OR TO_LOWER(process.executable) LIKE "*\\\\code-tunnel.exe" OR TO_LOWER(process.executable) LIKE "*\\\\code-insiders.exe") AND TO_LOWER(process.command_line) LIKE "* tunnel*")

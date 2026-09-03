@@ -1,0 +1,63 @@
+title: Winlogon launch values or SafeDllSearchMode rewritten
+id: 420d5e96-ddb2-4149-a25b-701e5aaa6b27
+status: experimental
+description: |
+  Matches a Sysmon EventID 13 registry write to the two places AN0781 names as
+  its own examples of this technique: the Winlogon launch values (Userinit,
+  Shell and the Notify subkey) and the SafeDllSearchMode value under Session
+  Manager. On `registry_set` the value name is appended to `TargetObject` and
+  the written data lands in `Details`, so the Winlogon leg gates on the key
+  path and then drops the two strings Windows itself stores there —
+  `C:\Windows\system32\userinit.exe,` and `explorer.exe` — through a `Details`
+  filter, since those keys are written during ordinary setup and the default
+  data is what makes a benign write recognisable. Anything else survives the
+  filter, including a second path appended after the comma, which is the shape
+  of the technique. The SafeDllSearchMode leg carries no such filter: any write
+  to that value is worth a look, and the enable-versus-disable distinction
+  would need a `Details` match on Sysmon's DWORD rendering, left off
+  deliberately rather than risk a selector that never fires. The Run keys the
+  analytic also mentions are excluded because the sibling T1547.001 rule
+  already covers them with a payload gate this could not improve on; the
+  Winlogon registry write itself is covered nowhere else, since the T1547.004
+  rule watches the resulting child process instead of the write. The key list
+  is MITRE's `RegistryKeyPathPatterns` knob populated here with the analytic's
+  own examples; the `ParentProcessAllowList`, `SignatureCheck` and `TimeWindow`
+  knobs are unused, because `registry_set` carries the writing process as
+  `Image` but no parent and no signature fields, and correlating the write with
+  a later execution needs a cross-event join lib/sigma does not model. Sysmon
+  is not installed by default and most shipped Sysmon configurations filter
+  EventID 13 down to an allowlist of keys, so both subtrees have to be in that
+  allowlist or the rule returns zero rows — which reads as quiet when it means
+  blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0280, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1112
+  - https://attack.mitre.org/detectionstrategies/DET0280
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.t1112
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_winlogon:
+    TargetObject|contains:
+      - '\Microsoft\Windows NT\CurrentVersion\Winlogon\Userinit'
+      - '\Microsoft\Windows NT\CurrentVersion\Winlogon\Shell'
+      - '\Microsoft\Windows NT\CurrentVersion\Winlogon\Notify\'
+  filter_default_values:
+    Details:
+      - 'C:\Windows\system32\userinit.exe,'
+      - 'explorer.exe'
+  selection_safedll:
+    TargetObject|endswith: '\Control\Session Manager\SafeDllSearchMode'
+  condition: (selection_winlogon and not filter_default_values) or selection_safedll
+falsepositives:
+  - "Hardening and compliance tooling writing SafeDllSearchMode explicitly to assert its enabled state. CIS and STIG remediation scripts set the value to 1 rather than trusting the default, so a scheduled compliance run matches the second leg on every host it touches, which makes it the highest-volume source of matches on a managed estate."
+  - "Operating-system servicing and imaging. A feature update, an in-place upgrade or a sysprep pass rewrites the Winlogon Userinit and Shell values during setup, and any spelling of the default data other than the two strings in the filter — a Userinit value written without its trailing comma, or with a different system path — is not cleared by it."
+  - "Remote-desktop, kiosk and VDI products that replace the Winlogon Shell value with their own session host so the user lands in a published application instead of Explorer. This is a supported configuration and on an estate that runs one it is the most common non-default value in that key."
+  - "Credential providers, smart-card middleware and endpoint agents that register a Winlogon Notify subkey when they install, which produces a burst of writes across the fleet during a deployment window."
+level: medium

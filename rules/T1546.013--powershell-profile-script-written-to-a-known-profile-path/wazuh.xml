@@ -1,0 +1,11 @@
+<group name="sigma,windows,file_event,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetFilename" type="pcre2">(?i)(\\WindowsPowerShell\\profile\.ps1$|\\WindowsPowerShell\\Microsoft\.PowerShell_profile\.ps1$|\\WindowsPowerShell\\Microsoft\.PowerShellISE_profile\.ps1$|\\WindowsPowerShell\\Microsoft\.VSCode_profile\.ps1$|\\PowerShell\\profile\.ps1$|\\PowerShell\\Microsoft\.PowerShell_profile\.ps1$|\\PowerShell\\Microsoft\.VSCode_profile\.ps1$)</field>
+    <description>PowerShell profile script written to a known profile path</description>
+    <mitre>
+      <id>T1546.013</id>
+    </mitre>
+  </rule>
+</group>

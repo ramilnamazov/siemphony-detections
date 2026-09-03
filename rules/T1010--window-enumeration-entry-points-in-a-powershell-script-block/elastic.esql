@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (event.code == 4104 AND (TO_LOWER(powershell.file.script_block_text) LIKE "*enumwindows*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*enumchildwindows*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*getforegroundwindow*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*getwindowtext*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*getwindowtextlength*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*getwindowthreadprocessid*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*mainwindowtitle*"))

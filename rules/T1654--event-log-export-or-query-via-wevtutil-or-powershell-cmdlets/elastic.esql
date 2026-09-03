@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(NewProcessName) LIKE "*\\\\wevtutil.exe" AND (TO_LOWER(process.command_line) LIKE "*epl*" OR TO_LOWER(process.command_line) LIKE "*qe*")) OR ((TO_LOWER(NewProcessName) LIKE "*\\\\powershell.exe" OR TO_LOWER(NewProcessName) LIKE "*\\\\pwsh.exe") AND (TO_LOWER(process.command_line) LIKE "*get-winevent*" OR TO_LOWER(process.command_line) LIKE "*get-eventlog*")))

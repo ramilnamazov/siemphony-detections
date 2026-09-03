@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(registry.path) LIKE "*\\\\networkprovider\\\\providerpath" AND NOT ((TO_LOWER(registry.data.strings) LIKE "*\\\\system32\\\\*" OR TO_LOWER(registry.data.strings) LIKE "*\\\\syswow64\\\\*"))) OR (TO_LOWER(registry.path) LIKE "*\\\\networkprovider\\\\order\\\\providerorder" OR TO_LOWER(registry.path) LIKE "*\\\\networkprovider\\\\hworder\\\\providerorder"))

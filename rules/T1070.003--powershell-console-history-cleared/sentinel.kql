@@ -1,0 +1,2 @@
+Event
+| where (EventID == 4104 and (ScriptBlockText contains "Clear-History" or ScriptBlockText contains "ConsoleHost_history.txt"))

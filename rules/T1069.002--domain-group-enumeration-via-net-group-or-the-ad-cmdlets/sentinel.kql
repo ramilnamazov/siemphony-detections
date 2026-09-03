@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "\\net.exe" or FolderPath endswith "\\net1.exe") and (ProcessCommandLine contains " group " and ProcessCommandLine contains "/domain")) or (ProcessCommandLine contains "Get-ADGroup" or ProcessCommandLine contains "Get-ADPrincipalGroupMembership" or ProcessCommandLine contains "Get-DomainGroup" or ProcessCommandLine contains "Get-NetGroup" or ProcessCommandLine contains "dsquery group" or ProcessCommandLine contains "dsget group"))

@@ -1,0 +1,63 @@
+title: Driver loaded from a user-writable path or a known-abused driver
+id: 8988e8fa-945a-41ce-a863-1fe0a7b49e9d
+status: experimental
+description: |
+  Takes the driver-load leg of MITRE's AN1419 rather than its process-creation
+  leg: a kernel driver whose image sits in a user-writable directory instead of
+  System32\drivers, or whose filename is one of the signed but vulnerable drivers
+  repeatedly staged for privilege escalation. Choosing this leg is what keeps the
+  rule from collapsing into another "service spawns a shell" analytic — the
+  published T1210 and T1190 rules both match process_creation on a parent-child
+  pair, and this one shares no log source, no field and no event with either.
+  Signature status is deliberately not used as a filter, because the defining
+  property of a bring-your-own-vulnerable-driver load is that the driver is
+  validly signed, so SignatureStatus is Valid in exactly the case worth catching;
+  the name list is authored here from public reporting rather than supplied by
+  MITRE, which names only the DriverNamePattern knob, and it is defeated by
+  renaming the .sys file, which is why the path arm carries the general case.
+  Sysmon EventID 6 also carries no loading process, so the parent lineage in
+  MITRE's ParentProcessPath knob and the 4672 privilege-use follow-on cannot be
+  expressed here at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0514, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1068
+  - https://attack.mitre.org/detectionstrategies/DET0514
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.t1068
+logsource:
+  category: driver_load
+  product: windows
+detection:
+  selection_user_writable_path:
+    ImageLoaded|contains:
+      - '\Users\'
+      - '\Windows\Temp\'
+      - '\ProgramData\'
+      - '\PerfLogs\'
+      - '\$Recycle.Bin\'
+  selection_known_abused_driver:
+    ImageLoaded|endswith:
+      - '\dbutil_2_3.sys'
+      - '\DBUtilDrv2.sys'
+      - '\RTCore64.sys'
+      - '\gdrv.sys'
+      - '\iqvw64e.sys'
+      - '\mhyprot2.sys'
+      - '\procexp152.sys'
+      - '\WinRing0x64.sys'
+      - '\AsrDrv101.sys'
+      - '\AsrDrv103.sys'
+      - '\aswArPot.sys'
+      - '\zam64.sys'
+      - '\viragt64.sys'
+      - '\truesight.sys'
+  condition: 1 of selection*
+falsepositives:
+  - "Hardware monitoring, overclocking and system-inspection utilities loading their own drivers as designed — RTCore64.sys under a GPU tuning tool, WinRing0x64.sys under a sensor utility, procexp152.sys whenever Process Explorer is started elevated. On engineering and IT workstations this is the normal case and the rule's dominant volume by a wide margin, which is why the level is medium rather than high."
+  - "Anti-malware and anti-rootkit products whose own driver names appear in the list, such as aswArPot.sys, which load at boot on every protected host in an estate that runs them."
+  - "Software installers, virtualisation guest tooling and driver update utilities that stage a .sys file under %ProgramData% or %TEMP% and load it there before moving it into System32\\drivers."
+  - "Portable diagnostic and benchmarking tools run from a user profile or a USB path by support staff, which load their driver straight out of \\Users\\ and match the path arm on every run."
+level: medium

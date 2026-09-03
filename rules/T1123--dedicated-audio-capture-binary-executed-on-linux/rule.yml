@@ -1,0 +1,38 @@
+title: Dedicated audio-capture binary executed on Linux
+id: d9613b1e-a212-4eb0-9180-9721b5ceb74b
+status: experimental
+description: |
+  Matches execution of arecord or parecord, the two ALSA/PulseAudio recorders
+  AN0620 names, using the linux:Sysmon::EventCode=1 process-creation source the
+  brief offers — the analytic's other two log sources cover the open and write
+  syscalls, not execve, so they carry no process-creation observable of their
+  own. Both binaries have essentially no purpose beyond capturing audio from a
+  device, so the tool name alone is the signal; ffmpeg, also touched on in the
+  wider analytic text, is left out because it is a general-purpose media tool
+  and keying on its name would swamp the rule with ordinary transcoding and
+  streaming activity. Sysmon for Linux is a separate agent no distribution
+  installs by default, so a host running only stock auditd produces no events
+  this rule can see.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0221, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1123
+  - https://attack.mitre.org/detectionstrategies/DET0221
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1123
+logsource:
+  product: linux
+  service: sysmon
+detection:
+  selection:
+    Image|endswith:
+      - '/arecord'
+      - '/parecord'
+  condition: selection
+falsepositives:
+  - "IVR, voicemail or accessibility kiosk software that legitimately shells out to arecord to capture a caller's or user's voice as part of its normal function."
+  - "A desktop user or support technician running `arecord -l` or a short test recording to diagnose a microphone or ALSA configuration problem."
+  - "QA or CI harnesses that use parecord to capture audio output for automated accessibility or media regression testing."
+level: medium

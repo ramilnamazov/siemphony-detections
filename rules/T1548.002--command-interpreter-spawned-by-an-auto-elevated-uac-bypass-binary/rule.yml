@@ -1,0 +1,53 @@
+title: Command interpreter spawned by an auto-elevated UAC bypass binary
+id: f1e07b28-4632-4407-8328-c6918008407d
+status: experimental
+description: |
+  Matches a process-creation event whose parent is one of the auto-elevated
+  Windows binaries MITRE names in this analytic's ElevatedProcessNameList knob
+  (eventvwr.exe, sdclt.exe, computerdefaults.exe and the closely related
+  fodhelper.exe, slui.exe and wsreset.exe) and whose child is a command or
+  script interpreter. That parent-child edge is the ParentProcessAnomalyThreshold
+  knob written out as literals: these binaries elevate without a consent prompt,
+  so an interpreter appearing beneath one is the observable moment of a hijacked
+  auto-elevation. The analytic's real observable is a chain — registry write to a
+  UAC-related key, then elevation, correlated inside a short TimeWindow — and
+  Sigma cannot join two log sources or express a time window, so only the
+  execution step is modelled here and the preceding registry tamper is not.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0388, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1548/002
+  - https://attack.mitre.org/detectionstrategies/DET0388
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.t1548.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent:
+    ParentImage|endswith:
+      - '\eventvwr.exe'
+      - '\sdclt.exe'
+      - '\computerdefaults.exe'
+      - '\fodhelper.exe'
+      - '\slui.exe'
+      - '\wsreset.exe'
+  selection_child:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+  condition: selection_parent and selection_child
+falsepositives:
+  - "Windows servicing and licensing repair, where wsreset.exe or slui.exe is driven by a vendor support script that wraps its own work in a cmd.exe one-liner. This is exactly what MITRE's ElevatedProcessNameList knob is for — a site that sees a given binary legitimately spawning an interpreter should remove it from the parent list rather than tune the child list."
+  - "An administrator troubleshooting from inside Event Viewer or Backup and Restore who then opens a shell in the same session. The parent-child edge is identical to the bypass and only the operator and the surrounding activity distinguish them; MITRE's ParentProcessAnomalyThreshold knob is where that judgement belongs."
+  - "Software packaging and OEM setup routines whose MSI custom actions chain through computerdefaults.exe or sdclt.exe and then call rundll32.exe or regsvr32.exe to register components during installation."
+  - "Authorised red-team and UAC-hardening validation runs, which use precisely these binaries and will fire this rule on every execution."
+level: high

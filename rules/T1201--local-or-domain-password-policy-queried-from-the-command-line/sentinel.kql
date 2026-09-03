@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "\\net.exe" or FolderPath endswith "\\net1.exe") and ProcessCommandLine contains " accounts") or (FolderPath endswith "\\secedit.exe" and ProcessCommandLine contains "/export") or ((FolderPath endswith "\\powershell.exe" or FolderPath endswith "\\pwsh.exe") and (ProcessCommandLine contains "Get-ADDefaultDomainPasswordPolicy" or ProcessCommandLine contains "Get-ADFineGrainedPasswordPolicy")))

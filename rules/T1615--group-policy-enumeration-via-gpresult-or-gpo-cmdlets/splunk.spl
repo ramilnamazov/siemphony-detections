@@ -1,0 +1,1 @@
+index=* (CommandLine="*gpresult*" OR CommandLine="*Get-GPO*" OR CommandLine="*Get-GPResultantSetOfPolicy*" OR CommandLine="*Get-DomainGPO*" OR CommandLine="*Get-NetGPO*")

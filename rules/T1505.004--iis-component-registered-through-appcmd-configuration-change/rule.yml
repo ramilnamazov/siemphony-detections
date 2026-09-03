@@ -1,0 +1,47 @@
+title: IIS component registered through AppCmd configuration change
+id: 64605540-de84-479b-81bd-42485c1f81fe
+status: experimental
+description: |
+  Matches AppCmd.exe being used to register an ISAPI filter, ISAPI extension or
+  native/managed module against the IIS configuration — the administrative-tool
+  half of AN0184, which also lists direct DLL drop and module load as observables
+  but those need a watch on %windir%\System32\inetsrv\ or a diff of loaded modules
+  in w3wp.exe that Sigma's single-event model cannot express against the file_event
+  and image_load logsources in this brief without also matching every ordinary IIS
+  content deployment. AppCmd is chosen instead because the configuration verbs that
+  actually wire in a component — set config against the isapiFilters/globalModules
+  sections, or add module — are literal, stable strings on its command line, so the
+  selector cannot be defeated by a version-suffixed binary or a GUI wrapper the way
+  a raw DLL-drop watch would be. There is no "add filter" verb in AppCmd; ISAPI
+  filters are registered by writing the isapiFilters section, which is why that
+  section name rather than a verb carries the filter arm here. The gate is
+  appcmd.exe itself, so registering the component through the IIS configuration
+  API (Microsoft.Web.Administration from PowerShell or C#) or by hand-editing
+  applicationHost.config is invisible to this rule.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0068, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1505/004
+  - https://attack.mitre.org/detectionstrategies/DET0068
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1505.004
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith: '\appcmd.exe'
+  selection_verb:
+    CommandLine|contains:
+      - 'isapiFilters'
+      - 'globalModules'
+      - 'system.webServer/modules'
+      - 'add module'
+  condition: selection_tool and selection_verb
+falsepositives:
+  - "Release-management and CI/CD agents (Web Deploy, Octopus Deploy, Azure DevOps release tasks) that call appcmd.exe to register a legitimate ISAPI module or filter as part of an application deployment — this is the loudest source in any environment that automates IIS deploys and looks identical to the abuse case."
+  - "Windows feature and product installers (URL Rewrite, Application Request Routing, ASP.NET registration via aspnet_regiis) that invoke appcmd set config against globalModules to wire in their own bundled module immediately after MSI or platform-installer setup."
+  - "Hardening and compliance scripts that reapply a baseline IIS configuration, including re-adding an approved filter or module entry, on a schedule or at image-build time."
+level: medium

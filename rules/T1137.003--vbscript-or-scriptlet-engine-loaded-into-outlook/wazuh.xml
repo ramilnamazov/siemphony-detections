@@ -1,0 +1,12 @@
+<group name="sigma,windows,image_load,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\outlook\.exe$</field>
+    <field name="ImageLoaded" type="pcre2">(?i)(\\vbscript\.dll$|\\scrobj\.dll$)</field>
+    <description>VBScript or scriptlet engine loaded into Outlook</description>
+    <mitre>
+      <id>T1137.003</id>
+    </mitre>
+  </rule>
+</group>

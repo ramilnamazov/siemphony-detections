@@ -1,0 +1,1 @@
+index=* (((Image="*\\control.exe" OR Image="*\\rundll32.exe") AND CommandLine="*.cpl*") AND (CommandLine="*\\AppData\\*" OR CommandLine="*\\Temp\\*" OR CommandLine="*\\Users\\Public\\*" OR CommandLine="*\\Downloads\\*" OR CommandLine="*\\ProgramData\\*" OR CommandLine="*\\Windows\\Tasks\\*" OR CommandLine="*\\PerfLogs\\*"))

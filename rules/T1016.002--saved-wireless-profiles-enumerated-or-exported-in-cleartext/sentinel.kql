@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "wlan " and (ProcessCommandLine contains "show profile" or ProcessCommandLine contains "show networks" or ProcessCommandLine contains "export profile" or ProcessCommandLine contains "key=clear"))

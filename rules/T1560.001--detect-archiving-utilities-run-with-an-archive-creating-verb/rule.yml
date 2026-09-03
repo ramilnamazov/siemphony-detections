@@ -1,0 +1,98 @@
+title: Detect archiving utilities run with an archive-creating verb
+id: 197e0b0a-d601-4936-b7c3-8dcee303199e
+status: experimental
+description: |
+  Detects the process-creation half of MITRE's AN0831: an archiving utility
+  invoked in a way that creates or encrypts an archive. The gate is the utility
+  plus a create verb or flag, and never an archive extension on its own — 7-Zip
+  and WinRAR append the extension themselves, so `7z.exe a stage C:\loot` writes
+  stage.7z with no `.7z` on the command line, while `7z.exe x report.zip` and a
+  user double-clicking a download into 7zFM.exe both carry one. Archive
+  extraction, listing and testing are therefore deliberately out of scope: on a
+  workstation fleet they outnumber archive creation by orders of magnitude and
+  none of them is this technique. MITRE's SuspiciousExtensions knob belongs to
+  the file-creation half of the analytic, not to this one; makecab and diantz are
+  the exception, and are carried by their own switches (` /d `, ` /f `, `.ddf`)
+  because they take no verb. The utility is matched on Image and on
+  OriginalFileName so a renamed copy still lands, but OriginalFileName exists
+  only on Sysmon EventID 1 — under Security 4688 that arm is always empty and
+  only the Image path applies. The tar terms cover both the short and the GNU
+  long options, since `tar.exe --create --file=loot.tar` contains none of the
+  short ones; ` -c` is a two-character term and will also catch a WinRAR `-c-`
+  or `-cfg-` switch on a non-creating command. certutil gets its own selection
+  paired only with the encode switches, so
+  `certutil -urlcache -split -f http://host/payload.zip`, which is Ingress Tool
+  Transfer and not archiving, does not match by accident. Compress-Archive is
+  matched on the command line alone because it is a cmdlet with no binary of its
+  own. Security 4688 is off in a default install and needs Audit Process
+  Creation, and its CommandLine field needs the separate Include command line in
+  process creation events policy; without both this rule returns nothing because
+  nothing is being collected. The file-write half of the analytic, and MITRE's
+  FileSizeThresholdMB knob with it, has no process-creation equivalent, so a
+  one-file compression looks the same here as a staged collection.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0298, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1560/001
+  - https://attack.mitre.org/detectionstrategies/DET0298
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1560.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_archiver_image:
+    Image|endswith:
+      - '\7z.exe'
+      - '\7za.exe'
+      - '\7zg.exe'
+      - '\7zr.exe'
+      - '\7zfm.exe'
+      - '\rar.exe'
+      - '\winrar.exe'
+      - '\wzzip.exe'
+      - '\winzip32.exe'
+      - '\winzip64.exe'
+      - '\makecab.exe'
+      - '\diantz.exe'
+      - '\tar.exe'
+  selection_archiver_origname:
+    OriginalFileName:
+      - '7z.exe'
+      - '7za.exe'
+      - 'Rar.exe'
+      - 'WinRAR.exe'
+      - 'tar.exe'
+      - 'makecab.exe'
+  selection_archive_verb:
+    CommandLine|contains:
+      - ' a '
+      - ' u '
+      - ' -hp'
+      - ' -mhe'
+      - ' -r0'
+      - ' -t7z'
+      - ' -c'
+      - ' --create'
+      - ' --xz'
+      - ' --gzip'
+      - ' /d '
+      - ' /f '
+      - '.ddf'
+  selection_certutil_encode:
+    Image|endswith: '\certutil.exe'
+    CommandLine|contains:
+      - '-encode'
+      - '/encode'
+      - '-encodehex'
+  selection_ps_compress:
+    CommandLine|contains: 'Compress-Archive'
+  condition: (1 of selection_archiver_* and selection_archive_verb) or selection_certutil_encode or selection_ps_compress
+falsepositives:
+  - "Software distribution and patching on every managed endpoint, not only on build hosts. Application installs, package managers and vendor updaters routinely shell out to 7z.exe, tar.exe or makecab.exe against a staged payload, and this is the rule's top talker fleet-wide. MITRE's ProcessAllowlist knob is the right place for it, scoped to the parent process rather than to the utility name, since the utility name is the same one an operator would use."
+  - "Backup, log-collection and support workflows that archive a directory before upload — helpdesk scripts, vendor diagnostic collectors, CI artefact packaging. Compress-Archive has no utility gate in this rule at all, so any script that zips anything matches on that arm alone."
+  - "Golden-image and release pipelines where makecab.exe, diantz.exe and tar.exe produce output on every run. The makecab terms are switch-shaped rather than verb-shaped, so a directive-file build fires on ' /f ' or '.ddf' with nothing else needed."
+  - "A user compressing files interactively through the 7-Zip or WinRAR shell menu, which launches 7zG.exe or WinRAR.exe with the same ' a ' verb an operator would use, including the password-protected form that trips ' -hp' when someone protects an archive before emailing it."
+level: medium

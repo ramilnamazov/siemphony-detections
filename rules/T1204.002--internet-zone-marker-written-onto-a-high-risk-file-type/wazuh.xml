@@ -1,0 +1,11 @@
+<group name="sigma,windows,create_stream_hash,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetFilename" type="pcre2">(?i)(\.hta:Zone\.Identifier$|\.lnk:Zone\.Identifier$|\.js:Zone\.Identifier$|\.jse:Zone\.Identifier$|\.vbs:Zone\.Identifier$|\.vbe:Zone\.Identifier$|\.wsf:Zone\.Identifier$|\.wsh:Zone\.Identifier$|\.bat:Zone\.Identifier$|\.cmd:Zone\.Identifier$|\.ps1:Zone\.Identifier$|\.scr:Zone\.Identifier$|\.pif:Zone\.Identifier$|\.cpl:Zone\.Identifier$|\.reg:Zone\.Identifier$|\.iso:Zone\.Identifier$|\.img:Zone\.Identifier$|\.vhd:Zone\.Identifier$|\.vhdx:Zone\.Identifier$|\.docm:Zone\.Identifier$|\.xlsm:Zone\.Identifier$|\.xll:Zone\.Identifier$)</field>
+    <description>Internet zone marker written onto a high-risk file type</description>
+    <mitre>
+      <id>T1204.002</id>
+    </mitre>
+  </rule>
+</group>

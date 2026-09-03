@@ -1,0 +1,56 @@
+title: Process opens a password manager process with memory-read access
+id: 37af6ef2-780c-4c7e-85a4-22e33479c829
+status: experimental
+description: |
+  Matches Sysmon EventID 10 process-access records where the target is a
+  desktop password-manager process and the granted access mask carries the
+  rights needed to read another process's memory — the same access-mask
+  literals long used in this corpus's LSASS-access rules, reused here because
+  they name Windows API rights (PROCESS_VM_READ and friends) rather than
+  anything specific to lsass.exe, so they apply equally to KeePass, KeePassXC,
+  1Password and Bitwarden. AN1641 also names two other log sources — Security
+  4688 process creation and Sysmon EventID 15 file-stream hashing — but neither
+  carries the memory-read behaviour the analytic describes; 15 records
+  Zone.Identifier stream creation on downloaded files, not vault access, so
+  only the process-access leg is authored. Two accessors that legitimately open
+  these processes with broad rights are excluded outright rather than left for
+  the analyst, because they are common enough to swamp the rule unfiltered.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0597, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1555/005
+  - https://attack.mitre.org/detectionstrategies/DET0597
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1555.005
+logsource:
+  category: process_access
+  product: windows
+detection:
+  selection_target:
+    TargetImage|endswith:
+      - '\KeePass.exe'
+      - '\KeePassXC.exe'
+      - '\1Password.exe'
+      - '\1Password7.exe'
+      - '\Bitwarden.exe'
+  selection_access:
+    GrantedAccess|contains:
+      - '0x1010'
+      - '0x1038'
+      - '0x1400'
+      - '0x1410'
+      - '0x1438'
+      - '0x143a'
+      - '0x1fffff'
+  filter_benign:
+    SourceImage|endswith:
+      - '\MsMpEng.exe'
+      - '\WerFault.exe'
+  condition: selection_target and selection_access and not filter_benign
+falsepositives:
+  - "Windows Defender's real-time behaviour engine (MsMpEng.exe) opening a running password-manager process with broad access rights as part of routine scanning; excluded by SourceImage above but a differently-named third-party AV or EDR engine doing the same will still match."
+  - "WerFault.exe capturing a crash dump of KeePass, 1Password or Bitwarden after the application faults, which requires exactly this level of process access to write the minidump; excluded here but any other crash-reporting or diagnostic tool performing the same capture will still match."
+  - "A developer or support engineer attaching a debugger (e.g., Visual Studio, WinDbg) to a password-manager process during troubleshooting, which requests the same broad access rights as a credential-scraping attempt."
+level: high

@@ -1,0 +1,2 @@
+SecurityEvent
+| where (EventID == 4624 and LogonType == 9 and LogonProcessName =~ "seclogo" and AuthenticationPackageName =~ "Negotiate")

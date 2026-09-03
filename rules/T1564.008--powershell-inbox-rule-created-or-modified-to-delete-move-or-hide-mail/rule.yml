@@ -1,0 +1,70 @@
+title: PowerShell inbox rule created or modified to delete, move or hide mail
+id: da019de0-057a-409d-8489-3cbb86353723
+status: experimental
+description: |
+  Matches AN0551's Windows leg: a PowerShell script block (EventID 4104)
+  that both names the cmdlet MITRE's analytic calls out (`New-InboxRule` or
+  `Set-InboxRule`) and sets one of the parameters that makes the rule
+  actually hide mail rather than merely file it. AN0551's own description
+  names the three verbs this technique performs against a mailbox — delete,
+  move, hide — and `-DeleteMessage`, `-SoftDeleteMessage`, `-MoveToFolder`,
+  `-StopProcessingRules` and `-MarkAsRead` are the real parameters of those
+  two cmdlets that do each; that mapping is authored here from the cmdlets'
+  own parameter set, not supplied by MITRE. MITRE's SuspiciousKeywords knob
+  (terms like "phish" or "malware" inside a rule's own filter condition, e.g.
+  `-SubjectContainsWords`) is a narrower, distinct signal this rule does not
+  gate on, since an adversary hiding a security alert has no reason to name
+  it in the rule that hides it; the UserContext knob (scope to high-value
+  mailboxes) is a deployment-time filter this rule cannot express without a
+  concrete username list. The macOS leg AN0552 (plist file edits under
+  `macos:unifiedlog`) is not attempted: that log source has no standardised
+  Sigma field vocabulary anywhere in this corpus, the same blocker already
+  recorded for it elsewhere. The Linux leg AN0553 (execve of mail clients or
+  sieve editors touching a filter config file) is not attempted either — it
+  reduces to a text editor being launched with a filename argument, which is
+  indistinguishable from routine maintenance of that same file and carries no
+  evidence of what the edit actually did, unlike the PowerShell leg where the
+  cmdlet parameters state the effect directly. This rule also only sees rule
+  changes made through PowerShell, including calls made through the proxy
+  functions a `Connect-ExchangeOnline` session generates locally; a rule
+  created through the Outlook client UI, the Exchange admin centre, or the
+  Graph API leaves no local script block and is invisible here — AN0551
+  itself is scoped to the PowerShell path only, and this brief offers no
+  Office Suite or web-based alternative log source to cover the rest.
+  EventID 4104 requires the *Turn on PowerShell Script Block Logging* policy,
+  which is off in a default install and in the MS and CIS baselines; without
+  it this rule returns zero rows because the host is blind, not because
+  nothing happened.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0192, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/008
+  - https://attack.mitre.org/detectionstrategies/DET0192
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1564.008
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_event:
+    EventID: 4104
+  selection_cmdlet:
+    ScriptBlockText|contains:
+      - 'New-InboxRule'
+      - 'Set-InboxRule'
+  selection_hiding_action:
+    ScriptBlockText|contains:
+      - '-DeleteMessage'
+      - '-SoftDeleteMessage'
+      - '-MoveToFolder'
+      - '-StopProcessingRules'
+      - '-MarkAsRead'
+  condition: selection_event and selection_cmdlet and selection_hiding_action
+falsepositives:
+  - "Mailbox hygiene and migration scripts run by Exchange administrators, which are the highest-volume source of New-InboxRule and Set-InboxRule with -MoveToFolder in any tenant that manages rules by script — filing newsletters, notifications or out-of-office copies into a subfolder as routine housekeeping."
+  - "Retention, DLP and anti-spam automation that provisions mail-flow rules with -DeleteMessage or -StopProcessingRules across many mailboxes on a schedule as part of ordinary bulk-mail handling, not as concealment."
+  - "Helpdesk or self-service tooling that runs under a shared service account and applies a user-requested filing rule with -MoveToFolder or -MarkAsRead for many different mailboxes in a single working day."
+  - "The security or messaging team's own incident-response scripts, which create a rule with -MoveToFolder or -MarkAsRead to quarantine a confirmed phishing campaign — legitimate defensive automation that is structurally identical to the technique it is being used to contain."
+level: low

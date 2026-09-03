@@ -1,0 +1,43 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 4 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\7z\.exe$|\\7za\.exe$|\\7zg\.exe$|\\7zr\.exe$|\\7zfm\.exe$|\\rar\.exe$|\\winrar\.exe$|\\wzzip\.exe$|\\winzip32\.exe$|\\winzip64\.exe$|\\makecab\.exe$|\\diantz\.exe$|\\tar\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i)( a | u | -hp| -mhe| -r0| -t7z| -c| --create| --xz| --gzip| /d | /f |\.ddf)</field>
+    <description>Detect archiving utilities run with an archive-creating verb (1/4)</description>
+    <mitre>
+      <id>T1560.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="OriginalFileName" type="pcre2">(?i)(^7z\.exe$|^7za\.exe$|^Rar\.exe$|^WinRAR\.exe$|^tar\.exe$|^makecab\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i)( a | u | -hp| -mhe| -r0| -t7z| -c| --create| --xz| --gzip| /d | /f |\.ddf)</field>
+    <description>Detect archiving utilities run with an archive-creating verb (2/4)</description>
+    <mitre>
+      <id>T1560.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\certutil\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(-encode|/encode|-encodehex)</field>
+    <description>Detect archiving utilities run with an archive-creating verb (3/4)</description>
+    <mitre>
+      <id>T1560.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100003" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)Compress-Archive</field>
+    <description>Detect archiving utilities run with an archive-creating verb (4/4)</description>
+    <mitre>
+      <id>T1560.001</id>
+    </mitre>
+  </rule>
+</group>

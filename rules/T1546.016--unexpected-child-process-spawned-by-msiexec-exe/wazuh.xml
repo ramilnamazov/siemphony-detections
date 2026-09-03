@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)\\msiexec\.exe$</field>
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$|\\cmd\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\rundll32\.exe$|\\regsvr32\.exe$|\\certutil\.exe$)</field>
+    <description>Unexpected child process spawned by msiexec.exe</description>
+    <mitre>
+      <id>T1546.016</id>
+    </mitre>
+  </rule>
+</group>

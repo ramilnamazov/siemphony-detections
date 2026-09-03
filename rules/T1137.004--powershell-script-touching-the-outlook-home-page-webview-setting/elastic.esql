@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (event.code == 4104 AND (TO_LOWER(powershell.file.script_block_text) LIKE "*webviewurl*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*webviewon*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*outlook\\\\webview*"))

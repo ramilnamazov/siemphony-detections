@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\reg.exe" AND TO_LOWER(process.command_line) LIKE "*nls\\\\language*") OR ((TO_LOWER(process.executable) LIKE "*\\\\powershell.exe" OR TO_LOWER(process.executable) LIKE "*\\\\pwsh.exe") AND (TO_LOWER(process.command_line) LIKE "*get-winsystemlocale*" OR TO_LOWER(process.command_line) LIKE "*get-uiculture*" OR TO_LOWER(process.command_line) LIKE "*get-culture*" OR TO_LOWER(process.command_line) LIKE "*get-winuserlanguagelist*")))

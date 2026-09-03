@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "--gpu-launcher=" or ProcessCommandLine contains "--renderer-cmd-prefix=" or ProcessCommandLine contains "--utility-cmd-prefix=" or ProcessCommandLine contains "--browser-subprocess-path=")

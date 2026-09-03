@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "ntds.dit" or ProcessCommandLine contains "ntdsutil" or ProcessCommandLine contains "Windows\\NTDS" or ProcessCommandLine contains "Invoke-NinjaCopy" or ProcessCommandLine contains "NTDSDumpEx")

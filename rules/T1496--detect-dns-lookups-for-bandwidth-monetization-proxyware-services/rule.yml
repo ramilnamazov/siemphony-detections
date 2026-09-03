@@ -1,0 +1,78 @@
+title: Detect DNS lookups for bandwidth-monetization proxyware services
+id: 311423bb-3ccb-41a3-b1e7-b38311e53e85
+status: experimental
+description: |
+  Matches a Sysmon DNS query for the control and enrolment domains of
+  bandwidth-selling proxyware clients, resolved by a process that is not an
+  installed browser. AN0741 fuses sustained CPU load, a mining or obfuscated
+  command line and egress to mining or proxy endpoints; CPU utilisation is not an
+  event Sigma can read at all, and the command-line branch is T1496.001, so what
+  is left is the reselling branch. Being the parent technique's rule, it
+  necessarily overlaps T1496.002 — at this level of ATT&CK there is no observable
+  that is resource hijacking in general rather than one of its sub-techniques, and
+  the corpus's T1496.002 rule is the Linux execve arm of this same behaviour while
+  this is its Windows DNS arm. It is MITRE's DestinationIPList knob, described
+  there as known mining pool IPs or proxy service endpoints, populated here with
+  proxyware vendor domains rather than addresses, since these services move
+  endpoints constantly and a static IP list ages out within weeks. The browser
+  exclusion is matched on the full install path under Program Files rather than on
+  the image name, so that copying a client to chrome.exe no longer buys the
+  exclusion for free; writing into Program Files still does, and it needs
+  administrator rights. That list is a starting point and not a browser inventory
+  — per-user browser installs and embedded web hosts sit outside it. Sysmon
+  EventID 22 is the prerequisite and is frequently disabled or filtered for
+  volume; a client resolving over DoH produces no EventID 22 at all; and this
+  pipeline models no Sentinel table for the dns_query taxonomy, so the KQL has to
+  be written by hand against DeviceNetworkEvents. The domain list is a snapshot of
+  the vendors known at authoring time, and these services rebrand continually, so
+  a quiet result is at least as likely to mean a stale list as a clean estate.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0267, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1496
+  - https://attack.mitre.org/detectionstrategies/DET0267
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1496
+logsource:
+  category: dns_query
+  product: windows
+detection:
+  selection_proxyware_domains:
+    QueryName|contains:
+      - 'honeygain.com'
+      - 'peer2profit.com'
+      - 'iproyal.com'
+      - 'pawns.app'
+      - 'packetstream.io'
+      - 'traffmonetizer.com'
+      - 'earnapp.com'
+      - 'earn.fm'
+      - 'repocket.co'
+      - 'proxyrack.com'
+      - 'proxylite.ru'
+      - 'getgrass.io'
+      - 'bitping.com'
+      - 'mysterium.network'
+  filter_browsers:
+    Image|startswith:
+      - 'C:\Program Files\Google\Chrome\'
+      - 'C:\Program Files (x86)\Google\Chrome\'
+      - 'C:\Program Files\Microsoft\Edge\'
+      - 'C:\Program Files (x86)\Microsoft\Edge\'
+      - 'C:\Program Files\Microsoft\EdgeWebView\'
+      - 'C:\Program Files (x86)\Microsoft\EdgeWebView\'
+      - 'C:\Program Files\Mozilla Firefox\'
+      - 'C:\Program Files (x86)\Mozilla Firefox\'
+      - 'C:\Program Files\BraveSoftware\'
+      - 'C:\Program Files (x86)\BraveSoftware\'
+      - 'C:\Program Files\Opera\'
+      - 'C:\Program Files (x86)\Opera\'
+  condition: selection_proxyware_domains and not filter_browsers
+falsepositives:
+  - "Employee-installed bandwidth-sharing apps on a personal or loosely managed machine. The user consented, so it is not an intrusion, but the telemetry is identical to the bundled case and the rule cannot separate them. On most estates this is the single largest source of hits and is a policy question rather than an incident."
+  - "Embedded web hosts rendering a link preview or an in-app page: msedgewebview2.exe and Electron or CEF applications such as Teams, Slack, Discord and VS Code. Most of these install per user under AppData\\Local, so they fall outside the Program Files exclusion and arrive labelled as a non-browser resolving a proxyware domain."
+  - "Browsers installed per user rather than machine-wide, including Chrome's user-level installer under AppData\\Local and portable Firefox builds, where an ordinary visit to the vendor's website matches because the exclusion only covers Program Files."
+  - "Security tooling that resolves these names on the analyst's behalf — a sandbox detonating a sample, a threat-intelligence enrichment agent, or a proxy or DNS-filtering product pre-resolving its own blocklist — none of which involve the host actually joining a proxy network."
+level: medium

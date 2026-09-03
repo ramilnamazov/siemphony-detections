@@ -1,0 +1,13 @@
+<group name="sigma,windows,process_access,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetImage" type="pcre2">(?i)(\\chrome\.exe$|\\msedge\.exe$|\\firefox\.exe$|\\brave\.exe$|\\opera\.exe$|\\iexplore\.exe$)</field>
+    <field name="GrantedAccess" type="pcre2">(?i)(^0x1FFFFF$|^0x1F3FFF$|^0x1F1FFF$|^0x1F0FFF$|^0x147A$|^0x143A$|^0x1438$|^0x0C3A$)</field>
+    <field name="SourceImage" negate="yes" type="pcre2">(?i)(\\chrome\.exe$|\\msedge\.exe$|\\firefox\.exe$|\\brave\.exe$|\\opera\.exe$|\\iexplore\.exe$)</field>
+    <description>Detect a process opening a browser with injection access rights</description>
+    <mitre>
+      <id>T1185</id>
+    </mitre>
+  </rule>
+</group>

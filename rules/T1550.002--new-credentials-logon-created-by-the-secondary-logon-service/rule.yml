@@ -1,0 +1,47 @@
+title: New-credentials logon created by the secondary logon service
+id: 222885e5-e4e2-4365-a242-183cbb040ff5
+status: experimental
+description: |
+  Matches Security 4624 logon sessions of type 9 (NewCredentials) created by the
+  Secondary Logon service, which is the record Windows writes when a process is
+  started under an alternate account for network use only — the local artefact of
+  authenticating as another user without ever holding their cleartext password,
+  and the event a hash-injection tool produces on the host it is run from. This
+  is MITRE's LogonTypeFilter knob set here to type 9, rather than to the type 3
+  and type 10 that the knob's own examples name: type 3 NTLM is the target-side
+  view, it is far noisier, and it is already the shape of the T1021 rule in this
+  corpus, whereas type 9 fires once, on the operator's own machine, at the moment
+  the credential is injected. The rule sees that injection and not its use — the
+  onward SMB, WMI or service creation performed under the new session is a
+  separate event and Sigma cannot join them — and it cannot compare the
+  requesting account against the supplied account, which is the field pair that
+  would actually separate an operator from an adversary. Unlike much of this
+  corpus the rule needs no audit-policy change, since 4624 is collected by
+  default under Logon/Logoff success, but the record exists only on the source
+  host and never reaches a domain controller, so a fleet-wide endpoint feed is
+  the prerequisite instead.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0409, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1550/002
+  - https://attack.mitre.org/detectionstrategies/DET0409
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1550.002
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4624
+    LogonType: 9
+    LogonProcessName: 'seclogo'
+    AuthenticationPackageName: 'Negotiate'
+  condition: selection
+falsepositives:
+  - "Administrators using runas /netonly to open a management console, an RSAT snap-in or a database client under a privileged account from an unprivileged desktop. This is the intended use of the mechanism, it is the dominant source of matches by a wide margin, and at the event level it is indistinguishable from an injected hash — which is why this rule is not rated higher."
+  - "Management tooling that offers a connect-as-a-different-user option, such as SQL client tools, remote administration consoles and deployment utilities, which request a new-credentials session on the user's behalf without anyone typing runas."
+  - "Cross-forest, workgroup and DMZ administration, where supplying credentials for network use only is the only way to reach the resource, so every routine session from an operator's workstation matches."
+  - "Build agents and developer tooling that authenticate to an internal artifact, source or package server by launching a child process under a stored service account."
+level: medium

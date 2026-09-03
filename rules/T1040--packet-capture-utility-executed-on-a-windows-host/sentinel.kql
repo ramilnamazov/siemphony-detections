@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\dumpcap.exe" or FolderPath endswith "\\tshark.exe" or FolderPath endswith "\\rawshark.exe" or FolderPath endswith "\\windump.exe" or FolderPath endswith "\\tcpdump.exe" or FolderPath endswith "\\rawcap.exe" or FolderPath endswith "\\netcap.exe" or FolderPath endswith "\\nmcap.exe" or FolderPath endswith "\\smsniff.exe" or FolderPath endswith "\\pktmon.exe") or (FolderPath endswith "\\netsh.exe" and (ProcessCommandLine contains "trace start" and ProcessCommandLine contains "capture=yes")))

@@ -1,0 +1,87 @@
+title: Archiving utility writing an archive into a local staging directory
+id: 0a4f277e-b0b8-4a5e-8ba5-0709156c55d5
+status: experimental
+description: |
+  Matches an archive file created by a command-line archiving binary underneath a
+  local directory that is world-writable or routinely used as scratch space, which
+  is the write half of MITRE's AN0724. The analytic describes reads across many
+  locations followed by a compressed write into a staging directory; the read side
+  and the time correlation are a multi-event problem Sigma cannot express, so this
+  rule keeps what survives in a single Sysmon EventID 11 record — who wrote, what
+  was written, and where. All three gates are required together on purpose: without
+  the extension gate the same archivers match every file they unpack, and unpacking
+  a download or an installer payload is far more common on an endpoint than
+  creating an archive. It is shaped on the file write rather than the command line
+  because the invocation side of the same behaviour belongs to Archive Collected
+  Data. The parent T1074 rule in this corpus covers the same file_event category
+  keyed on extension and path alone, and its path list is drive-agnostic, so an
+  archiver-produced archive in one of these folders alerts under both IDs until
+  that rule is re-scoped to the remote and mapped-drive targets that separate
+  .001 from .002; the local observable — the C: anchor plus the writing process —
+  is owned here. MITRE's StagingDirList knob names C:\Temp and C:\Windows\Tasks;
+  the other paths are authored, as are all of the binaries except 7z.exe and
+  rar.exe, which MITRE's ArchivingToolPatterns knob names. That knob also names
+  zip.exe, which is not a Windows binary and would never appear in Image, so it is
+  dropped rather than carried over; diantz.exe is added here as the cabinet maker
+  an operator would reach for, while makecab.exe is deliberately absent because
+  Component-Based Servicing compresses its own logs with it on every update.
+  `\AppData\Local\Temp\` is left out for the same reason the parent rule leaves it
+  out — every installer and browser download writes an archive there, and including
+  it would bury the signal in routine software activity rather than surface it;
+  that is a real coverage gap and the first place to look when this rule is quiet.
+  Two further blind spots: the paths are anchored on C: and will not match a system
+  installed on another drive, and PowerShell Compress-Archive records Image as
+  powershell.exe, which is far too noisy to include. Note the audit prerequisite —
+  this category is fed either by Sysmon EventID 11, whose FileCreate rules in the
+  common shipped configurations filter C:\Windows\Temp and C:\ProgramData out, or
+  by Security 4663, which needs the *Audit File System* subcategory **and** a SACL
+  on each of these folders. Neither is on in a default install, and neither is in
+  the MS or CIS baselines, so an empty result here means nothing is being recorded.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0261, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1074/001
+  - https://attack.mitre.org/detectionstrategies/DET0261
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1074.001
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith:
+      - '\7z.exe'
+      - '\7za.exe'
+      - '\7zr.exe'
+      - '\7zg.exe'
+      - '\7zfm.exe'
+      - '\rar.exe'
+      - '\winrar.exe'
+      - '\tar.exe'
+      - '\diantz.exe'
+  selection_archive_extension:
+    TargetFilename|endswith:
+      - '.7z'
+      - '.rar'
+      - '.zip'
+      - '.cab'
+      - '.tar'
+      - '.gz'
+      - '.tgz'
+  selection_path:
+    TargetFilename|startswith:
+      - 'C:\Temp\'
+      - 'C:\Windows\Temp\'
+      - 'C:\Windows\Tasks\'
+      - 'C:\PerfLogs\'
+      - 'C:\Users\Public\'
+      - 'C:\ProgramData\'
+  condition: selection_tool and selection_archive_extension and selection_path
+falsepositives:
+  - "Backup, log-shipping and vendor support agents that call 7z.exe or tar.exe to package diagnostics into ProgramData or the Windows Temp directory before uploading them. On a managed fleet this is the top talker and it is why the level is not higher; it is indistinguishable from staging at the event level and needs an allowlist keyed on the parent process or the service account."
+  - "Archive extraction where the contents are themselves archives — 7z.exe, 7zfm.exe, winrar.exe or tar.exe unpacking a vendor bundle or a downloaded package into ProgramData or the Windows Temp directory and writing the .zip, .cab or .gz members it contains. This is decompression rather than staging and it is the population the extension gate narrows but does not remove."
+  - "A user compressing files into the Public user directory through the 7-Zip file manager to hand them to another local account on the same machine. This is ordinary desktop behaviour and is why 7zfm.exe carries more noise than the other entries in the list."
+  - "Developer, CI and Windows setup tooling using the bsdtar-derived tar.exe that ships in System32 to build or repack a .tar or .gz under C:\\Windows\\Temp or C:\\Temp during a build or an in-place upgrade."
+level: medium

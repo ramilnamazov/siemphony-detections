@@ -1,0 +1,52 @@
+title: Detect MSBuild spawning a script interpreter or signed-binary proxy
+id: a36895e4-2e2e-4579-978f-2c50384ff605
+status: experimental
+description: |
+  Matches msbuild.exe becoming the parent of one of the high-risk children MITRE
+  enumerates in AN1535 — the analytic's SuspiciousChildList knob, whose values
+  (powershell.exe, rundll32.exe, regsvr32.exe, cmd.exe, wscript.exe, mshta.exe)
+  MITRE spells out, extended here with cscript.exe, pwsh.exe and certutil.exe.
+  AN1535 is a scored chain across seven event sources: anomalous msbuild
+  invocation, then a payload write, an unsigned module load, a remote thread and
+  egress inside a correlation window. Sigma has no cross-event join, no
+  timeframe and no signature field on process creation, so only the child-spawn
+  leg is expressed and the UnsignedOrInvalidSignatureOnly, RarePathRegex and
+  NetworkReputationThreshold knobs have no equivalent in one event. The inline
+  task itself is invisible here: what an inline task compiles and runs lives in
+  the XML project file, not on the command line, so this rule sees the
+  consequence rather than the abuse. Note the analytic's process source is
+  Security 4688, which requires the Audit Process Creation subcategory to be
+  enabled; without it this rule returns nothing at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0556, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1127/001
+  - https://attack.mitre.org/detectionstrategies/DET0556
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1127.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent:
+    ParentImage|endswith: '\msbuild.exe'
+  selection_child:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+  condition: selection_parent and selection_child
+falsepositives:
+  - "Ordinary builds on developer workstations and CI agents. MSBuild Exec tasks, pre-build and post-build events shell out through cmd.exe on almost every non-trivial project, and many SDK targets call powershell.exe to sign, package or publish output. On a build host this pair is the normal case, not the exception, which is what MITRE's DeveloperHosts knob exists to scope away."
+  - "Visual Studio and NuGet package install and restore scripts, which are PowerShell by design and run with msbuild.exe as the parent whenever a package ships an install.ps1 or a targets file that invokes one."
+  - "Installer and setup projects whose custom actions register components with regsvr32.exe or rundll32.exe as part of a legitimate build or deployment step, producing the exact parent-child pair the rule keys on with no command-line difference to separate it from proxy execution."
+level: high

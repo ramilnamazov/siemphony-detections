@@ -1,0 +1,1 @@
+index=* (type="SYSCALL" AND (exe="*/hping" OR exe="*/hping2" OR exe="*/hping3" OR exe="*/nping" OR exe="*/ptunnel" OR exe="*/ptunnel-ng" OR exe="*/pingtunnel" OR exe="*/icmptunnel"))

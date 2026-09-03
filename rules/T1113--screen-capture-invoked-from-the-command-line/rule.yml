@@ -1,0 +1,44 @@
+title: Screen capture invoked from the command line
+id: a1f413cf-6abd-4e92-92d2-bd38545a98a4
+status: experimental
+description: |
+  Screen capture on Windows is normally reached either through the GDI and
+  .NET drawing APIs, where a script names CopyFromScreen, BitBlt or
+  CopyPixelOperation inline, or through a small set of built in and portable
+  utilities invoked with capture switches. This rule matches process creation
+  where the command line carries one of those API or utility markers, because
+  the command line is the only place in Sysmon EventID 1 where the intent to
+  grab the screen is actually visible. Scripts that call the same APIs from a
+  file on disk rather than an inline one liner will not appear here, so this
+  covers the interactive and staged half of the analytic rather than all of it.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0346, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1113
+  - https://attack.mitre.org/detectionstrategies/DET0346
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1113
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'CopyFromScreen'
+      - 'CopyPixelOperation'
+      - 'System.Drawing.Bitmap'
+      - 'Drawing.Graphics]::FromImage'
+      - 'BitBlt'
+      - 'PrintWindow'
+      - 'savescreenshot'
+      - 'psr.exe /start'
+      - 'Get-Screenshot'
+  condition: selection
+falsepositives:
+  - "Helpdesk and IT documentation workflows that capture the desktop on request, typically launched from the interactive shell. MITRE names ParentProcessName as the tuning knob here, because an environment where explorer.exe is the normal parent can filter on it and one where an automation agent is the normal parent cannot."
+  - "Robotic process automation and UI regression test harnesses that call CopyFromScreen or BitBlt on a fixed interval. MITRE's TimeWindow knob is what separates a scheduled test harness from interval based collection, and this rule deliberately does not encode a threshold."
+  - "Image processing and report generation scripts that instantiate System.Drawing.Bitmap without ever touching the screen, which match the broadest of the terms above on the type name alone."
+  - "Installer and packaging tooling that shells out to a portable screenshot utility to record a build artefact."
+level: medium

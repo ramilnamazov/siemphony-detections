@@ -1,0 +1,83 @@
+title: Executable run from a file name carrying a benign extension before it
+id: f32a56da-31db-471e-8ca8-5ada99a60486
+status: experimental
+description: |
+  AN1033 describes a file whose visible extension looks benign (.txt, .jpg,
+  .pdf) but whose true, trailing extension is dangerous (.exe, .scr), then
+  executed. This rule authors the execution half of that chain on Sysmon
+  process creation: `selection_benign_marker` requires the image path to
+  contain one of a benign-extension list — MITRE's `benign_extensions` knob,
+  but the brief names only four examples (.txt, .jpg, .doc, .pdf), so the
+  twelve further entries here (.jpeg, .png, .gif, .docx, .xls, .xlsx, .ppt,
+  .pptx, .csv, .zip, .mp3, .mp4) are this pipeline's extrapolation, not
+  MITRE's — immediately followed by another dot, and `selection_dangerous`
+  requires the path to end in one of a dangerous-extension list — MITRE's
+  `dangerous_extensions` knob, populated here with its own four named
+  examples (.exe, .scr, .hta, .lnk) plus seven more this pipeline added
+  (.bat, .cmd, .vbs, .js, .jar, .msi, .ps1). Both conditions together mean the image path
+  contains a benign-looking extension sitting directly in front of the real
+  one — the exact double-extension shape MITRE names, e.g.
+  `Invoice_Q3.pdf.scr`. Two things this rule does not attempt. First, it
+  does not use the Sysmon EventID 11 file-creation leg the analytic also
+  offers: file creation alone cannot distinguish a double-extension drop
+  from any other file write, so the signal only becomes distinct at the
+  point of execution, which is where this rule sits. Second, it does not
+  gate on MITRE's `monitored_paths` knob (Downloads, %TEMP%, Desktop) or the
+  `TimeWindow`/`UserContext` knobs — narrowing to those paths would miss a
+  payload run from anywhere else, and this pipeline has no source for a
+  create-then-execute time correlation, since lib/sigma has no timeframe or
+  aggregation support. The result is a path-agnostic rule that depends
+  entirely on the double-extension shape of the name. Sysmon is not present
+  on a default Windows install and needs a ProcessCreate rule configured;
+  without it the rule returns nothing, which reads as quiet rather than
+  blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0366, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1036/007
+  - https://attack.mitre.org/detectionstrategies/DET0366
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1036.007
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_benign_marker:
+    Image|contains:
+      - '.txt.'
+      - '.jpg.'
+      - '.jpeg.'
+      - '.png.'
+      - '.gif.'
+      - '.pdf.'
+      - '.doc.'
+      - '.docx.'
+      - '.xls.'
+      - '.xlsx.'
+      - '.ppt.'
+      - '.pptx.'
+      - '.csv.'
+      - '.zip.'
+      - '.mp3.'
+      - '.mp4.'
+  selection_dangerous:
+    Image|endswith:
+      - '.exe'
+      - '.scr'
+      - '.hta'
+      - '.lnk'
+      - '.bat'
+      - '.cmd'
+      - '.vbs'
+      - '.js'
+      - '.jar'
+      - '.msi'
+      - '.ps1'
+  condition: selection_benign_marker and selection_dangerous
+falsepositives:
+  - "Self-extracting archive installers and vendor demo or kiosk bundles that describe their payload in the file name ahead of the .exe wrapper, e.g. Catalog.pdf.exe or Presentation.pptx.exe — a naming convention some trade-show and marketing software vendors use deliberately for descriptive SFX installers."
+  - "Email-security and sandbox or detonation tooling that renames a quarantined attachment by appending its original extension in front of the tool's own wrapper extension, such as invoice.pdf.exe, before re-executing the wrapper inside an isolated analysis chamber."
+  - "Backup, versioning or migration tools that stage a renamed copy of an executable payload with a descriptive extension chain, for example when a packaging step writes install.msi.exe as an intermediate artefact and then runs it directly."
+level: medium

@@ -1,0 +1,61 @@
+title: Kerberos TGT issued to an account without preauthentication
+id: 3c9d21ca-8f01-411d-9294-343c176250fd
+status: experimental
+description: |
+  AN0316 names the one property of an AS-REP roast that lands on a single
+  Security 4768 record: the authentication service issued a TGT for an account
+  whose Kerberos preauthentication is disabled (`PreAuthType` 0, meaning the
+  requester never had to prove knowledge of the password). The match is limited
+  to successful issuance (`Status` 0x0) because a failed request hands the
+  requester no crackable material — that also drops the ordinary MIT/Heimdal
+  `kinit` opening exchange, which asks without preauthentication, is refused
+  with KDC_ERR_PREAUTH_REQUIRED and never reaches 0x0. Machine accounts are
+  excluded: a computer account authenticating with its own long random secret
+  is not roastable even when its records look unusual. The analytic also names
+  RC4 (`TicketEncryptionType` 0x17) as an accompanying anomaly, and most public
+  write-ups make it a required conjunct; it is deliberately not required here,
+  because the requester chooses the encryption types it offers, and an AS-REP
+  returned under AES for a preauthentication-disabled account is still crackable
+  offline — only more slowly. Gating on 0x17 would turn the whole rule off for
+  the cost of one flag. The other side of that choice is that on a domain still
+  permitting RC4 broadly the encryption type carries no discrimination anyway,
+  so every bit of selectivity here rests on the preauthentication flag. The rest
+  of the analytic does not fit on one event — the AS-REQ/AS-REP volume test
+  behind MITRE's
+  `TGTRequestThreshold` knob is an aggregation, and the correlation with
+  follow-on 4769 service ticket activity inside MITRE's `TimeWindow` knob is a
+  join; lib/sigma models neither, so this rule fires on the first roastable
+  reply rather than on a burst. It also cannot see the enumeration step that
+  precedes the roast, an LDAP read of accounts carrying the
+  DONT_REQ_PREAUTH flag, which leaves no 4768 record at all. Prerequisite:
+  4768 is written only by domain controllers and only with Audit Kerberos
+  Authentication Service enabled for Success; it is present in the Microsoft
+  and CIS domain controller baselines but is frequently dropped from forwarding
+  for volume, and a rule against a feed nobody ships returns zero rows that read
+  as quiet when they mean blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0113, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1558/004
+  - https://attack.mitre.org/detectionstrategies/DET0113
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1558.004
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4768
+    PreAuthType: '0'
+    Status: '0x0'
+  filter_machine_accounts:
+    TargetUserName|endswith: '$'
+  condition: selection and not filter_machine_accounts
+falsepositives:
+  - "Accounts deliberately configured with 'Do not require Kerberos preauthentication', which is set for compatibility with MIT/Heimdal Kerberos clients, some Java and appliance integrations, and accounts carried over from a realm migration. Every ordinary interactive or service logon by one of those accounts produces exactly this record, so on a domain that has any of them this is the dominant match and the reason the level is not higher; MITRE's PreAuthDisabledAccountsBaseline knob is where a site's own list of them belongs."
+  - "Deception accounts created on purpose by defenders as AS-REP roast tripwires, which are configured without preauthentication precisely so that they appear in enumeration, and which also fire on every authorised vulnerability scan or attack-path assessment that touches them."
+  - "Authorised credential-hygiene testing and red team exercises using Rubeus, Impacket GetNPUsers or an internal password-audit run, which produce the identical event and are distinguishable only by source address and change ticket."
+  - "Bulk identity-management, joiner-mover-leaver or realm-migration tooling that rewrites userAccountControl and leaves DONT_REQ_PREAUTH set on a batch of ordinary user accounts, after which every routine logon by each of them produces this record until someone clears the flag again."
+level: medium

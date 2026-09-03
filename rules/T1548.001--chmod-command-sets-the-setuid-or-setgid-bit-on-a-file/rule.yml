@@ -1,0 +1,59 @@
+title: chmod command sets the setuid or setgid bit on a file
+id: 18414288-dabb-4d7a-96fe-a1bc7e2ea65b
+status: experimental
+description: |
+  Matches a command-line invocation of chmod (or the install utility) whose
+  arguments request a setuid or setgid mode, which is the first half of AN0307:
+  the moment a binary is marked to run as its owner rather than its caller.
+  Both halves of the analytic are a correlation — chmod, then an execution
+  where EUID differs from UID, inside a TimeWindow — and Sigma can neither join
+  two events nor express a time window, so only the mode change is modelled and
+  the privileged execution that follows must be pivoted to by hand. The mode
+  list is MITRE's ChmodPattern knob, populated here with the symbolic form
+  '+s' and the numeric special-bit modes seen most often; the FilePathScope
+  knob is deliberately not applied, so the rule is not restricted to /tmp or
+  /home and will also see setuid being set on system paths. It sees only chmod
+  as a process: an installer or configuration-management module that calls the
+  chmod(2) syscall directly, or a package manager that applies modes from
+  package metadata, produces no execve and is invisible here. Requires an
+  auditd rule arming the execve syscall (for example
+  `-a always,exit -F arch=b64 -S execve`), which no mainstream distribution
+  ships enabled, so an empty result means the syscall is not being recorded
+  rather than that nothing happened.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0110, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1548/001
+  - https://attack.mitre.org/detectionstrategies/DET0110
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.t1548.001
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tool:
+    Image|endswith:
+      - '/chmod'
+      - '/install'
+  selection_mode:
+    CommandLine|contains:
+      - '+s'
+      - '4755'
+      - '4777'
+      - '4711'
+      - '4750'
+      - '4700'
+      - '6755'
+      - '6777'
+      - '2755'
+      - '2775'
+      - '2777'
+  condition: selection_tool and selection_mode
+falsepositives:
+  - "Building software from source. Makefile install targets and container image builds run `install -m 4755` or `chmod 4755` on helpers that legitimately need setuid — ping, fusermount, mount helpers, pkexec-style wrappers — so any build server or CI runner compiling packages matches repeatedly, and this is the largest benign source in most estates."
+  - "Administrators reasserting permissions on system binaries. Restoring the setuid bit on /usr/bin/sudo, /usr/bin/passwd, /bin/ping or /usr/bin/chsh after a permission audit, a botched recursive chmod or a restore is done with exactly this command and is indistinguishable from an adversary marking a payload."
+  - "Setgid on shared directories. `chmod g+s /srv/projects` is the standard way to make a group-shared folder inherit its group, and it is routine on file servers and developer machines; it matches the same '+s' argument as a setuid binary."
+  - "Security training, CTF exercises and pentest tooling installation, which set setuid bits on purpose and will fire this rule on every run."
+level: medium

@@ -1,0 +1,1 @@
+index=* (CommandLine="*SECURITY\\Policy\\Secrets*" OR CommandLine="*HKLM\\SECURITY\\Policy*" OR CommandLine="*HKLM:\\SECURITY\\Policy*" OR CommandLine="*lsadump::secrets*" OR CommandLine="*lsadump::lsa*" OR CommandLine="*Invoke-Mimikatz*")

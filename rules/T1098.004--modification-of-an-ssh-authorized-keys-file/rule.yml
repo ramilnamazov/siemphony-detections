@@ -1,0 +1,55 @@
+title: Modification of an SSH authorized_keys file
+id: 144fb5e9-5944-4542-b3dd-d9143d2ce868
+status: experimental
+description: |
+  AN0350 asks for writes to ~/.ssh/authorized_keys, sourced from auditd, and
+  optionally correlated with the process that made them inside a TimeWindow.
+  The correlation half is not expressible here — lib/sigma has no timeframe and
+  no join — so this rule takes the file-modification leg on its own and matches
+  the auditd PATH record for any object whose name contains authorized_keys.
+  A contains match rather than an exact one is deliberate: editors and scripted
+  writers rarely touch the file in place, they write authorized_keys.tmp or
+  .authorized_keys.swp and rename it over the original, and OpenSSH still reads
+  authorized_keys2 where a site has kept it, so all of those spellings are the
+  same event. The analytic's other leg, process creation, was not used, because
+  the most common way an adversary adds a key is an in-shell redirection —
+  echo ... >> ~/.ssh/authorized_keys — which is a shell builtin and produces no
+  execve record at all, so a process-creation rule would miss the majority case
+  while looking tighter.
+  The prerequisite matters more than the logic here. auditd emits no PATH record
+  for this file unless a rule tells it to watch it, and auditd watches do not
+  accept wildcards, so covering every user means a syscall rule over the parent
+  directories — something on the order of
+  -a always,exit -F arch=b64 -S open,openat,truncate,rename,renameat -F dir=/home
+  plus explicit watches for /root/.ssh and /etc/ssh — not a single -w line. With
+  no such rule loaded this returns zero rows forever, and zero rows reads as a
+  quiet estate when it actually means the sensor is blind. Use -p wa on watches:
+  with read permission included, every sshd authentication reads the file and
+  this rule matches on every successful login. Finally, the PATH record names the
+  file but not the writer; the uid and exe live in the SYSCALL record of the same
+  event, so attributing a hit to a process depends on the collector keeping those
+  records joined.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0126, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1098/004
+  - https://attack.mitre.org/detectionstrategies/DET0126
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1098.004
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: 'PATH'
+    name|contains: 'authorized_keys'
+  condition: selection
+falsepositives:
+  - "Configuration management enforcing SSH access. The Ansible authorized_key module, Puppet's ssh_authorized_key resource, Chef and Salt all rewrite the file on every run regardless of whether its contents changed, and agent-based runs are commonly on a 15 to 30 minute interval across the whole estate. On a managed fleet this is the highest-volume match by a wide margin, and it is the reason this rule is scored low rather than high."
+  - "Cloud instance key provisioning. cloud-init, the AWS and GCP guest agents and the Azure Linux agent refresh the default user's authorized_keys from instance metadata at every boot and whenever the key is changed in the console, so an autoscaling group replacing nodes produces a steady stream of matches with no human involved."
+  - "Administrators granting access by hand. ssh-copy-id run from a jump host appends to the file on the server side, and an administrator editing it with vim or nano produces PATH records for the file plus the editor's swap and backup copies, all of which the contains match picks up as separate hits for one edit."
+  - "Backup and integrity-monitoring agents. If the auditd watch was loaded with read permission rather than -p wa, file-integrity tooling such as AIDE or Tripwire and any backup agent walking home directories will match this rule on every scheduled scan of every account on the host."
+level: low

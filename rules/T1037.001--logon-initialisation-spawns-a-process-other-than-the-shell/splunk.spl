@@ -1,0 +1,1 @@
+index=* ((ParentImage="*\\userinit.exe" AND NOT (Image="*\\Windows\\explorer.exe")) AND NOT ((CommandLine="*\\netlogon\\*" OR CommandLine="*\\sysvol\\*")))

@@ -1,0 +1,12 @@
+<group name="sigma,windows,file_delete,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetFilename" type="pcre2">(?i)(\.mdf$|\.ldf$|\.ndf$|\.mdb$|\.accdb$|\.pst$|\.ost$)</field>
+    <field name="Image" negate="yes" type="pcre2">(?i)(\\sqlservr\.exe$|\\sqlagent\.exe$|\\sqlwriter\.exe$|\\mysqld\.exe$|\\postgres\.exe$|\\outlook\.exe$|\\msaccess\.exe$)</field>
+    <description>Stored business data file deleted by a process that does not own it</description>
+    <mitre>
+      <id>T1565.001</id>
+    </mitre>
+  </rule>
+</group>

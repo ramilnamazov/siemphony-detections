@@ -1,0 +1,1 @@
+index=* ((CommandLine="*vssadmin*" AND CommandLine="*delete shadows*") OR (CommandLine="*wbadmin*" AND CommandLine="*delete*") OR (CommandLine="*shadowcopy*" AND CommandLine="*delete*") OR (CommandLine="*bcdedit*" AND CommandLine="*recoveryenabled*") OR (CommandLine="*reagentc*" AND CommandLine="*/disable*") OR CommandLine="*diskshadow.exe*")

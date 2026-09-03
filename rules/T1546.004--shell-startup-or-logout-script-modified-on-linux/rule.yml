@@ -1,0 +1,78 @@
+title: Shell startup or logout script modified on Linux
+id: a01eef05-d4a9-4665-b1fb-7f7d1dcc10bd
+status: experimental
+description: |
+  Matches the file-modification leg of AN0059: an auditd PATH record naming one
+  of the configuration scripts a login or interactive shell sources on its own,
+  which is where this technique plants the command it wants re-executed at every
+  logon. The path list is MITRE's `FilePathRegex` knob, populated here with the
+  bash, sh and zsh per-user dotfiles plus their system-wide counterparts under
+  /etc, and it is anchored on the filename rather than on an absolute path
+  because auditd records `name=` exactly as it was handed to the syscall, so an
+  editor run from inside the home directory logs a bare `.bashrc`. Three limits
+  are structural. auditd emits PATH and SYSCALL as separate records for one
+  event, and the writing process's `exe`, `uid` and `auid` live only on the
+  SYSCALL side, so MITRE's `TargetUser` knob cannot be applied inside this
+  selection at all; the analytic's second half — an unexpected binary executing
+  shortly after shell startup, within MITRE's `TimeWindow` knob — is a
+  cross-event correlation lib/sigma has no way to express; and the macOS arm
+  AN0060 is not attempted, because its unifiedlog and EndpointSecurity sources
+  have no standardised Sigma field names and inventing them would produce a rule
+  that parses everywhere and matches nothing. Prerequisite: auditd watches none
+  of these paths by default, so this rule returns zero rows until watches such
+  as `-w /etc/profile -p wa` and a per-home `-w /home/<user>/.bashrc -p wa` are
+  loaded, and zero rows reads as quiet when it actually means blind. The `wa`
+  permission also matters for noise: with it, only writes and attribute changes
+  are recorded, whereas a watch including `r` makes every shell login match.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0020, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/004
+  - https://attack.mitre.org/detectionstrategies/DET0020
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.004
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_dotfiles:
+    type: 'PATH'
+    name|endswith:
+      - '.bashrc'
+      - '.bash_profile'
+      - '.bash_login'
+      - '.bash_logout'
+      - '.bash_aliases'
+      - '.profile'
+      - '.zshrc'
+      - '.zshenv'
+      - '.zprofile'
+      - '.zlogin'
+      - '.zlogout'
+      - '/etc/profile'
+      - '/etc/bash.bashrc'
+      - '/etc/bashrc'
+      - '/etc/zsh/zshrc'
+      - '/etc/zsh/zshenv'
+      - '/etc/zsh/zprofile'
+      - '/etc/zsh/zlogin'
+      - '/etc/zsh/zlogout'
+      - '/etc/zshrc'
+      - '/etc/zshenv'
+      - '/etc/zprofile'
+      - '/etc/zlogin'
+      - '/etc/zlogout'
+  selection_profiled:
+    type: 'PATH'
+    name|contains: '/etc/profile.d/'
+  condition: 1 of selection*
+falsepositives:
+  - "Configuration management and dotfile tooling rewriting the same files on a schedule: Ansible, Chef, Puppet and Salt pushing a standard ~/.bashrc or /etc/profile.d/ fragment to every host, and chezmoi, GNU stow, oh-my-zsh or a chef-managed home directory doing the same per user. On a managed estate this is the loudest match by a wide margin and is why the level is low rather than medium."
+  - "Package installation and upgrade. Language runtimes and SDKs drop or replace files under /etc/profile.d/ from their postinst scripts, and the nvm, rvm, conda, pyenv and Rust installers all append their initialisation block to ~/.bashrc or ~/.zshrc as their documented final step."
+  - "Account creation. useradd and adduser copy the /etc/skel dotfiles into each new home directory, so every provisioned user, service account and CI build user produces a burst of matching CREATE records."
+  - "A user editing their own shell configuration in vim, nano or emacs to add an alias, a PATH entry or a prompt change. Editors write through a temporary file and rename it into place, so one interactive edit emits several PATH records for the same target."
+  - "Backup, restore and home-directory migration jobs that unpack an archive over a user's home directory, recreating every dotfile in it."
+level: low

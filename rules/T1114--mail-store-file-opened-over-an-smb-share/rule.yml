@@ -1,0 +1,50 @@
+title: Mail store file opened over an SMB share
+id: d3e067d5-685d-40e4-a3f8-8c3d0f8cebb8
+status: experimental
+description: |
+  Matches Detailed File Share auditing where the object opened on a share is an
+  Outlook mail-store container (.pst, .ost, .nst) or a Mac Outlook archive
+  (.olm). This is the one leg of AN1309 that no child of this technique owns:
+  the analytic's forwarding-rule and Exchange-cmdlet half is T1114.003's
+  AN1589, its scripted remote-mailbox half is T1114.002's AN0131, and the
+  host-side command-line view of a local mail store is already published in
+  this corpus as T1114.001 — but 5145 appears in no child brief, and it is the
+  only source here that sees a mail archive being read across the network by a
+  named account and source address. The rest of AN1309 correlates rule
+  creation with outbound SMTP inside a TimeWindow, which is a join Sigma
+  cannot express, so only this single-event step is authored. Two limits worth
+  stating: 5145 is written when the server checks what access to grant for the
+  requested object, so it records an attempt and the rights asked for, not a
+  confirmed read of the bytes; and a mail store copied from a local disk or
+  from a mapped drive on the same host never produces one. Requires the Audit
+  Detailed File Share subcategory, which is off in a default install and in
+  the Microsoft and CIS baselines, and which is among the highest-volume audit
+  subcategories in Windows — no matches here means the feed is off far more
+  often than it means nothing happened.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0476, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1114
+  - https://attack.mitre.org/detectionstrategies/DET0476
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1114
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 5145
+    RelativeTargetName|endswith:
+      - '.pst'
+      - '.ost'
+      - '.nst'
+      - '.olm'
+  condition: selection
+falsepositives:
+  - "Archived .pst files parked on a departmental file share and re-opened by Outlook at every logon, which is still ordinary in estates that never finished an online-archive migration. Where that pattern exists it is the dominant volume this rule returns by a wide margin, and the rule is a hunting surface rather than an alert until the population of shares holding mail stores has been baselined."
+  - "Backup, content-indexing and eDiscovery agents that walk file shares on a schedule and open every mail store they find, from a small and nameable set of service accounts and source addresses — MITRE's UserContext knob, populated here by the estate's own agent inventory."
+  - "Mailbox migration and PST-import projects, where an administrator or migration service account reads thousands of mail stores out of a staging share over a period of days."
+  - "Storage-reporting, quota and DLP scanners that open mail-store files to classify or size them, producing a steady per-share rhythm rather than a one-off access."
+level: low

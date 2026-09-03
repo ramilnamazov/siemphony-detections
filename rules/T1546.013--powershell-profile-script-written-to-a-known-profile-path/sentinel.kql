@@ -1,0 +1,2 @@
+DeviceFileEvents
+| where (FolderPath endswith "\\WindowsPowerShell\\profile.ps1" or FolderPath endswith "\\WindowsPowerShell\\Microsoft.PowerShell_profile.ps1" or FolderPath endswith "\\WindowsPowerShell\\Microsoft.PowerShellISE_profile.ps1" or FolderPath endswith "\\WindowsPowerShell\\Microsoft.VSCode_profile.ps1" or FolderPath endswith "\\PowerShell\\profile.ps1" or FolderPath endswith "\\PowerShell\\Microsoft.PowerShell_profile.ps1" or FolderPath endswith "\\PowerShell\\Microsoft.VSCode_profile.ps1")

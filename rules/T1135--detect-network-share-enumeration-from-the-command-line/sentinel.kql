@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "net view" or ProcessCommandLine contains "net.exe view" or ProcessCommandLine contains "net1 view" or ProcessCommandLine contains "net1.exe view" or ProcessCommandLine contains "net share" or ProcessCommandLine contains "net.exe share" or ProcessCommandLine contains "net1 share" or ProcessCommandLine contains "net1.exe share" or ProcessCommandLine contains "Get-SmbShare" or ProcessCommandLine contains "Win32_Share" or ProcessCommandLine contains "NetShareEnum")

@@ -1,0 +1,2 @@
+SecurityEvent
+| where ((EventID == 4928 or EventID == 4929) or ((EventID == 4662 and AccessMask =~ "0x100" and (Properties contains "1131f6ac-9c07-11d1-f79f-00c04fc2dcd2" or Properties contains "1131f6ab-9c07-11d1-f79f-00c04fc2dcd2")) and not (SubjectUserName endswith "$")))

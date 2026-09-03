@@ -1,0 +1,47 @@
+title: Process queries the system locale via registry lookup or PowerShell
+id: 07d5e808-83e9-4f8e-a8be-6fc870737405
+status: experimental
+description: |
+  Matches process creation where reg.exe is invoked against the NLS Language
+  registry path, or where powershell.exe/pwsh.exe runs one of the locale-query
+  cmdlets that wrap GetUserDefaultUILanguage and the related Win32 calls AN1561
+  names. The brief also offers Security EventID 4657 on the same registry key
+  as a second log source, mapped onto Sigma's registry_set category, but 4657
+  is "a registry value was modified" — it fires on SetValueKey, not on the read
+  a language-discovery query performs, so that selector would never match this
+  behaviour and is deliberately not authored. The rule is written in the
+  Sysmon EventID 1 process-creation vocabulary the brief also supplies, which
+  needs no extra audit policy; a Security 4688 feed carries the same facts
+  under NewProcessName/CommandLine and additionally needs Audit Process
+  Creation plus Include command line in process creation events enabled.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0565, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1614/001
+  - https://attack.mitre.org/detectionstrategies/DET0565
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1614.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_reg:
+    Image|endswith: '\reg.exe'
+    CommandLine|contains: 'Nls\Language'
+  selection_ps:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+    CommandLine|contains:
+      - 'Get-WinSystemLocale'
+      - 'Get-UICulture'
+      - 'Get-Culture'
+      - 'Get-WinUserLanguageList'
+  condition: selection_reg or selection_ps
+falsepositives:
+  - "Helpdesk and IT-support scripts that check a workstation's locale as a routine step while troubleshooting keyboard-layout or regional-format complaints, using the exact reg query or PowerShell cmdlets this rule matches."
+  - "Imaging, provisioning and Autopilot deployment scripts that call Get-WinSystemLocale or Get-WinUserLanguageList to confirm the correct language pack landed after OS deployment."
+  - "Multi-language software installers that query the OS locale via reg.exe or a PowerShell cmdlet as a preflight step before choosing which localized UI to present."
+level: low

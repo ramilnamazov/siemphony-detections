@@ -1,0 +1,64 @@
+title: Custom byte-level encoding routine run inline against file data
+id: ac389ad6-e0b0-4634-8aa3-c9bf5d2cd6d4
+status: experimental
+description: |
+  Matches a shell one-liner that combines a bitwise byte operation with reading or
+  writing file contents — the hand-rolled XOR or stream-cipher routine AN1213
+  describes as producing archive-like output with no standard archiving utility
+  involved. Archiving utilities and their verbs are absent from the logic because
+  that is T1560.001, and so are the .NET compression and cryptography stream
+  classes, because library-backed archiving is T1560.002; what is left is the raw
+  arithmetic that makes a method custom, which is what this sub-technique is
+  about. The brief maps Security EventID 4688 onto the Sysmon-shaped
+  `process_creation` category, and this rule is written in the Sysmon EventID 1
+  vocabulary (`Image`, `CommandLine`): the 4688 feed carries the same data under
+  `NewProcessName` and needs a field mapping first, as well as both Audit Process
+  Creation and the separate Include command line in process creation events
+  policy, neither of which is enabled by default or by the CIS baseline. Only
+  inline routines are visible here — a `-EncodedCommand` blob or a routine living
+  in a .ps1 file puts none of these strings on the command line — and the
+  interpreter list is confined to PowerShell because the operators matched are
+  PowerShell syntax, so listing wscript or cscript would add selectors that can
+  never fire.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0438, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1560/003
+  - https://attack.mitre.org/detectionstrategies/DET0438
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1560.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_shell:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_bitwise:
+    CommandLine|contains:
+      - '-bxor'
+      - '-bnot'
+      - '-band'
+      - '-shl'
+      - '-shr'
+  selection_file_io:
+    CommandLine|contains:
+      - 'ReadAllBytes'
+      - 'WriteAllBytes'
+      - 'FileStream'
+      - 'OpenRead'
+      - 'OpenWrite'
+      - 'Get-Content'
+      - 'Set-Content'
+      - '-AsByteStream'
+      - '-Encoding Byte'
+  condition: selection_shell and selection_bitwise and selection_file_io
+falsepositives:
+  - "In-house automation that folds bytes while converting a file — checksum and CRC helpers, binary patching, licence and header manipulation — which reads with ReadAllBytes or Get-Content and applies -bxor or -band before writing the result back. This is the most common way the rule fires and nothing in the event separates it from staging for exfiltration."
+  - "Vendor installers, endpoint agent modules and deployment scripts that unpack an embedded, XOR-obfuscated payload to disk during setup; the routine is byte-identical to the malicious one and repeats on every host in a rollout wave."
+  - "Telemetry and log converters that read a binary file as a byte stream and mask off flag bits before writing a normalised copy, typically running on a schedule from the same few servers."
+  - "Malware analysis, detection engineering and training workstations, where operators run byte-manipulation one-liners against sample files as routine daily work."
+level: medium

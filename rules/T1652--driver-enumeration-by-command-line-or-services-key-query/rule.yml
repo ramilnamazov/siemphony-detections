@@ -1,0 +1,45 @@
+title: Driver enumeration by command line or services-key query
+id: cafc5b23-171f-4764-90e7-0596e5535099
+status: experimental
+description: |
+  Matches the two Windows driver-discovery behaviours AN1595 names that leave a
+  command line: an invocation of `driverquery`, and a registry read of
+  `HKLM\SYSTEM\CurrentControlSet\Services` or the `HardwareProfiles` subtree.
+  Every selection sits on `CommandLine` so the rule stays a single-field OR that
+  all four backends render, and the value lists are ones assembled here — MITRE
+  supplies the `AllowedUtilities` knob, not its contents. The analytic's other
+  observables do not survive contact with the log sources: `EnumDeviceDrivers()`
+  is an in-process API call that emits no event, and the registry sources the
+  brief lists are Sysmon EventID 13 and 14, which record value writes and key
+  renames — Sysmon has no registry-read event, so enumeration performed through
+  the registry API rather than a command line is invisible here. Written in the
+  Sysmon EventID 1 vocabulary; the Security EventID 4688 feed populates
+  `CommandLine` only when *Audit Process Creation* and *Include command line in
+  process creation events* are both enabled, and neither is on by default.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0579, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1652
+  - https://attack.mitre.org/detectionstrategies/DET0579
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1652
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_driverquery:
+    CommandLine|contains: 'driverquery'
+  selection_services_key:
+    CommandLine|contains|all:
+      - 'query'
+      - 'CurrentControlSet\Services'
+  selection_hardware_profiles:
+    CommandLine|contains: 'CurrentControlSet\HardwareProfiles'
+  condition: 1 of selection*
+falsepositives:
+  - "Asset-inventory and diagnostic scripts that snapshot driver versions on a schedule or at logon, typically as driverquery /v /fo csv redirected to a share. Wherever this exists it is the highest-volume match by a wide margin, and MITRE's AllowedUtilities knob is the place to pin the expected caller rather than dropping the utility from the rule."
+  - "Driver installers and hardware update agents that read HKLM\\SYSTEM\\CurrentControlSet\\Services with reg query during a version check before writing their own service entry, which fires once per managed device per update cycle."
+  - "Helpdesk and engineering troubleshooting of a device or service fault, where a human queries the Services key by hand or dumps the driver list before escalating a ticket."
+level: low

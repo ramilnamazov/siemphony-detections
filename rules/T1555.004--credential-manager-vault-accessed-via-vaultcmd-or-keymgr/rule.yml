@@ -1,0 +1,40 @@
+title: Credential Manager vault accessed via vaultcmd or keymgr
+id: 4b164438-0ae7-4412-87ef-f88d877e3cef
+status: experimental
+description: |
+  Matches process creation of vaultcmd.exe, the built-in command-line tool for
+  listing and managing Windows Credential Manager vaults, or rundll32.exe
+  invoked against keymgr.dll — the classic "Stored User Names and Passwords"
+  applet AN0378 names as the process leg of vault access. Both are the
+  concrete, single-event observable the analytic offers; the API-call leg
+  (CredEnumerateA) produces no Windows event on its own, and the file-access
+  leg the brief maps to Sysmon EventID 15 (create_stream_hash) fires on
+  alternate-data-stream creation, not on a read of an existing .vcrd file, so
+  it cannot carry "someone opened this vault file" either. Security 4688
+  requires the Audit Process Creation subcategory, and CommandLine on top of
+  that needs the separate Include command line in process creation events
+  policy — neither is on by default.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0134, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1555/004
+  - https://attack.mitre.org/detectionstrategies/DET0134
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1555.004
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_vaultcmd:
+    Image|endswith: '\vaultcmd.exe'
+  selection_keymgr:
+    Image|endswith: '\rundll32.exe'
+    CommandLine|contains: 'keymgr.dll'
+  condition: 1 of selection*
+falsepositives:
+  - "Help-desk technicians using the legacy Stored User Names and Passwords applet (rundll32.exe keymgr.dll,KRShowKeyMgr) to view or remove a saved network credential during a support call — the documented, supported way to reach that UI."
+  - "Profile-migration or credential-backup tooling that shells out to vaultcmd.exe /list or /listcreds as part of a Windows-to-Windows user migration."
+  - "Security or compliance scripts that run a scheduled vaultcmd /list sweep as a periodic credential inventory check."
+level: high

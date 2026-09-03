@@ -1,0 +1,2 @@
+Event
+| where (EventID == 4104 and (ScriptBlockText contains "EnumWindows" or ScriptBlockText contains "EnumChildWindows" or ScriptBlockText contains "GetForegroundWindow" or ScriptBlockText contains "GetWindowText" or ScriptBlockText contains "GetWindowTextLength" or ScriptBlockText contains "GetWindowThreadProcessId" or ScriptBlockText contains "MainWindowTitle"))

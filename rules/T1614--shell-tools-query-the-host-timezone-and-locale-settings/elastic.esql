@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*/timedatectl" OR TO_LOWER(process.executable) LIKE "*/localectl" OR TO_LOWER(process.executable) LIKE "*/locale") OR (TO_LOWER(process.command_line) LIKE "*/etc/timezone*" OR TO_LOWER(process.command_line) LIKE "*/etc/localtime*" OR TO_LOWER(process.command_line) LIKE "*/usr/share/zoneinfo*"))

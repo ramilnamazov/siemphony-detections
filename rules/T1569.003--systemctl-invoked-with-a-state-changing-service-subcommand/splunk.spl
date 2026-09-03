@@ -1,0 +1,1 @@
+index=* ((type="EXECVE" AND a0="*systemctl") AND (a1="start" OR a1="restart" OR a1="enable" OR a1="reenable" OR a1="link" OR a1="daemon-reload"))

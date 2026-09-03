@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((ProcessCommandLine contains "/var/mail/" or ProcessCommandLine contains "/var/spool/mail/" or ProcessCommandLine contains "/Maildir/") and not ((FolderPath endswith "/procmail" or FolderPath endswith "/dovecot" or FolderPath endswith "/sendmail" or FolderPath endswith "/postfix")))

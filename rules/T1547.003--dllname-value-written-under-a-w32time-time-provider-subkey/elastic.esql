@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(registry.path) LIKE "*\\\\services\\\\w32time\\\\timeproviders\\\\*" AND TO_LOWER(registry.path) LIKE "*\\\\dllname")

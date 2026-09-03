@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "\\Network\\Cookies" or ProcessCommandLine contains "\\User Data\\Default\\Cookies" or ProcessCommandLine contains "cookies.sqlite")

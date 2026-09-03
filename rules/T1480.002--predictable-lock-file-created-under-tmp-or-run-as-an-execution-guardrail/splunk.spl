@@ -1,0 +1,1 @@
+index=* | where ((match(type, "(?i)^PATH$") AND match(name, "/tmp/\\.[^/]*lock[^/]*$")) OR (match(type, "(?i)^PATH$") AND match(name, "/var/(run|lock)/[^/]*lock[^/]*$")) OR match(key, "(?i)^mutex_lock$"))

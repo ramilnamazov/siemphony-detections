@@ -1,0 +1,1 @@
+index=* (EventID="4720" AND (TargetUserName="*admin*" OR TargetUserName="*help*" OR TargetUserName="*root*" OR TargetUserName="*backup*" OR TargetUserName="*service*" OR TargetUserName="*adm1n*" OR TargetUserName="*backup_help*"))

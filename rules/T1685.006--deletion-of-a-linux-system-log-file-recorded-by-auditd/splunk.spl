@@ -1,0 +1,1 @@
+index=* ((type="PATH" AND nametype="DELETE" AND (name="*/var/log/messages*" OR name="*/var/log/secure*" OR name="*/var/log/auth.log*" OR name="*/var/log/utmp*" OR name="*/var/log/wtmp*" OR name="*/var/log/kern.log*" OR name="*/var/log/cron.log*" OR name="*/var/log/maillog*" OR name="*/var/log/httpd/*")) OR key="log_tamper")

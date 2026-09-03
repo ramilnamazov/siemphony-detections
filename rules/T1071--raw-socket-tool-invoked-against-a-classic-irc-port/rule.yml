@@ -1,0 +1,59 @@
+title: Raw socket tool invoked against a classic IRC port
+id: b57b0be3-fa3d-4694-a055-06e9b184f328
+status: experimental
+description: |
+  Matches nc, ncat, socat or telnet started with a well-known IRC port
+  argument on Linux — the residual slice of AN1226's "IRC-style protocols"
+  that none of the technique's published children own. HTTP/HTTPS belongs to
+  Web Protocols (T1071.001), DNS to T1071.004, and mail ports to T1071.003,
+  already published in this corpus; IRC has no numbered child at all, so this
+  is the one piece of the parent's own brief that is not just a duplicate of
+  a sibling under a different name. AN1225's Windows leg is deliberately not
+  used: it names SMB alongside HTTP/DNS, and Sysmon EventID 3 attributes
+  port 445 connections to System because the SMB client redirector runs in
+  kernel mode, not to whatever process queued the transfer — an Image-gated
+  selection on that port would look like coverage and match nothing, the
+  exact trap the sibling T1071.002 rule in this corpus already documents.
+  Bare nc is included alongside ncat and socat, unlike the T1090 rule in this
+  corpus, which drops it because Debian and Ubuntu route it through
+  update-alternatives to nc.openbsd or nc.traditional; both alternate names
+  are listed here for that reason. The port list is authored for this rule,
+  not MITRE's — the brief's KnownPortsToMonitor knob gives HTTPS and DNS
+  examples (8443, 5353) but names no IRC port. Requires an explicit
+  -a always,exit -F arch=b64 -S execve auditd rule; auditd ships none by
+  default, and CommandLine here depends on this corpus's pipeline joining the
+  SYSCALL and EXECVE records, since a raw auditd feed keeps argv separate.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0444, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1071
+  - https://attack.mitre.org/detectionstrategies/DET0444
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1071
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tool:
+    Image|endswith:
+      - '/nc'
+      - '/nc.openbsd'
+      - '/nc.traditional'
+      - '/ncat'
+      - '/socat'
+      - '/telnet'
+  selection_port:
+    CommandLine|contains:
+      - '6667'
+      - '6668'
+      - '6669'
+      - '6697'
+  condition: selection_tool and selection_port
+falsepositives:
+  - "Ops teams running a legacy IRC-based alerting bot (a common pattern for piping Nagios or Icinga alerts into a channel) that connects with nc or a small wrapper script on a fixed schedule from a small set of hosts."
+  - "Network engineers or monitoring tooling using telnet purely as a generic port-connectivity check against 6667 or 6697 to verify a firewall rule or that an IRC bouncer is listening, with no IRC session ever established."
+  - "Security testing and red-team C2 emulation frameworks deliberately standing up or connecting to an IRC-based C2 channel in a lab environment as part of a detection-validation exercise."
+  - "General-purpose port scanners invoked through nc or ncat across a wide port range for host discovery, which will include 6667-6669 and 6697 incidentally on any scan wide enough to cover them."
+level: medium

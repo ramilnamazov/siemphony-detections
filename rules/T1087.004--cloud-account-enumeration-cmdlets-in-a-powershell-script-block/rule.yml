@@ -1,0 +1,96 @@
+title: Cloud account enumeration cmdlets in a PowerShell script block
+id: a09fd3e3-ae5a-4df7-96f1-1c0c8c951017
+status: experimental
+description: |
+  Matches AN1089 on the only log source the brief gives it: a PowerShell
+  script block that names a command which lists the accounts in a cloud tenant.
+  Two groups are separated because they are not equally suspicious. The first
+  holds the directory-wide calls — the MSOnline, AzureAD, Microsoft Graph,
+  Microsoft Entra and Az identity cmdlets, and the `az`, `aws iam` and `gcloud`
+  account-listing command lines, which appear in a script block when they are
+  typed at or invoked from a PowerShell host — and it fires on its own. MSOnline
+  and AzureAD are retired modules and are kept only because the technique text
+  names `Get-MsolRoleMember`; the Graph SDK and Entra cmdlets beside them are
+  added here, not taken from MITRE, and are what a current tenant would actually
+  be enumerated with. The second holds
+  `Get-Recipient`, `Get-Mailbox` and `Get-User`, which are the three most-used
+  cmdlets in ordinary Exchange administration and are therefore gated behind a
+  bulk marker (`-ResultSize Unlimited`) so that a single lookup of one mailbox
+  does not match while a whole-tenant sweep does. That gate is also the rule's
+  largest blind spot, and it is authored here rather than derived: those cmdlets
+  return 1000 objects by default, so in any tenant smaller than that a bare
+  `Get-Mailbox` enumerates every account and matches nothing below. The same
+  three cmdlets are equally the observable for T1087.003 Email Account and this
+  branch cannot separate the two; they are included because MITRE names them in
+  AN1089 under this technique's strategy. Everything sits on
+  `ScriptBlockText` under EventID 4104, the only field in this source carrying
+  the script as the engine compiled it: an `-EncodedCommand` payload therefore
+  arrives decoded, but decoded is not deobfuscated, and name splitting
+  (`"Get-Msol"+"User"`), backtick insertion and wildcard command resolution
+  (`&(gcm Get-Msol*)`) all survive compilation and defeat every literal term
+  below. Three limits are structural. MITRE's `CmdletVolume` knob — the real
+  discriminator here, since the abuse differs from administration mainly in how
+  much is enumerated per hour — needs an aggregation lib/sigma does not model,
+  so this rule sees single invocations and its level reflects that; the
+  `UserAgent` and `SessionContext` knobs likewise have no field in this event.
+  The rule can only see enumeration performed on a Windows host whose
+  PowerShell is being logged, so an adversary calling Graph from their own
+  machine, working in the Azure or Microsoft 365 admin portal, or running the
+  same CLI commands from Linux or macOS writes nothing here at all — the tenant
+  audit log is where that lives, and the brief supplies no log source for it.
+  And the rule is written for 4104's `ScriptBlockText`; an estate collecting
+  only 4103 module logging carries the invocation in `ContextInfo`/`Payload`
+  instead and would need its own selection. Prerequisite: EventID 4104 requires
+  *Script Block Logging* to be enabled by policy, which is off in a default
+  install, and with it off this rule returns zero rows — which reads as quiet
+  when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0386, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1087/004
+  - https://attack.mitre.org/detectionstrategies/DET0386
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1087.004
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_directory:
+    EventID: 4104
+    ScriptBlockText|contains:
+      - 'Get-MsolUser'
+      - 'Get-MsolRoleMember'
+      - 'Get-AzureADUser'
+      - 'Get-AzureADDirectoryRoleMember'
+      - 'Get-MgUser'
+      - 'Get-MgBetaUser'
+      - 'Get-MgDirectoryRoleMember'
+      - 'Get-EntraUser'
+      - 'Get-EntraDirectoryRoleMember'
+      - 'Get-AzADUser'
+      - 'az ad user list'
+      - 'aws iam list-users'
+      - 'aws iam list-roles'
+      - 'gcloud iam service-accounts list'
+      - 'gcloud projects get-iam-policy'
+  selection_recipient:
+    EventID: 4104
+    ScriptBlockText|contains:
+      - 'Get-Recipient'
+      - 'Get-Mailbox'
+      - 'Get-User'
+  selection_bulk:
+    EventID: 4104
+    ScriptBlockText|contains:
+      - 'ResultSize Unlimited'
+      - 'ResultSize:Unlimited'
+  condition: selection_directory or (selection_recipient and selection_bulk)
+falsepositives:
+  - "Identity and licence reporting automation. Scheduled scripts that reconcile licences, feed a CMDB, build a joiner-mover-leaver report or export a tenant inventory call Get-MsolUser, Get-MgUser or Get-AzureADUser -All on a fixed interval from a management server, and enumerate far more accounts than an adversary would. On any tenant with such a job this is the highest-volume match by a wide margin and it is why this rule is low rather than medium — the volume threshold that would separate the two is MITRE's CmdletVolume knob, which cannot be expressed here."
+  - "Everyday Exchange Online administration. Get-Mailbox -ResultSize Unlimited is the documented way to list every mailbox in a tenant and is the first line of most support, migration and reporting scripts, so the gated branch of this rule fires on ordinary service-desk and mail-team work."
+  - "Backup, archiving and eDiscovery products, which page through Get-Recipient or Get-Mailbox across the whole tenant on every scheduled run, usually under a dedicated service account from a fixed host."
+  - "Cloud infrastructure and CI automation running the AWS, Azure or Google CLIs from a PowerShell host — an `aws iam list-users` in a compliance check, a `gcloud projects get-iam-policy` in a Terraform wrapper or an access-review export — where enumerating principals is the point of the job."
+  - "Authorised assessment work and tenant health checks, where a consultant's script enumerates users and directory role members as its first step and matches the entire first group in one run."
+level: low

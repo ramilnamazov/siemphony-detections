@@ -1,0 +1,1 @@
+index=* (CommandLine="*__EventFilter*" OR CommandLine="*__FilterToConsumerBinding*" OR CommandLine="*EventConsumer*" OR CommandLine="*Register-WmiEvent*" OR CommandLine="*Register-CimIndicationEvent*" OR CommandLine="*root\\subscription*" OR CommandLine="*root/subscription*" OR CommandLine="*mofcomp*")

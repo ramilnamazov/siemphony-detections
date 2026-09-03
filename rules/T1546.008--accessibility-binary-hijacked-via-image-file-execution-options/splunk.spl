@@ -1,0 +1,1 @@
+index=* (TargetObject="*\\Image File Execution Options\\*" AND (TargetObject="*\\sethc.exe*" OR TargetObject="*\\utilman.exe*" OR TargetObject="*\\osk.exe*" OR TargetObject="*\\magnify.exe*" OR TargetObject="*\\narrator.exe*" OR TargetObject="*\\displayswitch.exe*" OR TargetObject="*\\atbroker.exe*" OR TargetObject="*\\hh.exe*"))

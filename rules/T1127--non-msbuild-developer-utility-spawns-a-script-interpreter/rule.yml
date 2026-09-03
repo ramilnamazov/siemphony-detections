@@ -1,0 +1,59 @@
+title: Non-MSBuild developer utility spawns a script interpreter
+id: ebcf6dba-b49f-4ea0-a046-155f76b898ff
+status: experimental
+description: |
+  AN0488's parent-child leg, scoped to the trusted developer utilities the
+  technique's own citations name that are not MSBuild: the DNX execution
+  environment and the Roslyn C# interactive REPL (both cited via the "DNX
+  Bypass" and "RCSI Bypass" references), the WinDbg console debugger, the
+  .NET CLI, IL assembler and MSBuild's separate file-tracking helper. MSBuild
+  itself is deliberately excluded — it is the published T1127.001 sibling —
+  so this rule and that one alert on disjoint ParentImage sets even though
+  both match the same SuspiciousChildList shape MITRE gives in AN0488. The
+  payload-write, unsigned-module-load and network-egress legs of the analytic
+  are separate events with no join Sigma can express, so only the immediate
+  child-spawn is checked; a utility that shells out after a delay, or that
+  loads a malicious DLL without ever spawning a child process at all, will
+  not match. Note the process source is Security 4688, which needs Audit
+  Process Creation enabled and returns nothing at all without it.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0172, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1127
+  - https://attack.mitre.org/detectionstrategies/DET0172
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1127
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent:
+    ParentImage|endswith:
+      - '\dnx.exe'
+      - '\rcsi.exe'
+      - '\csi.exe'
+      - '\cdb.exe'
+      - '\windbg.exe'
+      - '\dotnet.exe'
+      - '\ilasm.exe'
+      - '\Tracker.exe'
+  selection_child:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+  condition: selection_parent and selection_child
+falsepositives:
+  - "dotnet.exe build and test pipelines on developer workstations and CI agents, where dotnet build/test/publish or a custom MSBuild target invoked through the dotnet CLI shells out to cmd.exe or powershell.exe for pre/post-build steps — this is the single highest-volume match this rule will produce, which is why the level below is not set higher."
+  - "Reverse-engineering and debugging workstations where cdb.exe or windbg.exe is used interactively and its scripting extensions launch a helper process as part of routine analysis work, indistinguishable on this logic alone from a debugger being used to proxy execution."
+  - "csi.exe (Roslyn C# Interactive) invoked from a build or notebook-style workflow that shells out to run a generated script, on hosts where interactive C# scripting is a normal developer tool rather than an anomaly."
+level: medium

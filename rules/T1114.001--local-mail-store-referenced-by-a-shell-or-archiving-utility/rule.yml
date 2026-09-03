@@ -1,0 +1,57 @@
+title: Local mail store referenced by a shell or archiving utility
+id: 7e159d0c-6a34-4b82-bf47-91d3c05ea268
+status: experimental
+description: |
+  Matches process creation where an interpreter, copy tool or archiver is launched
+  with a command line naming a local Outlook data file or the directories those
+  files live in. The mail client itself opens its own .ost without ever putting the
+  path on a command line, so the pairing of a general-purpose utility in Image with
+  a mail-store path in CommandLine is what carries the signal — this is the
+  command-line-tooling half of MITRE's AN0130. The rest of the described chain,
+  file access followed by staging and network transfer inside a TimeWindow, needs a
+  join Sigma cannot express, so only the single-event tooling step is authored here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0047, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1114/001
+  - https://attack.mitre.org/detectionstrategies/DET0047
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1114.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\wmic.exe'
+      - '\robocopy.exe'
+      - '\xcopy.exe'
+      - '\esentutl.exe'
+      - '\certutil.exe'
+      - '\forfiles.exe'
+      - '\tar.exe'
+      - '\curl.exe'
+      - '\7z.exe'
+      - '\rar.exe'
+      - '\winrar.exe'
+  selection_mailstore:
+    CommandLine|contains:
+      - '.ost'
+      - '.pst'
+      - '\Microsoft\Outlook'
+      - '\Documents\Outlook Files'
+  condition: selection_tool and selection_mailstore
+falsepositives:
+  - "Backup and endpoint-archiving agents that shell out to robocopy.exe or 7z.exe across the user profile and name the .pst path on the command line. These are exactly MITRE's ProcessAllowList knob, and the allowlist should key on the parent process rather than on the utility, since the utility name is the same one an operator would use."
+  - "Mailbox migration and profile-roaming scripts that inventory or relocate .pst files, typically as an administrator or a service account. MITRE's UserContext knob exists for this — the accounts that touch mail stores in bulk during a migration are a small, nameable set."
+  - "Scheduled storage-reporting or compliance tooling running `Get-ChildItem -Filter *.ost` over user home directories, which matches on the extension alone with no access to the file contents at all."
+  - "Support scripts that repair a corrupt data file with esentutl.exe or copy it aside before running the inbox repair tool, a benign sequence that looks identical to staging."
+level: medium

@@ -1,0 +1,1 @@
+index=* ((Image="*/chmod" OR Image="*/install") AND (CommandLine="*+s*" OR CommandLine="*4755*" OR CommandLine="*4777*" OR CommandLine="*4711*" OR CommandLine="*4750*" OR CommandLine="*4700*" OR CommandLine="*6755*" OR CommandLine="*6777*" OR CommandLine="*2755*" OR CommandLine="*2775*" OR CommandLine="*2777*"))

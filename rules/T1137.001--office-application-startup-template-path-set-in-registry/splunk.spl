@@ -1,0 +1,1 @@
+index=* (TargetObject="*\\Word\\Options\\GlobalDotName" OR TargetObject="*\\Excel\\Options\\AltStartup")

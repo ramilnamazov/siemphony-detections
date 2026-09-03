@@ -1,0 +1,2 @@
+SecurityEvent
+| where ((EventID == 5136 and ObjectClass =~ "groupPolicyContainer") and (AttributeLDAPDisplayName =~ "gPCFileSysPath" or AttributeLDAPDisplayName =~ "gPCMachineExtensionNames" or AttributeLDAPDisplayName =~ "gPCUserExtensionNames" or AttributeLDAPDisplayName =~ "nTSecurityDescriptor"))

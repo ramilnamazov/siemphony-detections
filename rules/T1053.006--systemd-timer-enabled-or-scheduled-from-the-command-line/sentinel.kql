@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "/systemctl" and ProcessCommandLine contains ".timer") or (FolderPath endswith "/systemd-run" and (ProcessCommandLine contains "--on-active" or ProcessCommandLine contains "--on-boot" or ProcessCommandLine contains "--on-startup" or ProcessCommandLine contains "--on-unit-active" or ProcessCommandLine contains "--on-unit-inactive" or ProcessCommandLine contains "--on-calendar" or ProcessCommandLine contains "--timer-property")))

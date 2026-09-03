@@ -1,0 +1,88 @@
+title: Existing account altered to weaken or extend its credentials
+id: 872128ce-b6a8-43b5-9def-42af76055405
+status: experimental
+description: |
+  AN0265 asks for account attribute changes correlated with unusual process
+  lineage or timing. The correlation half is not expressible — its TimeWindow
+  knob wants a five-minute join between a suspicious process and a directory
+  change, and its SubjectTargetMismatch knob wants the modifying account
+  compared against the modified one, and lib/sigma has no timeframe, no
+  aggregation and no field-to-field comparison. So this rule takes the analytic's
+  process-creation leg alone and keeps it at the parent technique: it matches the
+  commands that alter an account that already exists in ways that preserve or
+  broaden an adversary's hold on it — clearing the password requirement, lifting
+  expiry, re-enabling a dormant account, resetting a password, or bolting a
+  service principal name onto a user so it becomes Kerberoastable. The two
+  account-control flags that matter most here, PasswordNeverExpires and
+  DoesNotRequirePreAuth, are matched only when a setting cmdlet appears on the
+  same command line, because those two words are far more often typed in a
+  `Get-ADUser -Filter`/`-Properties` audit query — an enumeration that belongs
+  to T1087, not here — than in an actual write. Group
+  membership changes are deliberately excluded even though the analytic's other
+  log source lists EventID 4728, because adding an account to a local or domain
+  group is T1098.007 and belongs in that brief, not under the parent tag. Two
+  limits worth stating before deployment. The brief sources this leg from Sysmon
+  EventID 1, which records CommandLine natively; if the site feeds Security
+  EventID 4688 into the same `process_creation` category instead, *Audit Process
+  Creation* and the separate *Include command line in process creation events*
+  policy must both be enabled or every term below is blind and the rule returns
+  zero rows that read as quiet rather than deaf. And because this is
+  process-creation only, a cmdlet invoked inside a .ps1 body, from a DLL, or over
+  LDAP by a compiled tool leaves nothing here — the directory-side events would,
+  but this rule is not written in their vocabulary.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0096, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1098
+  - https://attack.mitre.org/detectionstrategies/DET0096
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1098
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_net_tool:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+    CommandLine|contains: ' user '
+  selection_net_switch:
+    CommandLine|contains:
+      - '/active:yes'
+      - '/expires:never'
+      - '/passwordreq:no'
+      - '/passwordchg:no'
+      - '/logonpasswordchg:no'
+      - '/times:all'
+  selection_cmdlet:
+    CommandLine|contains:
+      - 'Set-ADAccountPassword'
+      - 'Set-ADAccountControl'
+      - 'Set-LocalUser'
+      - 'Enable-LocalUser'
+      - 'Enable-ADAccount'
+  selection_attr_flag:
+    CommandLine|contains:
+      - 'PasswordNeverExpires'
+      - 'DoesNotRequirePreAuth'
+      - 'AllowReversiblePasswordEncryption'
+  selection_attr_write:
+    CommandLine|contains:
+      - 'Set-ADUser'
+      - 'Set-ADAccountControl'
+      - 'Set-LocalUser'
+  selection_spn_tool:
+    Image|endswith: '\setspn.exe'
+    CommandLine|contains:
+      - ' -a '
+      - ' -s '
+  condition: (selection_net_tool and selection_net_switch) or selection_cmdlet or (selection_attr_flag and selection_attr_write) or selection_spn_tool
+falsepositives:
+  - "Identity operations run from a management host. Password resets and account re-enablement are the two most common helpdesk actions in any organisation, and joiner-mover-leaver automation performs them in bulk on a schedule, so Set-ADAccountPassword and Enable-ADAccount alone can produce dozens to hundreds of matches a day from a handful of admin workstations and IAM connectors. That volume is why this rule is scored low; scope it to accounts and hosts outside the identity team before raising it."
+  - "Service-account provisioning during application installs. SQL Server, Exchange, SharePoint and most Kerberos-authenticating products register a service principal name with setspn -s and set PasswordNeverExpires on the account they run as, as a documented and required install step."
+  - "Local administrator and break-glass password rotation. Scripted rotation tooling calls Set-LocalUser -Password on every host on a fixed cycle, which matches the cmdlet selection on the entire fleet at once."
+  - "Image build and lab provisioning. Golden-image and test-rig scripts commonly run net user Administrator /active:yes or set /expires:never on a local account so that unattended setup can proceed, tripping the net.exe selection on every machine built."
+level: low

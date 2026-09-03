@@ -1,0 +1,63 @@
+title: Systemctl invoked with a state-changing service subcommand
+id: 3fd7546e-d2d5-47cb-98fa-1088db6e9d9d
+status: experimental
+description: |
+  Matches the execution leg of AN0200 on raw auditd: an EXECVE record whose
+  argv[0] is `systemctl` and whose first argument is one of the subcommands that
+  actually make a unit run or persist, rather than one of the many that only
+  report state. MITRE's `SuspiciousSubcommands` knob names start, enable and
+  daemon-reload; the list here is those three plus restart, reenable and link,
+  added by the author because `systemctl link /tmp/evil.service` is the direct
+  expression of the analytic's "services loaded from unusual locations". The
+  logic stays inside one record on purpose. Raw auditd splits an execution across
+  records — `exe`, `uid` and `auid` are on SYSCALL, the arguments on EXECVE — so
+  a selection that gates the binary on `exe` and the subcommand on `a1` can never
+  be true in a single event; matching argv[0] instead keeps both halves on the
+  EXECVE record, and it is anchored with `endswith` because a shell passes the
+  word as typed while a script usually passes `/usr/bin/systemctl`. Two gaps
+  follow from auditd's positional arguments and should be assumed present rather
+  than discovered later: an option placed before the subcommand, as in `systemctl
+  --now enable x`, moves it to `a2` and this rule misses it, and Sigma has no way
+  to say "any argument". The path-carrying form is not gated on either, because
+  the unit path may land in `a2`, `a3` or later depending on options. The
+  analytic's other legs are deliberately not used here: unit-file writes under
+  /etc/systemd/system and /tmp are the mechanism ATT&CK models as T1543.002, and
+  writing them under this technique would file another technique's observable
+  behind the T1569.003 tag; the CONFIG_CHANGE leg records auditd's own ruleset
+  changes, not systemd's. MITRE's `CorrelationWindow` knob, which joins a unit
+  file write to the later systemctl call, needs a timeframe lib/sigma does not
+  model. Prerequisite: auditd records no execve at all by default, so this rule
+  returns zero rows until a rule such as `-a always,exit -F arch=b64 -S execve -k
+  exec` is loaded, and zero rows reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0073, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1569/003
+  - https://attack.mitre.org/detectionstrategies/DET0073
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1569.003
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_execve:
+    type: 'EXECVE'
+    a0|endswith: 'systemctl'
+  selection_subcommand:
+    a1:
+      - 'start'
+      - 'restart'
+      - 'enable'
+      - 'reenable'
+      - 'link'
+      - 'daemon-reload'
+  condition: selection_execve and selection_subcommand
+falsepositives:
+  - "Package installation and upgrade. Debian postinst and RPM scriptlets call `systemctl daemon-reload` and `systemctl start`/`enable` for every unit the package ships, so each apt, dnf or zypper transaction that touches a service produces several matches. On a patched estate this is the highest-volume benign source by a wide margin and is why this rule is low rather than medium."
+  - "Configuration management convergence. The Ansible systemd and service modules, Puppet service resources, Chef and Salt all assert unit state by shelling out to systemctl on every run, producing a match per managed unit per host per run whether or not anything changed."
+  - "Routine administration and deployment. Restarting a web server, database or agent after a configuration change is the ordinary way to apply it, and application deploy pipelines end with `systemctl restart <app>` on every release."
+  - "Host build and first boot: cloud-init, Kickstart and Packer scripts enabling and starting the units a role needs, which produces a burst of matches on every newly created machine."
+  - "Administrators reloading systemd after hand-editing a unit file, where `systemctl daemon-reload` is the documented and required next step."
+level: low

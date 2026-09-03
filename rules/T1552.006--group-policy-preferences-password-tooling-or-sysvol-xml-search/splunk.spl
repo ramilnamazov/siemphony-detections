@@ -1,0 +1,1 @@
+index=* ((CommandLine="*Get-GPPPassword*" OR CommandLine="*gpprefdecrypt*" OR CommandLine="*gpp-decrypt*" OR CommandLine="*gpp_password*" OR CommandLine="*gpp_autologin*" OR CommandLine="*cpassword*" OR CommandLine="*gather/credentials/gpp*") OR (CommandLine="*\\sysvol*" AND CommandLine="*.xml*"))

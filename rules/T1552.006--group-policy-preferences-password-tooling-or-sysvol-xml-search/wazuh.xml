@@ -1,0 +1,23 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(Get-GPPPassword|gpprefdecrypt|gpp-decrypt|gpp_password|gpp_autologin|cpassword|gather/credentials/gpp)</field>
+    <description>Group Policy Preferences password tooling or SYSVOL XML search (1/2)</description>
+    <mitre>
+      <id>T1552.006</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)\\sysvol</field>
+    <field name="CommandLine" type="pcre2">(?i)\.xml</field>
+    <description>Group Policy Preferences password tooling or SYSVOL XML search (2/2)</description>
+    <mitre>
+      <id>T1552.006</id>
+    </mitre>
+  </rule>
+</group>

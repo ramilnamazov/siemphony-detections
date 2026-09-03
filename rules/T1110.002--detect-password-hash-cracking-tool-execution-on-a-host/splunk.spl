@@ -1,0 +1,1 @@
+index=* (Image="*\\hashcat.exe" OR Image="*\\hashcat32.exe" OR Image="*\\hashcat64.exe" OR Image="*\\hashcat-legacy.exe" OR Image="*\\john.exe" OR Image="*\\john-omp.exe" OR Image="*\\john-mmx.exe" OR Image="*\\ophcrack.exe" OR Image="*\\rcrack.exe" OR Image="*\\rcracki_mt.exe" OR Image="*\\l0phtcrack.exe")

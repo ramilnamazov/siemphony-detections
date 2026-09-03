@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((ProcessCommandLine contains "Get-GPPPassword" or ProcessCommandLine contains "gpprefdecrypt" or ProcessCommandLine contains "gpp-decrypt" or ProcessCommandLine contains "gpp_password" or ProcessCommandLine contains "gpp_autologin" or ProcessCommandLine contains "cpassword" or ProcessCommandLine contains "gather/credentials/gpp") or (ProcessCommandLine contains "\\sysvol" and ProcessCommandLine contains ".xml"))

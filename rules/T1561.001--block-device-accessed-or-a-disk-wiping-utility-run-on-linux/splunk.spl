@@ -1,0 +1,1 @@
+index=* ((type="PATH" AND (name="/dev/sd*" OR name="/dev/nvme*" OR name="/dev/vd*" OR name="/dev/xvd*" OR name="/dev/hd*" OR name="/dev/mmcblk*" OR name="/dev/md*" OR name="/dev/dm-*" OR name="/dev/mapper/*" OR name="/dev/disk/*")) OR (type="SYSCALL" AND (exe="*/dd" OR exe="*/shred" OR exe="*/wipe" OR exe="*/nwipe" OR exe="*/scrub" OR exe="*/blkdiscard" OR exe="*/badblocks")))

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\wevtutil.exe" and (ProcessCommandLine contains " cl " or ProcessCommandLine contains " clear-log ")) or (ProcessCommandLine contains "Remove-EventLog" or ProcessCommandLine contains "Clear-EventLog"))

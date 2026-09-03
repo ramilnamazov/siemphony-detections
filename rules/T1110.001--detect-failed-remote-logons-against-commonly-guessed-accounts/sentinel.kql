@@ -1,0 +1,2 @@
+SecurityEvent
+| where (EventID == 4625 and (LogonType == 3 or LogonType == 8 or LogonType == 10) and (SubStatus =~ "0xC000006A" or SubStatus =~ "0xC0000064") and (TargetUserName =~ "administrator" or TargetUserName =~ "admin" or TargetUserName =~ "guest" or TargetUserName =~ "root" or TargetUserName =~ "sa" or TargetUserName =~ "sysadmin" or TargetUserName =~ "oracle" or TargetUserName =~ "postgres" or TargetUserName =~ "ftp" or TargetUserName =~ "test" or TargetUserName =~ "user" or TargetUserName =~ "backup" or TargetUserName =~ "support" or TargetUserName =~ "demo"))

@@ -1,0 +1,2 @@
+DeviceFileEvents
+| where (((FolderPath contains "\\Program Files\\" or FolderPath contains "\\Program Files (x86)\\") and (FolderPath endswith ".exe" or FolderPath endswith ".dll")) and not ((InitiatingProcessFolderPath endswith "\\msiexec.exe" or InitiatingProcessFolderPath endswith "\\TrustedInstaller.exe" or InitiatingProcessFolderPath endswith "\\TiWorker.exe" or InitiatingProcessFolderPath endswith "\\wusa.exe" or InitiatingProcessFolderPath endswith "\\setup.exe")))

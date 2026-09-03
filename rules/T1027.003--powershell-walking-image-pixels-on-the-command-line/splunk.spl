@@ -1,0 +1,1 @@
+index=* (((Image="*\\powershell.exe" OR Image="*\\pwsh.exe") AND (CommandLine="*.png*" OR CommandLine="*.jpg*" OR CommandLine="*.jpeg*" OR CommandLine="*.bmp*" OR CommandLine="*.gif*" OR CommandLine="*.ico*" OR CommandLine="*.wav*")) AND (CommandLine="*GetPixel*" OR CommandLine="*LockBits*" OR CommandLine="*Invoke-PSImage*"))

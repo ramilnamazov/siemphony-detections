@@ -1,0 +1,1 @@
+index=* (((Image="*\\powershell.exe" OR Image="*\\pwsh.exe") AND (CommandLine="*PromptForCredential*" OR CommandLine="*Get-Credential*" OR CommandLine="*Enter your password*" OR CommandLine="*CredentialRequired*")) AND (ParentImage="*\\cmd.exe" OR ParentImage="*\\wscript.exe" OR ParentImage="*\\cscript.exe"))

@@ -1,0 +1,1 @@
+index=* ((type="PATH" AND (name="*/dev/shm/*" OR name="*/run/shm/*")) OR key="shm_write")

@@ -1,0 +1,1 @@
+index=* (TargetObject="*\\AppCompatFlags\\InstalledSDB\\*" OR TargetObject="*\\AppCompatFlags\\Custom\\*")

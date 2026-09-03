@@ -1,0 +1,13 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)\\explorer\.exe$</field>
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$|\\cmd\.exe$|\\conhost\.exe$|\\mshta\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\curl\.exe$|\\msiexec\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i)( -enc | -encodedcommand| -ec |frombase64string|invoke-expression|iex\(|iex |downloadstring|invoke-webrequest|invoke-restmethod|--headless| -w hidden| -windowstyle hidden|http://|https://)</field>
+    <description>Detect an interpreter launched from the shell with a pasted one-liner</description>
+    <mitre>
+      <id>T1204.004</id>
+    </mitre>
+  </rule>
+</group>

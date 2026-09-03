@@ -1,0 +1,13 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4104$</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(ToBase64String|FromBase64String|ToBase64Transform|FromBase64Transform|ToBase64CharArray|FromBase64CharArray|EncodedCommand|BitConverter\]::ToString|GZipStream|DeflateStream)</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(Net\.WebClient|UploadString|UploadData|UploadFile|Invoke-WebRequest|Invoke-RestMethod|HttpWebRequest|Net\.Http\.HttpClient|Net\.Sockets\.TcpClient|Resolve-DnsName)</field>
+    <description>Script block that encodes data and then sends it outbound</description>
+    <mitre>
+      <id>T1132.001</id>
+    </mitre>
+  </rule>
+</group>

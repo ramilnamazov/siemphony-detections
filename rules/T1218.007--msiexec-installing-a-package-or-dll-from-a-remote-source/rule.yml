@@ -1,0 +1,55 @@
+title: Msiexec installing a package or DLL from a remote source
+id: b500ff4d-98fe-4525-b1d7-61b58d6fad07
+status: experimental
+description: |
+  Matches process creation of msiexec.exe whose command line names a package
+  reached over HTTP, HTTPS or FTP, a UNC path, or one of the DLL entry-point
+  switches (`/y` DllRegisterServer, `/z` DllUnRegisterServer) — the three
+  argument shapes AN0445 lists under its SuspiciousCommandlinePatterns knob,
+  populated here with the URL schemes, the UNC prefix and the switch letters
+  that LOLBAS documents for this binary. The UNC leg is written as four
+  backslashes in YAML so Sigma sees the two literal backslashes a UNC prefix
+  needs; two would degrade to "contains a backslash", which every local install
+  satisfies. The rest of AN0445 is a correlation the analytic states plainly —
+  the process creation, then a module load, then a connection to a
+  previously-unseen destination inside TimeWindow — and Sigma has no join and no
+  baseline of seen destinations, so only the process-creation leg is written
+  here; the module-load and network legs are deliberately absent rather than
+  faked with a destination list this brief does not supply. The rule is written
+  in the Sysmon-shaped `process_creation` vocabulary (`Image`, `CommandLine`)
+  that the brief's sigmaLogsource selects; fed from Security 4688 instead, it
+  needs *Audit Process Creation* and the separate *Include command line in
+  process creation events* policy, neither of which is on by default, and a
+  pipeline that maps `Image` onto `NewProcessName`.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0158, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/007
+  - https://attack.mitre.org/detectionstrategies/DET0158
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.007
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_msiexec:
+    Image|endswith: '\msiexec.exe'
+  selection_remote_source:
+    CommandLine|contains:
+      - 'http://'
+      - 'https://'
+      - 'ftp://'
+      - '\\\\'
+  selection_dll_switch:
+    CommandLine|contains|windash:
+      - '/y '
+      - '/z '
+  condition: selection_msiexec and (selection_remote_source or selection_dll_switch)
+falsepositives:
+  - "Enterprise software deployment. Configuration Manager, Intune and Group Policy Software Installation all invoke msiexec against a package on a distribution point or SYSVOL share, so the UNC leg matches every scheduled application install and repair in a managed estate — by a wide margin the highest-volume match this rule produces, and the reason the level is not higher."
+  - "Vendor updaters and bootstrappers that hand msiexec an HTTPS package URL directly rather than downloading first, which run unattended under SYSTEM on a patch cadence and hit the http/https leg."
+  - "Windows Installer resiliency. When a product installed from a network location needs a repair, the installer re-runs the original source path, reproducing the UNC command line long after the deployment window closed."
+  - "Manual administration and troubleshooting, where an admin registers or unregisters an MSI-shipped DLL with msiexec /y or /z, or a vendor install guide instructs them to."
+level: medium

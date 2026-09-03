@@ -1,0 +1,53 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 5 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\sc\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)query</field>
+    <description>Service enumeration via sc query, net start, WMI or Get-Service (1/5)</description>
+    <mitre>
+      <id>T1007</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\tasklist\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(-svc|/svc|–svc|—svc|―svc)</field>
+    <description>Service enumeration via sc query, net start, WMI or Get-Service (2/5)</description>
+    <mitre>
+      <id>T1007</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\net\.exe$|\\net1\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i) start$</field>
+    <description>Service enumeration via sc query, net start, WMI or Get-Service (3/5)</description>
+    <mitre>
+      <id>T1007</id>
+    </mitre>
+  </rule>
+
+  <rule id="100003" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\wmic\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)service</field>
+    <description>Service enumeration via sc query, net start, WMI or Get-Service (4/5)</description>
+    <mitre>
+      <id>T1007</id>
+    </mitre>
+  </rule>
+
+  <rule id="100004" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(Get-Service|Get-CimInstance -ClassName Win32_Service|Get-CimInstance Win32_Service|Get-WmiObject -Class Win32_Service|Get-WmiObject Win32_Service)</field>
+    <description>Service enumeration via sc query, net start, WMI or Get-Service (5/5)</description>
+    <mitre>
+      <id>T1007</id>
+    </mitre>
+  </rule>
+</group>

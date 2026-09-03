@@ -1,0 +1,1 @@
+index=* (Image="*\\tasklist.exe" OR (CommandLine="*Get-Process*" OR CommandLine="*Get-CimInstance -ClassName Win32_Process*" OR CommandLine="*Get-CimInstance Win32_Process*" OR CommandLine="*Get-WmiObject -Class Win32_Process*" OR CommandLine="*Get-WmiObject Win32_Process*") OR (Image="*\\wmic.exe" AND CommandLine="*process*"))

@@ -1,0 +1,53 @@
+title: Window enumeration entry points in a PowerShell script block
+id: 65378270-076b-45b9-9d5d-d7b7edc5a7d3
+status: experimental
+description: |
+  AN0271 offers two Windows sources and only one of them can carry this
+  behaviour. Enumerating windows through user32 reads the window manager; it does
+  not open a handle on the process that owns the window, so Sysmon process access
+  events are not emitted for EnumWindows or GetWindowText and a process_access
+  rule for this technique would render in every backend and match nothing. This
+  rule therefore takes the PowerShell script block leg, matching the user32 entry
+  points that window enumeration goes through together with the .NET
+  MainWindowTitle property, which is how the same listing is usually obtained
+  without a P/Invoke declaration at all. Those names populate MITRE's
+  AccessedFunction knob and are authored here rather than supplied by MITRE; the
+  UserContext and TimeWindow knobs need session attributes and counting over an
+  interval, neither of which Sigma expresses, so this is a content test on the
+  script text alone. It follows that only enumeration written in PowerShell is
+  visible: a compiled implant calling EnumWindows through the API leaves nothing
+  in this channel, and the rule sees the script that was compiled rather than
+  proof any window was actually listed. EventID 4104 requires PowerShell Script
+  Block Logging, which is off in a default install, so confirm it is enabled
+  before treating an absence of hits as an absence of enumeration.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0097, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1010
+  - https://attack.mitre.org/detectionstrategies/DET0097
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1010
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_event:
+    EventID: 4104
+  selection_enumeration:
+    ScriptBlockText|contains:
+      - 'EnumWindows'
+      - 'EnumChildWindows'
+      - 'GetForegroundWindow'
+      - 'GetWindowText'
+      - 'GetWindowTextLength'
+      - 'GetWindowThreadProcessId'
+      - 'MainWindowTitle'
+  condition: selection_event and selection_enumeration
+falsepositives:
+  - "Software deployment and patch remediation scripts that check for open application windows before forcing a restart or closing a program, which read MainWindowTitle off Get-Process, ship with management suites and run on a schedule across the whole estate — the dominant benign volume here."
+  - "PowerShell scripts that build a graphical interface or manage their own console window, since WinForms and WPF helper snippets routinely P/Invoke GetForegroundWindow and GetWindowText from user32.dll to raise, hide or position a window."
+  - "Robotic process automation and help-desk tooling that drives a desktop application by enumerating its child windows, and desktop inventory agents that report which applications a user currently has open."
+  - "Administrators pasting a diagnostic one-liner that lists window titles to identify a hung application, which is logged identically to the same one-liner typed by an intruder."
+level: low

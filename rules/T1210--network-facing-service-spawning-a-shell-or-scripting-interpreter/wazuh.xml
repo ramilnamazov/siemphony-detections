@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\w3wp\.exe$|\\httpd\.exe$|\\nginx\.exe$|\\tomcat9\.exe$|\\tomcat10\.exe$|\\sqlservr\.exe$|\\mysqld\.exe$|\\postgres\.exe$|\\spoolsv\.exe$|\\dns\.exe$|\\sshd\.exe$)</field>
+    <field name="Image" type="pcre2">(?i)(\\cmd\.exe$|\\powershell\.exe$|\\pwsh\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\bitsadmin\.exe$|\\certutil\.exe$|\\curl\.exe$|\\net\.exe$|\\net1\.exe$)</field>
+    <description>Network-facing service spawning a shell or scripting interpreter</description>
+    <mitre>
+      <id>T1210</id>
+    </mitre>
+  </rule>
+</group>

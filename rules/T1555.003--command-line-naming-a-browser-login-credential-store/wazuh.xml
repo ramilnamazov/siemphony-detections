@@ -1,0 +1,11 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(\\Login Data|logins\.json|key4\.db)</field>
+    <description>Command line naming a browser login-credential store</description>
+    <mitre>
+      <id>T1555.003</id>
+    </mitre>
+  </rule>
+</group>

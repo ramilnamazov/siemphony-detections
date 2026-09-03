@@ -1,0 +1,64 @@
+title: SSSD Kerberos secrets database opened on Linux
+id: 78d709f5-f594-4548-8643-c74c5325a299
+status: experimental
+description: |
+  AN1444 is the only leg of DET0522 whose observable survives as a single event:
+  a process touching the SSSD secrets store, `/var/lib/sss/secrets/secrets.ldb`
+  and its master key `.secrets.mkey`, which on a domain-joined Linux host holds
+  the cached Kerberos key material an adversary needs before any ticket can be
+  reused or forged. The match is on the auditd PATH record's own `name` field,
+  and it is split into an absolute-path selection and a filename selection
+  because auditd records `name=` exactly as it was handed to the syscall, so a
+  copy run from inside the directory logs a bare `secrets.ldb`. Two limits are
+  structural rather than chosen. auditd emits PATH and SYSCALL as separate
+  records for one event, so the reading process's `exe`, `uid` and `auid` live
+  on the other record and MITRE's `UnusualServiceAccounts` knob cannot be
+  applied inside this selection — sssd's own daemons cannot be excluded here.
+  MITRE's `SecretsAccessThreshold` knob is a frequency test, which lib/sigma has
+  no aggregation or timeframe to express, so this fires on the first access
+  rather than on an unusual rate. It deliberately overlaps the T1003.005 rule in
+  this corpus, which matches `/var/lib/sss/secrets` on a Linux process_creation
+  command line: that rule sees the path an operator typed, this one sees the file
+  actually opened, so each catches what the other structurally misses — a reader
+  invoked with a bare filename or through a runtime-built path leaves nothing on
+  a command line, and a process that never opens the file leaves no PATH record.
+  The brief's other legs were not attempted: the
+  Windows Security leg is scoped to EventID 4672 and 4634, neither of which
+  carries a ticket encryption type, ticket options or a TGT/TGS distinction, so
+  the analytic's stated discriminators cannot be written against it, and its
+  Sysmon Process Access leg reduces to an LSASS handle with dump rights, already
+  published in this corpus under T1003.001 with no field able to separate ticket
+  extraction from any other credential dump. The macOS leg AN1445 is unifiedlog
+  prose with no standardised Sigma field names. Prerequisite: auditd watches
+  nothing under /var/lib/sss by default, so this rule returns zero rows until a
+  watch such as `-w /var/lib/sss/secrets/ -p rwa -k kerberos_secrets` is loaded,
+  and zero rows reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0522, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1558
+  - https://attack.mitre.org/detectionstrategies/DET0522
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1558
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_path:
+    type: 'PATH'
+    name|startswith: '/var/lib/sss/secrets/'
+  selection_name:
+    type: 'PATH'
+    name|endswith:
+      - 'secrets.ldb'
+      - 'secrets.mkey'
+  condition: 1 of selection*
+falsepositives:
+  - "SSSD's own daemons. sssd_be, sssd_nss and the sssd_secrets responder open secrets.ldb and .secrets.mkey as their normal function on every cached credential lookup and every offline authentication, and because the accessing process lives on the SYSCALL record rather than the PATH record it cannot be excluded from this selection. Under a watch that includes r this is the overwhelming majority of matches on any domain-joined host, which is why the level is low."
+  - "Enrolment and re-enrolment tooling: realm join, adcli, ipa-client-install and authselect write the SSSD secrets store as part of joining or rejoining the host to a directory, and every rebuilt or reimaged machine produces a burst of matching records."
+  - "Package upgrades and service restarts. Updating the sssd package replaces or reopens the database from its postinst scripts, and systemctl restart sssd reopens both files on every start."
+  - "Backup, imaging and compliance agents that walk /var/lib in full — rsync, tar, Bacula, Veeam and BorgBackup all read the secrets store on a scheduled sweep, as do file integrity monitors such as AIDE and Tripwire when they rebuild their baseline."
+  - "An administrator running sssctl or SSSD's own troubleshooting steps, which read the secrets database directly when diagnosing an offline-authentication or cached-credential problem."
+level: low

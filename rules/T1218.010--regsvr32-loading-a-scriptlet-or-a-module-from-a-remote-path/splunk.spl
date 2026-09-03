@@ -1,0 +1,1 @@
+index=* (Image="*\\regsvr32.exe" AND ((CommandLine="*http://*" OR CommandLine="*https://*" OR CommandLine="*ftp://*" OR CommandLine="*\\\\*") OR (CommandLine="*scrobj.dll*" OR CommandLine="*.sct*")))

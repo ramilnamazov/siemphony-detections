@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*/docker" OR TO_LOWER(process.executable) LIKE "*/podman" OR TO_LOWER(process.executable) LIKE "*/nerdctl") AND (TO_LOWER(process.command_line) LIKE "*--restart=always*" OR TO_LOWER(process.command_line) LIKE "*--restart always*" OR TO_LOWER(process.command_line) LIKE "*--restart=unless-stopped*" OR TO_LOWER(process.command_line) LIKE "*--restart unless-stopped*"))

@@ -1,0 +1,43 @@
+title: External device of a code-execution or network class attached
+id: 04e9bd1e-47a5-40b9-9650-254b34a31f48
+status: experimental
+description: |
+  Matches Security EventID 6416, "a new external device was recognized by the
+  system", narrowed to the device classes that can carry a hardware addition
+  rather than merely store data: human interface devices (keystroke injection),
+  network adapters (rogue USB-NIC or adversary-in-the-middle tap) and disk or
+  SCSI controllers (DMA-capable and mass-storage arrivals). The logsource is the
+  Security channel, so `EventID` is matched explicitly. MITRE's AN0185 is a
+  correlation — device arrival, then a volume mount or process spawn by the same
+  session inside TimeWindow, optionally a new MAC taking a DHCP lease — and none
+  of that is expressible in Sigma, so this is the arrival leg only. Coverage for
+  this technique is inherently weak: 6416 records that a device appeared, not
+  whether it is malicious, and the VID/PID allowlisting MITRE relies on has to
+  happen outside the rule.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0069, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1200
+  - https://attack.mitre.org/detectionstrategies/DET0069
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.t1200
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 6416
+    ClassName:
+      - 'HIDClass'
+      - 'Net'
+      - 'DiskDrive'
+      - 'SCSIAdapter'
+  condition: selection
+falsepositives:
+  - "Everyday peripheral use on workstations and laptops. A user plugging in a keyboard, mouse, headset, dock or USB hub emits HIDClass arrivals constantly, and a dock also brings a Net-class adapter with it. MITRE's TrustedDeviceVIDPID and TrustedMACs knobs are the intended filter, and neither is available in the 6416 fields this rule matches, so the practical deployment is to scope the rule to the ServerClassesNoUSB population — domain controllers, hypervisors and other hosts where any external attach is policy-violating."
+  - "Corporate imaging, repair and provisioning work, where technicians attach external drives, USB-to-Ethernet adapters and bootable media as a routine part of the job, generating DiskDrive and Net arrivals in bulk during a build window."
+  - "Virtual and remote-desktop sessions that redirect client peripherals into the guest, which surface as fresh device recognitions on the guest at every logon even though no physical hardware was added."
+  - "Docking and undocking a laptop, which replays the whole peripheral set through 6416 several times a day per user."
+level: low

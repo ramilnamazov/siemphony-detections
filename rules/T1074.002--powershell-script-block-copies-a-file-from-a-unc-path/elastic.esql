@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((event.code == 4104 AND (TO_LOWER(powershell.file.script_block_text) LIKE "*copy-item*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*copy-item*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*robocopy*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*robocopy*")) AND TO_LOWER(powershell.file.script_block_text) LIKE "*\\\\\\\\*")

@@ -1,0 +1,61 @@
+title: Hypervisor CLI or cmdlet used to list virtual machines
+id: 08e2ae94-3c36-494d-9706-a3c67bdd193b
+status: experimental
+description: |
+  Matches the enumeration half of AN0574: a virtualisation management binary
+  invoked with a listing verb, and the PowerShell route through the Get-VM
+  family. The tool list is the analytic's own naming, populated here with the
+  Workstation CLI (vmrun.exe), the VirtualBox CLI (VBoxManage.exe) and the
+  Windows PowerShell hosts; the verb gate is what separates discovery from
+  ordinary VM lifecycle work, because VBoxManage.exe startvm and vmrun.exe
+  start are the same binaries doing something that is not this technique. The
+  Get-VM selection deliberately matches the prefix rather than the exact
+  cmdlet, so Get-VMHost, Get-VMSwitch and Get-VMGuest are caught alongside it;
+  all of them are the same enumeration step against a different object.
+  Three gaps to be plain about. The brief maps Security EventID 4688 onto
+  Sigma's process_creation category, which is Sysmon-shaped, so this rule is
+  written in that vocabulary (Image, CommandLine) — a Sysmon EventID 1 feed
+  matches directly, while a 4688 feed needs NewProcessName mapped onto Image
+  first, plus Audit Process Creation enabled and the separate "Include command
+  line in process creation events" policy, without which CommandLine is empty
+  and no selection in this rule can ever match. A cmdlet typed into an already
+  running console, or called from inside a .ps1, never appears on any process
+  command line at all; that route is only visible on PowerShell EventID 4104
+  with Script Block Logging enabled, which is a different logsource and cannot
+  be joined here. Finally, ESXi is where this technique matters most and the
+  esxcli and vim-cmd invocations MITRE cites run on the hypervisor itself,
+  which emits no Windows process creation events — this rule does not reach
+  them.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0199, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1673
+  - https://attack.mitre.org/detectionstrategies/DET0199
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1673
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_vm_cli:
+    Image|endswith:
+      - '\vmrun.exe'
+      - '\VBoxManage.exe'
+    CommandLine|contains:
+      - ' list'
+      - ' showvminfo'
+  selection_powershell:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+    CommandLine|contains:
+      - 'Get-VM'
+  condition: 1 of selection*
+falsepositives:
+  - "Backup, replication and monitoring agents on virtualisation hosts. Veeam, DPM and Zabbix/Nagios check scripts call powershell.exe -Command Get-VM on a schedule to build their inventory, so on any Hyper-V or vCenter-managed host this is the highest-volume match by a wide margin — a fixed rhythm from a service account, once per poll interval per host — and is why this rule is low rather than medium."
+  - "Vagrant and Packer on developer workstations and build agents. The VirtualBox provider shells out to VBoxManage.exe list vms and VBoxManage.exe showvminfo on every vagrant up, vagrant status and vagrant halt, and Packer does the same during each image build, so an ordinary developer day produces dozens of matches from a legitimate parent."
+  - "Administrators and inventory tooling doing exactly what the technique describes, benignly — an operator running Get-VM to see what is on a host before patching, or a nightly asset-collection script that reports VM names into a CMDB. Nothing in this rule distinguishes that from an adversary's first look at the same host; only the account and the parent process do."
+  - "Virtualisation product self-checks and installers, where the vendor's own updater or diagnostics bundle runs vmrun.exe list to confirm nothing is running before an upgrade, appearing as a one-off burst across the fleet during a rollout."
+level: low

@@ -1,0 +1,66 @@
+title: Remote memory write handle without remote-thread rights
+id: b927cdb6-59b1-4468-bd9f-922b8c55b074
+status: experimental
+description: |
+  AN0822 describes a chain of OpenThread, SuspendThread, VirtualAllocEx,
+  WriteProcessMemory, SetThreadContext and ResumeThread against a live process.
+  Only one link in that chain reaches a log source in this brief: the process
+  handle the injector must hold before it can allocate and write, which Sysmon
+  EventID 10 records with its access mask. The rule therefore matches handles
+  granting memory operation and remote memory write on one of the long-lived
+  hosts an injector picks, and deliberately matches only masks that do NOT
+  include PROCESS_CREATE_THREAD — an actor who intends to redirect a thread
+  that already exists has no reason to ask for the right to create one, and
+  that absence is the only thing on this feed that separates thread hijacking
+  from the remote-thread injection published at T1055.001 and T1055.002. The
+  mask list and the target list are authored here; MITRE names the knobs
+  (TargetProcessList, populated here with the shell, session and service
+  hosts, plus TimeWindow and SuspiciousThreadContextRegions, neither of which
+  is expressible without correlation). Limits worth knowing before you trust a
+  quiet result: Sysmon's ProcessAccess callback covers process objects only, so
+  OpenThread, SuspendThread and SetThreadContext produce no event at all, and
+  create_remote_thread (EventID 8) is listed in this brief but is the wrong
+  feed here by construction — this technique reuses an existing thread rather
+  than creating one, so a selector on EventID 8 could never fire for it. An
+  injector that asks for full access (0x1FFFFF) is also missed here and lands
+  in the T1055.001 mask list instead. Prerequisite: Sysmon emits EventID 10
+  only where the configuration carries a ProcessAccess rule, and the common
+  baseline configurations scope that to lsass.exe alone — on such a host this
+  rule returns zero rows, and zero rows reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0295, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1055/003
+  - https://attack.mitre.org/detectionstrategies/DET0295
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1055.003
+logsource:
+  category: process_access
+  product: windows
+detection:
+  selection_target:
+    TargetImage|endswith:
+      - '\explorer.exe'
+      - '\svchost.exe'
+      - '\dllhost.exe'
+      - '\taskhostw.exe'
+      - '\winlogon.exe'
+      - '\spoolsv.exe'
+  selection_write:
+    GrantedAccess:
+      - '0x1438'
+      - '0x1428'
+      - '0x438'
+      - '0x428'
+      - '0x38'
+      - '0x28'
+  condition: selection_target and selection_write
+falsepositives:
+  - "Hooking and application-compatibility frameworks, which are the dominant source and the reason this rule is not rated higher. Detours-style shim engines, licence and DRM wrappers and anti-cheat clients patch a trampoline into a running shell or service host by opening exactly a memory-operation plus memory-write handle and never asking for create-thread rights, and they do it on every launch of the wrapped application."
+  - "Endpoint protection, DLP and application-control agents that write configuration blobs or hook stubs into svchost.exe and explorer.exe from their own service. These come from a small, stable set of SourceImage values per estate, which is where the exclusion belongs."
+  - "Accessibility software, input-method editors and shell-extension hosts that write into explorer.exe to install a UI hook, plus screen-recording and remote-support products doing the same to capture the desktop."
+  - "Debuggers and live memory editors attached to a service host by a developer or by an automated hang investigation, which request query, read and write rights against the process under analysis without creating a thread in it."
+level: medium

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(type) == "syscall" AND TO_LOWER(syscall) == "execve" AND (TO_LOWER(exe) LIKE "*/flashrom" OR TO_LOWER(exe) LIKE "*/fwupdmgr" OR TO_LOWER(exe) LIKE "*/fwupdtool"))

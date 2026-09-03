@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(reg query|reg\.exe query|Get-ItemProperty|Get-ItemPropertyValue|Get-ChildItem HKLM|Get-ChildItem -Path HKLM)</field>
+    <field name="CommandLine" type="pcre2">(?i)(Windows NT\\CurrentVersion|CurrentVersion\\Uninstall|CurrentVersion\\Policies\\System|Microsoft\\Cryptography|Microsoft\\Windows Defender|Control\\SystemInformation|Control\\Terminal Server|HARDWARE\\DESCRIPTION\\System|Services\\Disk\\Enum)</field>
+    <description>Registry queried for host, software or security configuration</description>
+    <mitre>
+      <id>T1012</id>
+    </mitre>
+  </rule>
+</group>

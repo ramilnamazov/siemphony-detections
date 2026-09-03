@@ -1,0 +1,13 @@
+<group name="sigma,windows,network_connection,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Initiated" type="pcre2">(?i)^true$</field>
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$|\\python\.exe$|\\pythonw\.exe$|\\node\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\rundll32\.exe$|\\regsvr32\.exe$)</field>
+    <field name="DestinationPort" type="pcre2">(?i)(^1883$|^8883$|^5672$|^5671$|^5222$|^5223$|^61613$|^61614$)</field>
+    <description>Script host or proxy binary connecting to a message broker port</description>
+    <mitre>
+      <id>T1071.005</id>
+    </mitre>
+  </rule>
+</group>

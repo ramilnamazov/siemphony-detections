@@ -1,0 +1,49 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 5 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)\\WmiPrvSE\.exe$</field>
+    <description>Detect WMI method invocation and WMI-spawned child processes (1/5)</description>
+    <mitre>
+      <id>T1047</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(?=.*(?:process))(?=.*(?:call))(?=.*(?:create)).*</field>
+    <description>Detect WMI method invocation and WMI-spawned child processes (2/5)</description>
+    <mitre>
+      <id>T1047</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(?=.*(?:/node:))(?=.*(?:call)).*</field>
+    <description>Detect WMI method invocation and WMI-spawned child processes (3/5)</description>
+    <mitre>
+      <id>T1047</id>
+    </mitre>
+  </rule>
+
+  <rule id="100003" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(?=.*(?:Win32_Process))(?=.*(?:Create)).*</field>
+    <description>Detect WMI method invocation and WMI-spawned child processes (4/5)</description>
+    <mitre>
+      <id>T1047</id>
+    </mitre>
+  </rule>
+
+  <rule id="100004" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(Invoke-WmiMethod|Invoke-CimMethod)</field>
+    <description>Detect WMI method invocation and WMI-spawned child processes (5/5)</description>
+    <mitre>
+      <id>T1047</id>
+    </mitre>
+  </rule>
+</group>

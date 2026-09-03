@@ -1,0 +1,60 @@
+title: Script host or signed proxy binary connecting to mail ports
+id: 4fdb79ba-7a08-495f-a01f-9621f93c1ed7
+status: experimental
+description: |
+  AN0379's Windows leg reduced to what a single Sysmon EventID 3 record can
+  carry: a scripting engine or signed proxy binary — never a mail client —
+  opening an outbound connection to an SMTP, IMAP or POP3 service port.
+  `Initiated`, `Image` and `DestinationPort` are all network-connection fields,
+  so the whole selection evaluates on one event and no process-creation field
+  is mixed in. It sees the connection and nothing of its contents, so it cannot
+  separate mail-protocol C2 from a script that legitimately sends mail: MITRE's
+  AttachmentType knob, and the outbound-to-inbound ratio idea AN0382 builds on,
+  both need Zeek smtp.log, which this log source is not. The port list is
+  MITRE's DestPortFilter knob populated here with the standard submission,
+  relay and retrieval ports, and the process list is the ProcessImageName knob
+  populated with script hosts and download-capable signed binaries. Requires
+  Sysmon installed with network-connection logging enabled and not trimmed to a
+  handful of ports — it is absent from a bare Windows install and filtered hard
+  in most shipped configurations, so an empty result means blind, not clean.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0135, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1071/003
+  - https://attack.mitre.org/detectionstrategies/DET0135
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1071.003
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection:
+    Initiated: 'true'
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+      - '\curl.exe'
+      - '\python.exe'
+    DestinationPort:
+      - 25
+      - 465
+      - 587
+      - 110
+      - 995
+      - 143
+      - 993
+  condition: selection
+falsepositives:
+  - "Administrative and monitoring scripts that send mail. Send-MailMessage and the .NET SmtpClient are the ordinary way a scheduled PowerShell job reports a backup result or a disk-space alert, and the resulting event is a script host talking to port 25 or 587 — exactly the tuple selected here. In most estates this is the single largest source of hits and it has to be baselined by account and destination before the rule is worth alerting on."
+  - "Python-based agents and line-of-business tooling bundled with their own interpreter, which show up as python.exe reaching a mail relay on a fixed schedule from a small set of servers."
+  - "curl.exe is shipped in Windows and is a supported mail client, so any integration or CI step that posts to an IMAPS or SMTPS endpoint with it matches without anything unusual happening."
+  - "Mail relays and connectors reached over the retrieval ports by inventory or migration utilities during a mailbox move, which is rare but produces a burst rather than a single event."
+level: medium

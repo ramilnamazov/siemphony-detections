@@ -1,0 +1,59 @@
+title: Process opens its own /proc/self/status, a common debugger-presence check
+id: 2268b629-df9b-4b6a-9ff4-9a7e805ef260
+status: experimental
+description: |
+  AN1046 asks for access to `/proc/self/status` with attention to the
+  `TracerPID` field, the standard Linux way of asking "is something tracing
+  me" without calling `ptrace()` directly (a non-zero `TracerPID` means a
+  debugger or strace-like tool is attached). This rule matches an auditd
+  `PATH` record naming that exact path — the literal string a process passes
+  to `open`/`openat` when it queries itself this way, since `/proc/self` is
+  a kernel-resolved symlink to the caller's own PID and so appears verbatim
+  in the syscall argument rather than as a numeric PID. It does not attempt
+  to read `TracerPID` out of the file's contents: auditd's PATH record
+  carries only the name that was opened, never the bytes subsequently read,
+  so this rule can only place "something asked", not "and the answer was
+  non-zero" — a benign self-check and a successful evasion look identical on
+  this log source. The Windows leg AN1045 is not attempted at all: its only
+  log source is Sysmon EventID 1 (process_creation), a launch record with no
+  view into a running process's own calls, and `IsDebuggerPresent()`,
+  `NtQueryInformationProcess()`, the PEB `BeingDebugged` flag and repeated
+  `OutputDebugStringW()` calls MITRE describes are all in-process API calls
+  that create no process and leave nothing on this channel — a selector
+  built from those names would validate clean, render in four backends and
+  never fire once, on any host, against any sample. The macOS leg AN1047
+  (`ptrace` with `PTRACE_TRACEME`) is not attempted either: its log source
+  is `macos:unifiedlog`, which has no standardised Sigma field vocabulary
+  anywhere in this corpus, the same blocker recorded against it for other
+  techniques. A PATH record for this path requires auditd to already be
+  watching the syscall that opened it; a static `-w` watch cannot target
+  `/proc/self/status` by inode the way it can a real file, since `self` is a
+  different symlink target for every calling process, so this needs a broad
+  `-S openat` (or `open`) audit rule with `-F success=1` rather than a path
+  watch. That is far higher-volume than a watch and is not present in any
+  mainstream default auditd configuration; without it, an empty result means
+  the telemetry is off, not that nothing checked for a debugger.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0371, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1622
+  - https://attack.mitre.org/detectionstrategies/DET0371
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.discovery
+  - attack.t1622
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_path_record:
+    type: 'PATH'
+  selection_target:
+    name: '/proc/self/status'
+  condition: selection_path_record and selection_target
+falsepositives:
+  - "Self-monitoring and health-check libraries that report a process's own memory or thread usage by reading /proc/self/status directly — memory-usage helpers such as pidusage-style Node modules, Java and Go diagnostic agents, and Prometheus-style self-metrics exporters all do this on a fixed polling interval, and on a host running one this is by far the highest-volume match."
+  - "Process supervisors and service managers (systemd units, runit, container-runtime health probes) that read their own /proc/self/status to enforce a memory or resource limit as part of routine supervision, not inspection of an external target."
+  - "Language runtimes and garbage collectors under memory pressure that consult their own /proc/self/status for RSS or VmSize before deciding to shrink a heap or log a warning, which fires under normal load on long-running services rather than in response to anything unusual."
+level: low

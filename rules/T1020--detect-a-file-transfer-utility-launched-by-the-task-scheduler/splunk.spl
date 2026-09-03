@@ -1,0 +1,1 @@
+index=* ((ParentImage="*\\svchost.exe" OR ParentImage="*\\taskeng.exe") AND (Image="*\\curl.exe" OR Image="*\\wget.exe" OR Image="*\\bitsadmin.exe" OR Image="*\\ftp.exe" OR Image="*\\rclone.exe" OR Image="*\\scp.exe" OR Image="*\\sftp.exe" OR Image="*\\pscp.exe" OR Image="*\\psftp.exe" OR Image="*\\winscp.com" OR Image="*\\winscp.exe"))

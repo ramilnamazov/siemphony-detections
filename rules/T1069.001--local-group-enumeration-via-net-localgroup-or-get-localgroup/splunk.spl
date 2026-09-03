@@ -1,0 +1,1 @@
+index=* (((Image="*\\net.exe" OR Image="*\\net1.exe") AND CommandLine="* localgroup*") OR CommandLine="*Get-LocalGroup*")

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*/nsenter" AND (TO_LOWER(CommandLine) LIKE "*-t 1 *" OR TO_LOWER(CommandLine) LIKE "*--target 1 *" OR TO_LOWER(CommandLine) LIKE "*--target=1 *" OR TO_LOWER(CommandLine) LIKE "*/proc/1/ns*")) OR (TO_LOWER(CommandLine) LIKE "*release_agent*" OR TO_LOWER(CommandLine) LIKE "*notify_on_release*" OR TO_LOWER(CommandLine) LIKE "*/proc/sys/kernel/core_pattern*"))

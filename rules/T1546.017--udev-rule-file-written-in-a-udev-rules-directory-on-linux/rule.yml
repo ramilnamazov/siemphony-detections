@@ -1,0 +1,69 @@
+title: Udev rule file written in a udev rules directory on Linux
+id: cfa2e5ac-92fc-4b6f-9231-d7bf79ced4a3
+status: experimental
+description: |
+  Matches an auditd PATH record naming a file inside one of the five directories
+  udev reads rules from, which is where this technique plants the `RUN+=` or
+  `IMPORT{program}` key it wants systemd-udevd to execute the next time a
+  matching device event fires. The directory list is MITRE's `UdevRulePath`
+  knob, populated here with the five paths the technique text names, and it is
+  split across three selections purely to record where the noise comes from: the
+  vendor trees under /usr/lib and /lib are rewritten by ordinary package
+  installs, while /etc, /run and /usr/local are where a rule gets placed by hand
+  — by an administrator, or by an adversary who already has root. The bare /lib
+  tree is anchored with startswith rather than contains, because as a substring
+  it also swallows /usr/lib and /usr/local/lib and would put the hand-placed
+  path on the package-noise side of that split. Three limits
+  are structural. auditd records `name=` exactly as it was handed to the
+  syscall, so an editor invoked from inside /etc/udev/rules.d writes a bare
+  `99-persist.rules` and is missed by every one of these directory anchors. The
+  PATH record carries no file content, so MITRE's `SuspiciousRunPattern` knob —
+  the entire question of whether the new rule contains a `RUN+=` at all — cannot
+  be applied inside this selection, and every rules-file write matches equally.
+  And the analytic's second half, an unexpected process spawning from a
+  systemd-udevd fork inside MITRE's `TimeWindow` knob, is a cross-event
+  correlation lib/sigma has no way to express, so the execution leg of AN1056 is
+  not attempted here. Prerequisite: auditd watches none of these directories in
+  a default install, so this rule returns zero rows until watches such as
+  `-w /etc/udev/rules.d/ -p wa -k udev` are loaded, and zero rows reads as quiet
+  when it actually means blind. The `wa` permission also matters for volume:
+  with it only writes and attribute changes are recorded, whereas a watch that
+  includes `r` makes every udev rule reload match as well. The selection is
+  written in the raw auditd record vocabulary — one document per record, with
+  `type=PATH` and `name=`. A pipeline that collapses the SYSCALL, CWD and PATH
+  records of one event into a single document, as the Auditbeat auditd module
+  does, has no `type=PATH` document at all and carries the filenames under
+  `auditd.paths`; there this rule needs a field mapping before it can match.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0375, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/017
+  - https://attack.mitre.org/detectionstrategies/DET0375
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1546.017
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_admin_paths:
+    type: 'PATH'
+    name|contains:
+      - '/etc/udev/rules.d/'
+      - '/run/udev/rules.d/'
+      - '/usr/local/lib/udev/rules.d/'
+  selection_vendor_usr:
+    type: 'PATH'
+    name|contains: '/usr/lib/udev/rules.d/'
+  selection_vendor_root:
+    type: 'PATH'
+    name|startswith: '/lib/udev/rules.d/'
+  condition: 1 of selection*
+falsepositives:
+  - "Package installation and upgrade, which is the loudest match here by a wide margin and the reason the level is low. systemd, udisks2, libinput, NVIDIA and AMD graphics drivers, docker, libvirt and most printer and scanner packages all drop .rules files into /usr/lib/udev/rules.d or /lib/udev/rules.d from their post-install scripts, so every apt or dnf transaction on a watched host emits a burst of matching PATH records."
+  - "Configuration management writing device rules on every converge. Ansible, Puppet, Chef and Salt commonly template a multipath rule, a persistent network-interface-naming rule, or a GPU or USB-dongle permission rule into /etc/udev/rules.d, and re-write the file on each run whether or not its content changed."
+  - "Runtime rule generation during boot and device assembly. cloud-init, LVM and mdadm write rules into /run/udev/rules.d on cloud and storage hosts, so those systems match on every reboot rather than only when something is installed."
+  - "An administrator adding a rule by hand for a USB serial adapter, a hardware security token or a backup disk trigger. Editors such as vim and nano write through a temporary file and rename it into place, so a single interactive edit produces several PATH records naming the same target."
+level: low

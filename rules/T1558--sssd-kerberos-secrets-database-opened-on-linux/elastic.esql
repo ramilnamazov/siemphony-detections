@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "path" AND TO_LOWER(name) LIKE "/var/lib/sss/secrets/*") OR (TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*secrets.ldb" OR TO_LOWER(name) LIKE "*secrets.mkey")))

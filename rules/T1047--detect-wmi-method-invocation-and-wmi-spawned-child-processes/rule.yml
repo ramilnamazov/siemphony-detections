@@ -1,0 +1,55 @@
+title: Detect WMI method invocation and WMI-spawned child processes
+id: f950254a-bf01-4f34-8eeb-3c6bdb58dce8
+status: experimental
+description: |
+  Matches T1047 where it lands on the victim rather than on the operator's
+  console: any process whose parent is `WmiPrvSE.exe`, which is what remote WMI
+  execution produces on the target — wmiexec, the COM API and
+  `Invoke-WmiMethod -ComputerName` all arrive that way and carry none of the
+  literals an operator types. The command-line arms cover the local forms and
+  are ANDed token-wise rather than as one contiguous substring, so
+  `wmic  process  call  create` with doubled spaces still matches, and `/node:`
+  is bound to `call` so read-only remote inventory (`wmic /node:HOST os get
+  caption`) stays out of scope — unbound, that one term is the noisiest thing
+  in a managed Windows estate and outnumbers real execution by orders of
+  magnitude. OR-ing `ParentImage` against `CommandLine` is what Wazuh cannot
+  express in a single rule; the parent arm is worth the refusal because it is
+  the only arm that sees the remote case at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0364, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1047
+  - https://attack.mitre.org/detectionstrategies/DET0364
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1047
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_wmi_host_child:
+    ParentImage|endswith: '\WmiPrvSE.exe'
+  selection_wmic_create:
+    CommandLine|contains|all:
+      - 'process'
+      - 'call'
+      - 'create'
+  selection_wmic_remote_call:
+    CommandLine|contains|all:
+      - '/node:'
+      - 'call'
+  selection_wmi_class_create:
+    CommandLine|contains|all:
+      - 'Win32_Process'
+      - 'Create'
+  selection_wmi_cmdlet:
+    CommandLine|contains:
+      - 'Invoke-WmiMethod'
+      - 'Invoke-CimMethod'
+  condition: 1 of selection_*
+falsepositives:
+  - "Every sanctioned remote WMI action lands on the target as a `WmiPrvSE.exe` child, so software distribution, patch orchestration, inventory agents and helpdesk runbooks that run anything remotely all match the parent arm. The process tree is indistinguishable from wmiexec's, which is why MITRE exposes UserContext and RemoteDestinationThreshold — baseline which accounts and which management servers legitimately drive WMI before this arm is enabled."
+  - "Endpoint-management agents that call `wmic process call create` or `Invoke-WmiMethod` under SYSTEM on a schedule, and vendor installers that use `Win32_Process.Create` to relaunch themselves elevated. These recur at predictable intervals from a small set of parent processes."
+  - "`Invoke-CimMethod` is also the documented `PS_ScheduledTask` path for registering a scheduled task, so an estate that creates tasks that way matches here and again under T1053.005 — one event, two technique tags, and neither alert is wrong."
+level: medium

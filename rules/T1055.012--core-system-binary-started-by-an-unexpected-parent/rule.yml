@@ -1,0 +1,61 @@
+title: Core system binary started by an unexpected parent
+id: 84eba238-f158-439f-bd5b-cc15136519c7
+status: experimental
+description: |
+  AN1076 describes the hollowing sequence — CreateProcess with CREATE_SUSPENDED,
+  NtUnmapViewOfSection, VirtualAllocEx and WriteProcessMemory, then
+  SetThreadContext and ResumeThread — and none of the three log sources in the
+  strategy carries any step of it. Sysmon EventID 1 has no field for process
+  creation flags, so the suspended start is invisible; EventID 10 does not fire
+  because the injector creates the victim itself and already holds the handle,
+  so it never calls OpenProcess; EventID 8 does not fire because execution
+  resumes the child's existing primary thread rather than creating a remote one.
+  What remains observable is the decoy itself, which is what MITRE's
+  HollowedImageNamePattern knob points at, populated here not with a name list
+  but with the small set of Windows binaries that have exactly one legitimate
+  creator — svchost.exe and spoolsv.exe come from services.exe, lsass.exe and
+  services.exe from wininit.exe, csrss.exe, wininit.exe and winlogon.exe from
+  smss.exe — so any other parent is an anomaly on its face. The rule is written
+  in Sysmon EventID 1 vocabulary (Image, ParentImage); on Security 4688 the
+  equivalent fields are NewProcessName and ParentProcessName and Audit Process
+  Creation must be enabled first, a mapping this rule does not carry.
+  Prerequisite: Sysmon is not present in a default install. Two limits are
+  structural: a hit is evidence of an anomalous launch, not of hollowing —
+  masquerading under a system binary name produces the identical event — and a
+  hollowed process created under a plausible parent, or hollowed into a decoy
+  outside this list, is missed entirely.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0382, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1055/012
+  - https://attack.mitre.org/detectionstrategies/DET0382
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1055.012
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith:
+      - '\svchost.exe'
+      - '\spoolsv.exe'
+      - '\lsass.exe'
+      - '\services.exe'
+      - '\csrss.exe'
+      - '\wininit.exe'
+      - '\winlogon.exe'
+  filter_parent:
+    ParentImage|endswith:
+      - '\services.exe'
+      - '\wininit.exe'
+      - '\smss.exe'
+  condition: selection and not filter_parent
+falsepositives:
+  - "Windows container hosts, where every container start brings up wininit.exe, services.exe, csrss.exe and svchost.exe under the container runtime rather than under the usual creator. On such a host this is the highest-volume match by a wide margin and needs a ParentImage exclusion for the runtime before the rule is usable at all. This is what sets the level."
+  - "Administrators and support scripts troubleshooting a wedged service by hand, for example launching svchost.exe with a service group from an elevated console or restarting the print spooler out of band, which puts cmd.exe or a shell under ParentImage."
+  - "Third-party software that ships a binary with one of these file names in its own directory and starts it from a vendor updater or service wrapper; the match is on file name, not on path, so a bundled spoolsv.exe or services.exe under Program Files matches the same way the real one would."
+  - "Imaging, sysprep and OS-deployment tooling, plus nested-session hosts such as Windows Sandbox and remote-desktop session brokers, all of which start session-level system processes from a launcher of their own."
+level: medium

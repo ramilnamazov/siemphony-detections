@@ -1,0 +1,58 @@
+title: Service registered with an image path in a user-writable directory
+id: 559b945a-36fd-43d2-805c-ef532569d74b
+status: experimental
+description: |
+  Anchors on the same Security 4697 service-creation record as the published
+  T1569.002 rule, but on a different field pattern, which is what keeps the two
+  from collapsing into one analytic. T1569.002 matches ServiceFileName being a
+  shell, script host or UNC path — the signature of a tool that abuses the
+  service mechanism to execute something once and move on. This rule matches
+  MITRE's ImagePathFilter knob instead, populated here with a broader set of
+  writable-directory paths than MITRE's own worked example: MITRE's
+  mutableElements entry names only `C:\Users\` and `C:\Temp\` directly (the
+  `\Temp\` term below is written to catch that literal path and, as a side
+  effect, `\Windows\Temp\` too); the additional ServiceFileName terms for
+  `\ProgramData\` and the recycle bin are this rule's own extension of that
+  pattern to other locations that are user-writable but atypical for a
+  service image path, regardless of what kind of binary it is — the
+  signature of a service meant to persist, staged somewhere services do not
+  normally live because the adversary has no Program Files-style install
+  path to drop into. A legitimate-looking,
+  correctly-signed executable registered this way still matches; a
+  shell-launching service registered from a normal install path does not, and
+  is exactly what T1569.002 is for instead. The command-line and driver-load
+  legs of AN1527 (`sc.exe`/PowerShell invocation, `.sys` loads via
+  `ZwLoadDriver`) are separate events this rule does not join to the creation
+  record, and MITRE's UnsignedBinaryAlert and ServiceNamePattern knobs need
+  signature status and a name baseline this log source does not carry. 4697
+  requires the Audit Security System Extension (Success) subcategory, which is
+  off in a default install and in the MS and CIS baselines — without it this
+  rule is blind, not quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0552, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1543/003
+  - https://attack.mitre.org/detectionstrategies/DET0552
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1543.003
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 4697
+    ServiceFileName|contains:
+      - '\Users\'
+      - '\Temp\'
+      - '\ProgramData\'
+      - '\$Recycle.Bin\'
+  condition: selection
+falsepositives:
+  - "Consumer and line-of-business software that stages a background helper or update service under %ProgramData%\\<vendor>\\ instead of Program Files — printer and OEM utilities, cloud-sync backends and some security suites all do this by design, and it is likely the largest source of matches on a typical fleet."
+  - "IT-run remote-support and diagnostic tools that register a temporary service pointing at a binary copied into a technician's profile or %TEMP% for the duration of a single session."
+  - "Application self-updaters that stage the next version's executable under %ProgramData% during an upgrade and re-point the existing service at it before the old file is cleaned up."
+  - "Endpoint-security or backup agents whose repair, quarantine or recovery component is deliberately installed from a %ProgramData% cache directory rather than the product's main install path."
+level: medium

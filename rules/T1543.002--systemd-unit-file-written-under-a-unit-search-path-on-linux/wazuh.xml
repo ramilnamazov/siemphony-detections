@@ -1,0 +1,43 @@
+<group name="sigma,linux,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 4 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^PATH$</field>
+    <field name="name" type="pcre2">(?i)(/etc/systemd/system/|/run/systemd/system/|/lib/systemd/system/)</field>
+    <description>Systemd unit file written under a unit search path on Linux (1/4)</description>
+    <mitre>
+      <id>T1543.002</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^PATH$</field>
+    <field name="name" type="pcre2">(?i)(/etc/systemd/user/|/run/systemd/user/|/lib/systemd/user/|/\.config/systemd/user/|/\.local/share/systemd/user/)</field>
+    <description>Systemd unit file written under a unit search path on Linux (2/4)</description>
+    <mitre>
+      <id>T1543.002</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^PATH$</field>
+    <field name="name" type="pcre2">(?i)\.service$</field>
+    <description>Systemd unit file written under a unit search path on Linux (3/4)</description>
+    <mitre>
+      <id>T1543.002</id>
+    </mitre>
+  </rule>
+
+  <rule id="100003" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="key" type="pcre2">(?i)systemd</field>
+    <description>Systemd unit file written under a unit search path on Linux (4/4)</description>
+    <mitre>
+      <id>T1543.002</id>
+    </mitre>
+  </rule>
+</group>

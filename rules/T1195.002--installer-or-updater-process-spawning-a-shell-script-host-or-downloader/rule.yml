@@ -1,0 +1,67 @@
+title: Installer or updater process spawning a shell, script host or downloader
+id: ffc1e08b-50bf-400e-87b1-dca3bfb6800b
+status: experimental
+description: |
+  MITRE's Windows analytic for a compromised software supply chain is a
+  four-stage chain: installer runs, binaries are written into program paths, the
+  first run spawns unexpected children or loads unsigned modules, and the host
+  beacons to something that is not an approved update endpoint. Stage three is
+  the only part that is one event, so this rule matches process creation where
+  the parent is an installer, updater or setup binary and the child is a shell,
+  script host or download utility.
+  Read it as a hunt, not as supply-chain detection. The dominant real-world form
+  of this technique never creates a process at all: a payload compiled into a
+  signed vendor assembly, or a malicious DLL side-loaded by the signed
+  application, runs in-process and produces zero events here. The leg that
+  carries that is the brief's driver_load (Sysmon 6) and image_load (Sysmon 7)
+  sources, where Signed, Signature and SignatureStatus let an unsigned or
+  unexpectedly-signed module loading into a vendor process be scored — none of
+  which this rule sees. The child list is a starting set taken from the
+  analytic's wording ("spawns scripts/shells"), not an exhaustive interpreter
+  inventory, and a tampered installer that runs its payload as its own child EXE
+  never touches it. The write-to-first-run-to-egress correlation MITRE specifies
+  needs a 90-minute join across file, module and network telemetry, which Sigma
+  cannot express, and the ApprovedSigners and ApprovedUpdateHosts knobs are list
+  lookups rather than field tests, so neither is modelled here.
+  UNVERIFIED — derived from MITRE ATT&CK DET0309 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1195/002
+  - https://attack.mitre.org/detectionstrategies/DET0309
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.t1195.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_installer_parent:
+    ParentImage|endswith:
+      - '\msiexec.exe'
+      - '\setup.exe'
+      - '\install.exe'
+      - '\installer.exe'
+      - '\update.exe'
+      - '\updater.exe'
+      - '\upgrade.exe'
+  selection_unexpected_child:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\bitsadmin.exe'
+      - '\certutil.exe'
+      - '\curl.exe'
+      - '\regsvr32.exe'
+  condition: selection_installer_parent and selection_unexpected_child
+falsepositives:
+  - "MSI custom actions, which routinely shell out to cmd.exe or PowerShell to register services, patch configuration files or run post-install checks. This is the dominant match by a wide margin and it is legitimate for most vendors — the separation is which publisher signed the parent, which is MITRE's ApprovedSigners knob and not a field this log source carries. It is why the level here is low."
+  - "Third-party installer frameworks — Inno Setup, NSIS, InstallShield — whose setup.exe runs cmd /c for post-install cleanup, service registration or PATH edits. On developer and end-user workstations this is the single commonest instance of this exact parent-child pair."
+  - "Enterprise software deployment (SCCM, Intune, Chocolatey, WinGet) whose packages wrap the vendor installer in a PowerShell or batch wrapper, so the parent-child pair appears on every managed host during a rollout wave."
+  - "Application self-updaters — Squirrel-packaged apps run theirs as Update.exe — invoking cmd.exe to move files or clean up old versions on each release."
+  - "Driver and runtime redistributables that call certutil to verify a hash or install a certificate as part of a supported install sequence."
+level: low

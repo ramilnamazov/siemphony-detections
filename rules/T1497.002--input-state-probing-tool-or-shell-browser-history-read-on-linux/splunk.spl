@@ -1,0 +1,1 @@
+index=* ((type="SYSCALL" AND (exe="*/xdotool" OR exe="*/xinput" OR exe="*/xev")) OR (type="PATH" AND (name="*.bash_history*" OR name="*.mozilla*")))

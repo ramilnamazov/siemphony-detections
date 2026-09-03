@@ -1,0 +1,1 @@
+index=* ((command="STOR" OR command="STOU" OR command="APPE") AND (arg="*.zip" OR arg="*.rar" OR arg="*.7z" OR arg="*.tar" OR arg="*.gz" OR arg="*.tgz" OR arg="*.cab" OR arg="*.bak" OR arg="*.sql" OR arg="*.dmp" OR arg="*.pst" OR arg="*.csv"))

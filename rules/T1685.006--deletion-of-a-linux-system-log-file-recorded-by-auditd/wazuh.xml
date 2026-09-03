@@ -1,0 +1,24 @@
+<group name="sigma,linux,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^PATH$</field>
+    <field name="nametype" type="pcre2">(?i)^DELETE$</field>
+    <field name="name" type="pcre2">(?i)(/var/log/messages|/var/log/secure|/var/log/auth\.log|/var/log/utmp|/var/log/wtmp|/var/log/kern\.log|/var/log/cron\.log|/var/log/maillog|/var/log/httpd/)</field>
+    <description>Deletion of a Linux system log file recorded by auditd (1/2)</description>
+    <mitre>
+      <id>T1685.006</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="key" type="pcre2">(?i)^log_tamper$</field>
+    <description>Deletion of a Linux system log file recorded by auditd (2/2)</description>
+    <mitre>
+      <id>T1685.006</id>
+    </mitre>
+  </rule>
+</group>

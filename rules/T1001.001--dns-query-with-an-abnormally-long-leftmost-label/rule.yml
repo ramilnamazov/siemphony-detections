@@ -1,0 +1,42 @@
+title: DNS query with an abnormally long leftmost label
+id: c1eb6448-b94a-4b62-a810-1c2b618a7815
+status: experimental
+description: |
+  AN0030 describes junk characters padded into a command-and-control protocol,
+  measured by MITRE's PayloadEntropyThreshold knob and by a send-to-receive
+  ratio. Neither is available on the analytic's network-connection source —
+  Sysmon EventID 3 carries addresses and ports and no byte counts at all — so
+  the rule is built on the other source the analytic supplies, EventID 22,
+  where the query name *is* the payload and the padding is therefore visible on
+  a single event. The regex requires the leftmost label to be 45 or more
+  characters of label-legal alphanumerics and hyphens before the first dot,
+  which is the closest a single-event Sigma rule gets to an entropy test: junk
+  inserted between significant characters lengthens the label whatever the
+  encoding, while ordinary hostnames are short because humans type them. Read
+  that as a proxy and not as a measurement, because it cuts both ways — a
+  padded channel that keeps its labels short is missed entirely, and a long
+  dictionary-word hostname alerts. The other forms of junk data MITRE covers,
+  padding inside HTTP bodies or a raw TCP stream, leave no trace on any log
+  source in this strategy and are outside what this rule can reach.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0011, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1001/001
+  - https://attack.mitre.org/detectionstrategies/DET0011
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1001.001
+logsource:
+  category: dns_query
+  product: windows
+detection:
+  selection:
+    QueryName|re: '^[A-Za-z0-9-]{45,}\.'
+  condition: selection
+falsepositives:
+  - "Content-delivery networks, cloud object storage and anti-malware cloud-reputation lookups, all of which put a long hash or opaque token in the leftmost label. These fire continuously on every host and will outnumber everything else the rule returns, so treat it as a hunting lead over the Image field rather than an alert until the parent domains behind them are suppressed — suppression belongs on the domain, not on the length threshold."
+  - "Enterprise SaaS, device-management and telemetry endpoints that embed a tenant or device identifier in the hostname. A 36-character GUID plus any prefix clears 45 characters on its own, so these are a permanent floor of matches under a handful of stable parent domains."
+  - "DNS-based protocols that encode data in names by design and are entirely benign: DKIM selector lookups, DNSBL and RBL queries that prepend a reversed address, and certificate or DANE lookups."
+  - "The threshold is arbitrary and mine, not MITRE's — MITRE names PayloadEntropyThreshold and this log source has no field to bind it to. Raising it above 45 trades recall for volume with no principled place to stop."
+level: low

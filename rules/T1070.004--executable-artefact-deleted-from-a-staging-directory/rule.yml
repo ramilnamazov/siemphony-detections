@@ -1,0 +1,69 @@
+title: Executable artefact deleted from a staging directory
+id: cc035609-0f00-4c25-a4c8-ede32a595732
+status: experimental
+description: |
+  AN0392 asks for deletion of dropped payloads and evidence files, so the rule
+  pairs the two things Sysmon's FileDelete event actually carries: the path the
+  deleted file sat in and its extension. The path list is MITRE's
+  `FilePathPattern` knob, populated here with the world-writable and
+  per-user staging directories a payload is normally dropped into, and the
+  extension list restricts matches to executable and script content, because
+  deletion of documents and data from those same directories is constant and
+  carries no signal. A second, separate selection matches the secure-deletion
+  utility named in MITRE's own technique description by `Image` alone, with no
+  path or extension gate, because that tool renames a file repeatedly before
+  unlinking it and the recorded `TargetFilename` is therefore not the name the
+  payload was dropped under. Limits: Sysmon is not present in a default
+  install, and FileDelete (EventID 23/26) is off or heavily path-restricted in
+  most published configurations, so this rule returns nothing until those
+  directories are in scope — zero rows means blind, not quiet. The rule is
+  written in the Sysmon FileDelete vocabulary the brief names,
+  `TargetFilename` and `Image`; the brief's Security 4663 leg is mapped onto
+  the Sysmon-shaped `file_event` category but splits the same data across
+  `ObjectName` and `ProcessName`, so it needs a field mapping and a SACL on
+  each directory before it could carry this logic at all, and cannot simply be
+  substituted. A payload deleted from a directory outside the list, or one that
+  never had an executable extension, is not seen.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0140, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1070/004
+  - https://attack.mitre.org/detectionstrategies/DET0140
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1070.004
+logsource:
+  category: file_delete
+  product: windows
+detection:
+  selection_path:
+    TargetFilename|contains:
+      - '\AppData\Local\Temp\'
+      - '\AppData\Roaming\'
+      - '\Windows\Temp\'
+      - '\Users\Public\'
+      - '\ProgramData\'
+      - '\PerfLogs\'
+  selection_ext:
+    TargetFilename|endswith:
+      - '.exe'
+      - '.dll'
+      - '.ps1'
+      - '.bat'
+      - '.cmd'
+      - '.vbs'
+      - '.js'
+      - '.hta'
+      - '.scr'
+  selection_tool:
+    Image|endswith:
+      - '\sdelete.exe'
+      - '\sdelete64.exe'
+  condition: (selection_path and selection_ext) or selection_tool
+falsepositives:
+  - "Installers, updaters and bootstrappers — MSI custom actions, Chrome, Edge, Office and Teams updaters, Squirrel and Electron packages — which unpack executables and DLLs into %TEMP% or ProgramData and delete them once the install completes. This is by a wide margin the highest-volume match the rule produces on any managed fleet, and it is what sets the level."
+  - "Runtime-generated assemblies and scripts: .NET XmlSerializers and Add-Type output, ClickOnce, installer self-extractors and antivirus or telemetry agents writing a helper DLL into the user temp directory for the lifetime of one process and removing it on exit."
+  - "Disk-hygiene tooling — Storage Sense, cleanmgr, Configuration Manager and Intune remediation scripts, and third-party temp cleaners — sweeping Windows\\Temp and per-user temp folders on a schedule, which deletes whatever executable content happens to be stale there."
+  - "Administrators running SDelete deliberately, to sanitise free space on a decommissioned host or to satisfy a data-handling policy before a machine is re-issued; the tool arm has no path gate and matches every file such a run deletes."
+level: low

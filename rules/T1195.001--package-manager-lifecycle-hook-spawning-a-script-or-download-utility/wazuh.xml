@@ -1,0 +1,48 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 4 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\node\.exe$|\\python\.exe$|\\pip\.exe$|\\pip3\.exe$|\\nuget\.exe$|\\dotnet\.exe$|\\choco\.exe$|\\cargo\.exe$)</field>
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\curl\.exe$|\\certutil\.exe$|\\bitsadmin\.exe$|\\rundll32\.exe$|\\regsvr32\.exe$)</field>
+    <description>Package manager lifecycle hook spawning a script or download utility (1/4)</description>
+    <mitre>
+      <id>T1195.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\node\.exe$|\\python\.exe$|\\pip\.exe$|\\pip3\.exe$|\\nuget\.exe$|\\dotnet\.exe$|\\choco\.exe$|\\cargo\.exe$)</field>
+    <field name="Image" type="pcre2">(?i)\\cmd\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(powershell|pwsh|wscript|cscript|mshta|curl|certutil|bitsadmin|rundll32|regsvr32)</field>
+    <description>Package manager lifecycle hook spawning a script or download utility (2/4)</description>
+    <mitre>
+      <id>T1195.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)\\cmd\.exe$</field>
+    <field name="ParentCommandLine" type="pcre2">(?i)(npm\.cmd|npx\.cmd|yarn\.cmd|pnpm\.cmd|mvn\.cmd|gradle\.bat|npm-cli\.js|node_modules|setup\.py)</field>
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\curl\.exe$|\\certutil\.exe$|\\bitsadmin\.exe$|\\rundll32\.exe$|\\regsvr32\.exe$)</field>
+    <description>Package manager lifecycle hook spawning a script or download utility (3/4)</description>
+    <mitre>
+      <id>T1195.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100003" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)\\cmd\.exe$</field>
+    <field name="ParentCommandLine" type="pcre2">(?i)(npm\.cmd|npx\.cmd|yarn\.cmd|pnpm\.cmd|mvn\.cmd|gradle\.bat|npm-cli\.js|node_modules|setup\.py)</field>
+    <field name="Image" type="pcre2">(?i)\\cmd\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(powershell|pwsh|wscript|cscript|mshta|curl|certutil|bitsadmin|rundll32|regsvr32)</field>
+    <description>Package manager lifecycle hook spawning a script or download utility (4/4)</description>
+    <mitre>
+      <id>T1195.001</id>
+    </mitre>
+  </rule>
+</group>

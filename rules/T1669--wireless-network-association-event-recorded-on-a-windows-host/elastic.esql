@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (event.code == 8001 OR event.code == 8002 OR event.code == 8003)

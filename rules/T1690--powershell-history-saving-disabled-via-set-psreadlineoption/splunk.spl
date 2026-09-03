@@ -1,0 +1,1 @@
+index=* ((EventID="4104" AND ScriptBlockText="*Set-PSReadLineOption*") AND (ScriptBlockText="*SaveNothing*" OR (ScriptBlockText="*HistorySavePath $null*" OR ScriptBlockText="*HistorySavePath NUL*" OR ScriptBlockText="*HistorySavePath /dev/null*")))

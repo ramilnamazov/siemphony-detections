@@ -1,0 +1,87 @@
+title: Core Windows system binary name running from outside System32
+id: 427510ee-93e8-498b-b947-dd1dc8c81763
+status: experimental
+description: |
+  AN0983 asks for binaries "executed from trusted directories or using trusted
+  names where the metadata, hash, or parent process does not align", and the one
+  half of that a single process-creation event can settle by itself is location:
+  a process carrying the file name of a core Windows system component while
+  running from a path that is not System32, SysWOW64 or the servicing store.
+  The name list is deliberately restricted to images that live in System32 in
+  every supported Windows build, so a hit means the name was borrowed rather
+  than that the process moved — explorer.exe is left out for exactly that
+  reason, since it legitimately lives in C:\Windows and allowing that directory
+  would also allow C:\Windows\Temp. The path filter is MITRE's
+  `trusted_directory_list` knob, populated here with those three directories and
+  written as `contains` rather than an absolute prefix so a system volume other
+  than C: is still covered; the cost is that a planted C:\Temp\Windows\System32
+  directory would satisfy it. A bare `contains` on those directories would also
+  excuse everything *below* them, including the handful of subdirectories under
+  System32 and SysWOW64 that ordinary users can write to — spool\drivers\color
+  is the one malware actually uses — so a second selection, added here rather
+  than taken from the brief, puts those back in scope; nothing shipped by
+  Windows runs any of these fifteen images from them. Metadata and hash
+  comparison are not attempted:
+  a hash needs a per-file baseline this corpus has no source for, and the
+  metadata-mismatch case is a different observable, authored as its own rule
+  under T1036.003. The brief maps Security 4688 onto Sigma's `process_creation`
+  category, which is Sysmon-shaped, and this rule is written in that vocabulary
+  (`Image`); on a 4688 feed the same value is `NewProcessName`, so that feed
+  needs a field mapping before the rule matches at all, and 4688 itself only
+  exists once *Audit Process Creation* is enabled — it is off in a default
+  install and in the MS and CIS baselines, and zero rows would read as quiet
+  when it means blind. The analytic's Sysmon EventID 11 leg is not attempted,
+  nor are the Linux (AN0984) or macOS (AN0985) arms.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0347, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1036/005
+  - https://attack.mitre.org/detectionstrategies/DET0347
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1036.005
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_trusted_name:
+    Image|endswith:
+      - '\svchost.exe'
+      - '\lsass.exe'
+      - '\services.exe'
+      - '\csrss.exe'
+      - '\smss.exe'
+      - '\wininit.exe'
+      - '\winlogon.exe'
+      - '\spoolsv.exe'
+      - '\dllhost.exe'
+      - '\conhost.exe'
+      - '\taskhostw.exe'
+      - '\dwm.exe'
+      - '\sihost.exe'
+      - '\ctfmon.exe'
+      - '\rundll32.exe'
+  selection_writable_subdir:
+    Image|contains:
+      - '\System32\spool\drivers\color\'
+      - '\System32\spool\PRINTERS\'
+      - '\System32\spool\SERVERS\'
+      - '\System32\Tasks_Migrated\'
+      - '\System32\com\dmp\'
+      - '\System32\FxsTmp\'
+      - '\System32\Microsoft\Crypto\RSA\MachineKeys\'
+      - '\SysWOW64\com\dmp\'
+      - '\SysWOW64\FxsTmp\'
+  filter_system_paths:
+    Image|contains:
+      - '\Windows\System32\'
+      - '\Windows\SysWOW64\'
+      - '\Windows\WinSxS\'
+  condition: selection_trusted_name and (selection_writable_subdir or not filter_system_paths)
+falsepositives:
+  - "Application virtualisation and layering. App-V, MSIX and AppX packages, Citrix App Layering and FSLogix all run the genuine binary from a package store, so rundll32.exe or dllhost.exe reports an Image under C:\\ProgramData\\App-V, C:\\Program Files\\WindowsApps or a layer mount point instead of System32. On estates using any of these it is the highest-volume match here by a wide margin, which is why the level is medium rather than high."
+  - "Feature updates and servicing. Windows Setup stages and executes copies of system binaries from C:\\$WINDOWS.~BT\\Sources, C:\\Windows\\Temp and installer working directories during an in-place upgrade, producing a burst of matches on every host that upgrades."
+  - "Installers and updaters that drop a private copy of rundll32.exe or dllhost.exe into their own temporary or program directory to run a control-panel applet or a COM registration from there, rather than calling the system copy."
+  - "Backup, imaging and forensic tooling that mounts another Windows installation or a captured image and runs binaries out of a scratch directory whose path does not contain \\Windows\\System32\\, plus recovery agents operating from a WinRE or vendor rescue partition."
+level: medium

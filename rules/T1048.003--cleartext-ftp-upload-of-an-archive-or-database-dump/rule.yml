@@ -1,0 +1,55 @@
+title: Cleartext FTP upload of an archive or database dump
+id: 662112ba-1b10-4195-9792-a2a1046d9d58
+status: experimental
+description: |
+  Matches the FTP store commands — STOR, STOU and APPE — that push a file from
+  the monitored network out to a server, restricted to arguments naming an
+  archive, backup or database-export extension, which is the staged-collection
+  shape MITRE's AN0423 describes moving over an unencrypted protocol. Zeek's
+  ftp.log is chosen over the endpoint sources in the brief because it records
+  the direction and the file name of the transfer, which the Windows process and
+  connection events do not; the corpus already covers the endpoint side of this
+  family in T1048 (port-based) and T1048.002 (encrypted egress). MITRE's
+  DataTransferSizeThreshold knob is the analytic's real discriminator and Sigma
+  has no numeric comparison, so this rule fires on one upload rather than on
+  volume. FTPS and SFTP sessions never produce these command records at all, so
+  absence of matches is not evidence that nothing left the estate.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0149, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1048/003
+  - https://attack.mitre.org/detectionstrategies/DET0149
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.exfiltration
+  - attack.t1048.003
+logsource:
+  product: zeek
+  service: ftp
+detection:
+  selection_upload:
+    command:
+      - 'STOR'
+      - 'STOU'
+      - 'APPE'
+  selection_payload:
+    arg|endswith:
+      - '.zip'
+      - '.rar'
+      - '.7z'
+      - '.tar'
+      - '.gz'
+      - '.tgz'
+      - '.cab'
+      - '.bak'
+      - '.sql'
+      - '.dmp'
+      - '.pst'
+      - '.csv'
+  condition: selection_upload and selection_payload
+falsepositives:
+  - "Sanctioned partner and EDI transfers. Estates that still exchange files with suppliers over plain FTP will match on every scheduled push, and the archive extensions selected here are exactly what those jobs carry. This is MITRE's ProcessBaseline thinking applied at the network layer — pin the allowed client, server and directory triple rather than shortening the extension list."
+  - "Backup and reporting jobs writing .bak, .sql or .csv to an internal FTP drop, which is business-normal in older estates and indistinguishable from staged exfiltration on the command and file name alone."
+  - "Appliance and network-device configuration exports, which are still commonly shipped to an FTP or TFTP collector as an archive during maintenance windows."
+  - "Developer and build tooling publishing release artefacts to a legacy FTP-backed distribution host."
+level: medium

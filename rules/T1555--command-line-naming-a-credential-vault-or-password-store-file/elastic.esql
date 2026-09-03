@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*\\\\microsoft\\\\protect\\\\*" OR TO_LOWER(process.command_line) LIKE "*\\\\microsoft\\\\credentials\\\\*" OR TO_LOWER(process.command_line) LIKE "*\\\\microsoft\\\\vault\\\\*" OR TO_LOWER(process.command_line) LIKE "*\\\\login data*" OR TO_LOWER(process.command_line) LIKE "*logins.json*" OR TO_LOWER(process.command_line) LIKE "*key4.db*" OR TO_LOWER(process.command_line) LIKE "*.kdbx*" OR TO_LOWER(process.command_line) LIKE "*vaultcmd*" OR TO_LOWER(process.command_line) LIKE "*dpapi::*")

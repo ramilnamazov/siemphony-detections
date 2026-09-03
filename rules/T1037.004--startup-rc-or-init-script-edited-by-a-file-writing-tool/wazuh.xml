@@ -1,0 +1,24 @@
+<group name="sigma,linux,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(/etc/rc\.local|/etc/rc\.common|/etc/rc\.d/rc\.local|/etc/rc\.local\.d/|/etc/init\.d/|/etc/rc\.d/init\.d/)</field>
+    <field name="Image" type="pcre2">(?i)(/tee$|/sed$|/cp$|/mv$|/ln$|/install$|/chmod$|/chown$|/dd$|/patch$|/truncate$|/ed$|/vi$|/vim$|/vim\.basic$|/vim\.tiny$|/vim\.nox$|/nvim$|/nano$|/pico$|/emacs$|/gedit$)</field>
+    <description>Startup RC or init script edited by a file-writing tool (1/2)</description>
+    <mitre>
+      <id>T1037.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(/etc/rc\.local|/etc/rc\.common|/etc/rc\.d/rc\.local|/etc/rc\.local\.d/|/etc/init\.d/|/etc/rc\.d/init\.d/)</field>
+    <field name="CommandLine" type="pcre2">(?i)(&gt; /etc/rc\.local|&gt;/etc/rc\.local|&gt; /etc/rc\.common|&gt;/etc/rc\.common|&gt; /etc/rc\.d/rc\.local|&gt;/etc/rc\.d/rc\.local|&gt; /etc/rc\.local\.d/|&gt;/etc/rc\.local\.d/|&gt; /etc/init\.d/|&gt;/etc/init\.d/|&gt; /etc/rc\.d/init\.d/|&gt;/etc/rc\.d/init\.d/)</field>
+    <description>Startup RC or init script edited by a file-writing tool (2/2)</description>
+    <mitre>
+      <id>T1037.004</id>
+    </mitre>
+  </rule>
+</group>

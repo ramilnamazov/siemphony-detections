@@ -1,0 +1,57 @@
+title: Registry write to a Subject Interface Package signing function entry
+id: 6414f678-bbfb-4cf6-a704-6441484492ac
+status: experimental
+description: |
+  AN1222 asks for "anomalous registry modifications to Subject Interface
+  Packages (SIPs) or trust provider DLL mappings" and "attempts to redirect
+  WinVerifyTrust validation logic." This corpus already has a rule for the
+  trust-provider half of that sentence: the parent T1553 rule watches writes
+  under `...\Cryptography\Providers\Trust\FinalPolicy\{class-id}`, the key the
+  SpectorOps "Subverting Trust" research this technique's own description
+  cites documents as the trust-provider hijack point. This rule covers the
+  other half, SIP hijacking specifically, which is a genuinely different
+  registry subtree: the same research documents that a SIP's hash-generation
+  and signature-verification behaviour is looked up per-file-type under
+  `HKLM\SOFTWARE\Microsoft\Cryptography\OID\EncodingType 0\
+  CryptSIPDllGetSignedDataMsg\{SIP GUID}` and the matching
+  `CryptSIPDllVerifyIndirectData\{SIP GUID}` entry, each holding a `Dll` and
+  `FuncName` value pointing at the code that computes or checks a file's
+  signature hash. Repointing either value to an attacker DLL that always
+  reports success turns any file of that SIP's type into one WinVerifyTrust
+  treats as validly signed — replacing, not just weakening, the verification
+  path — which is why any write under either subtree is the selector: neither
+  registers a benign reason to be touched outside a SIP install.
+  The brief maps Security EventID 4657 onto this leg but the rule is written
+  in the Sysmon-shaped `registry_set` vocabulary (`TargetObject` carrying the
+  full key-plus-value path); a native 4657 feed splits that same path across
+  `ObjectName` and `ObjectValueName` and needs both mapped onto `TargetObject`
+  before it can match anything here — turning on *Audit Registry* alone does
+  not make 4657 usable, since the field shape differs, not just the audit
+  policy. The other two logsources in AN1222 are not used: Sysmon EventID 7
+  (image_load) would need a non-Microsoft-signed module loading into a process
+  that calls WinVerifyTrust, a correlation this rule's single registry write
+  cannot express, and CodeIntegrity EventID 3033's field shape is not
+  established anywhere in this corpus, so a selector against it risks the
+  invented-field trap AUTHORING.md warns against.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0442, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1553/003
+  - https://attack.mitre.org/detectionstrategies/DET0442
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1553.003
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains:
+      - '\Cryptography\OID\EncodingType 0\CryptSIPDllGetSignedDataMsg\'
+      - '\Cryptography\OID\EncodingType 0\CryptSIPDllVerifyIndirectData\'
+  condition: selection
+falsepositives:
+  - "Software that legitimately registers its own Subject Interface Package for a proprietary or catalog-style file format — some document-signing, DRM, or driver-package verification products install a custom SIP under this same OID subtree during setup, which is indistinguishable from a hijack of an existing GUID by path alone."
+  - "Security or code-signing vendor tooling that re-registers the built-in SIP GUIDs (for EXE, CAB, CAT and similar formats) as part of a repair or reinstall routine, producing a write under the same keys the operating system already owns."
+level: high

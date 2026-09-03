@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "/curl" or FolderPath endswith "/wget") and (ProcessCommandLine contains "Host: mail.google.com" or ProcessCommandLine contains "Host: docs.google.com" or ProcessCommandLine contains "Host: www.dropbox.com" or ProcessCommandLine contains "Host: login.live.com"))

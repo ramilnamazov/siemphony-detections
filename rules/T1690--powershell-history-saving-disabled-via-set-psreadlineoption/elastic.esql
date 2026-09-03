@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((event.code == 4104 AND TO_LOWER(powershell.file.script_block_text) LIKE "*set-psreadlineoption*") AND (TO_LOWER(powershell.file.script_block_text) LIKE "*savenothing*" OR (TO_LOWER(powershell.file.script_block_text) LIKE "*historysavepath $null*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*historysavepath nul*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*historysavepath /dev/null*")))

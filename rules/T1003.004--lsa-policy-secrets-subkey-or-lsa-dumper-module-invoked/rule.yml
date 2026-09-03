@@ -1,0 +1,47 @@
+title: LSA Policy Secrets subkey or LSA dumper module invoked
+id: a280bfeb-e311-4586-8ebb-9d6a56935c63
+status: experimental
+description: |
+  MITRE's analytic names two routes to LSA secrets: reading the registry at
+  HKEY_LOCAL_MACHINE\SECURITY\Policy\Secrets, and scraping them out of LSASS
+  memory with Mimikatz or PowerSploit's Invoke-Mimikatz. Both leave their trace
+  on the command line, so this rule matches the Policy key path in its reg.exe
+  and PowerShell-provider spellings alongside the two dumper invocations MITRE
+  cites, which is the whole of the analytic that a single process-creation event
+  can carry. The memory-access half is not written against Process Access here on
+  purpose: a handle to lsass.exe is already covered by the T1003 and T1003.001
+  rules in this corpus, and repeating it would give three rules with one meaning.
+  The neighbouring T1003.002 rule matches a save or export of the SECURITY hive
+  as a whole; this one matches the Policy subkey and the LSA-specific modules, so
+  the two do not collapse into each other. The brief maps this category to Sysmon
+  EventID 1, which carries CommandLine by default — if the feed is Security 4688
+  instead, both Audit Process Creation and the separate policy that includes the
+  command line must be enabled or every field this rule reads is empty.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0437, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1003/004
+  - https://attack.mitre.org/detectionstrategies/DET0437
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1003.004
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'SECURITY\Policy\Secrets'
+      - 'HKLM\SECURITY\Policy'
+      - 'HKLM:\SECURITY\Policy'
+      - 'lsadump::secrets'
+      - 'lsadump::lsa'
+      - 'Invoke-Mimikatz'
+  condition: selection
+falsepositives:
+  - "Authorised offensive testing — red-team engagements, purple-team exercises and detection-validation suites such as Atomic Red Team, which run these exact commands on purpose. On an estate that tests regularly this is the most common hit, and only the source host, the operator account and the agreed window separate it from the real thing."
+  - "Substring matches on an argument that is a path rather than an action: an antivirus scan, an archiver or a file-copy command whose target is a sample or a report named after Invoke-Mimikatz matches the command line without anything being executed."
+  - "Administrators and vendor support scripts reading HKLM SECURITY Policy while troubleshooting LSA policy, secure-channel or cached-credential problems. This requires a SYSTEM context, usually obtained with a service wrapper, so it is rare but entirely legitimate when it happens."
+  - "Security training and documentation pasted into an interactive console, where the string is typed but the tool is absent. The rule tests for the text of the invocation, not for a successful read of the key."
+level: high

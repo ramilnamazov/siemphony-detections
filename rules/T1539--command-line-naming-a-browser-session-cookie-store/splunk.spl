@@ -1,0 +1,1 @@
+index=* (CommandLine="*\\Network\\Cookies*" OR CommandLine="*\\User Data\\Default\\Cookies*" OR CommandLine="*cookies.sqlite*")

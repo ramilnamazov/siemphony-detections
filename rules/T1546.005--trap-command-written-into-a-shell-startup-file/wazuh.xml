@@ -1,0 +1,12 @@
+<group name="sigma,linux,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)trap </field>
+    <field name="CommandLine" type="pcre2">(?i)(\.bashrc|\.bash_profile|\.bash_login|\.profile|\.zshrc|\.zprofile|\.zlogin|/etc/profile|/etc/bash\.bashrc)</field>
+    <description>Trap command written into a shell startup file</description>
+    <mitre>
+      <id>T1546.005</id>
+    </mitre>
+  </rule>
+</group>

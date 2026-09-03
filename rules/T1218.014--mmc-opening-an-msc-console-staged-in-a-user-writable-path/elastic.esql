@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\mmc.exe" AND TO_LOWER(process.command_line) LIKE "*.msc*") AND (TO_LOWER(process.command_line) LIKE "*\\\\users\\\\*" OR TO_LOWER(process.command_line) LIKE "*\\\\appdata\\\\*" OR TO_LOWER(process.command_line) LIKE "*\\\\downloads\\\\*" OR TO_LOWER(process.command_line) LIKE "*\\\\desktop\\\\*" OR TO_LOWER(process.command_line) LIKE "*\\\\programdata\\\\*" OR TO_LOWER(process.command_line) LIKE "*\\\\temp\\\\*" OR TO_LOWER(process.command_line) LIKE "*\\\\\\\\*"))

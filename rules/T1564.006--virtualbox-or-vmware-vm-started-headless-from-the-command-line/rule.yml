@@ -1,0 +1,56 @@
+title: VirtualBox or VMware VM started headless from the command line
+id: a81d78ee-54ef-42ff-bbd3-10f8e430eacd
+status: experimental
+description: |
+  Matches the Windows leg of AN0909: a Sysmon process creation for
+  `VBoxManage.exe` whose command line names `startvm` together with `headless`,
+  a direct launch of `VBoxHeadless.exe`, or `vmrun.exe` carrying `nogui`. These
+  are the concrete headless-launch mechanisms AN0909 names for VirtualBox and
+  VMware — running a virtual instance with no console window so its contents
+  never reach a screen a user or an EDR's screen-capture telemetry would see,
+  the technique CyberCX documented Akira ransomware using to encrypt files
+  from inside a VirtualBox guest while the host's own AV watched an empty
+  process tree. `vmware-vmx.exe` and `vmwp.exe`, the two other binaries AN0909
+  names, are deliberately left out: `vmware-vmx.exe` is the VM's own worker
+  process and runs on every VMware-hosted VM whether launched from the GUI or
+  the command line, so nothing on its own process-creation event separates a
+  headless launch from an ordinary one without joining to its parent; `vmwp.exe`
+  is Hyper-V's per-VM worker, spawned by the `vmms.exe` service rather than a
+  command line, and Hyper-V has no GUI-suppression flag to alert on since it
+  is headless by design. MITRE's VirtualizationBinaryWhitelist knob is the
+  intended place to record an estate's own CI runners and lab hosts; no values
+  for it are supplied here. What this rule cannot see is a VM started headless
+  through the VirtualBox or VMware GUI's own "headless mode" menu option
+  rather than the CLI, since that never produces a matching command line.
+  Requires Sysmon with process creation logging enabled; this is not native
+  Windows telemetry and is absent without the Sysmon driver installed and
+  configured to capture EventID 1.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0321, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/006
+  - https://attack.mitre.org/detectionstrategies/DET0321
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1564.006
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_vboxmanage_headless:
+    Image|endswith: '\VBoxManage.exe'
+    CommandLine|contains|all:
+      - 'startvm'
+      - 'headless'
+  selection_vboxheadless:
+    Image|endswith: '\VBoxHeadless.exe'
+  selection_vmrun_nogui:
+    Image|endswith: '\vmrun.exe'
+    CommandLine|contains: 'nogui'
+  condition: 1 of selection*
+falsepositives:
+  - "CI/CD build and test runners that provision VirtualBox VMs headless as a matter of course, including Vagrant's default `VBoxManage startvm ... --type headless` invocation on every `vagrant up` against a VirtualBox provider."
+  - "VMware Workstation or Fusion automation scripts using `vmrun ... nogui` to start VMs unattended for scripted QA labs, snapshot testing or scheduled regression runs."
+  - "Self-hosted VM farms and malware-analysis sandboxes that run `VBoxHeadless` directly as a background service so many guest VMs can run on one host without a console per VM."
+level: medium

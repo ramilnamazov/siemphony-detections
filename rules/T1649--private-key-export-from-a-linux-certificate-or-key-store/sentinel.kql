@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "/openssl" and (ProcessCommandLine contains "pkcs12" or ProcessCommandLine contains "pkcs8")) or ((FolderPath endswith "/pk12util" or FolderPath endswith "/certutil") and (ProcessCommandLine contains "/nssdb" or ProcessCommandLine contains "/.pki")) or (FolderPath endswith "/keytool" and (ProcessCommandLine contains "-importkeystore" or ProcessCommandLine contains "-exportcert")))

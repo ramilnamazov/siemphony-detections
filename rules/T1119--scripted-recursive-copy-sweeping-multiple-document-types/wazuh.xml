@@ -1,0 +1,14 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i)copy-item</field>
+    <field name="CommandLine" type="pcre2">(?i)recurse</field>
+    <field name="CommandLine" type="pcre2">(?i)(\.doc|\.xls|\.ppt|\.pdf|\.csv|\.txt)</field>
+    <description>Scripted recursive copy sweeping multiple document types</description>
+    <mitre>
+      <id>T1119</id>
+    </mitre>
+  </rule>
+</group>

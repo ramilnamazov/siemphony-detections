@@ -1,0 +1,72 @@
+<group name="sigma,linux,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 6 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^EXECVE$</field>
+    <field name="a0" type="pcre2">(?i)auditctl$</field>
+    <field name="a1" type="pcre2">(?i)^-D$</field>
+    <description>Linux Audit system disabled, purged or its config files tampered with (1/6)</description>
+    <mitre>
+      <id>T1685.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^EXECVE$</field>
+    <field name="a0" type="pcre2">(?i)auditctl$</field>
+    <field name="a1" type="pcre2">(?i)^-e$</field>
+    <field name="a2" type="pcre2">(?i)^0$</field>
+    <description>Linux Audit system disabled, purged or its config files tampered with (2/6)</description>
+    <mitre>
+      <id>T1685.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^EXECVE$</field>
+    <field name="a0" type="pcre2">(?i)systemctl$</field>
+    <field name="a1" type="pcre2">(?i)(stop|disable|mask)</field>
+    <field name="a2" type="pcre2">(?i)auditd</field>
+    <description>Linux Audit system disabled, purged or its config files tampered with (3/6)</description>
+    <mitre>
+      <id>T1685.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100003" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^EXECVE$</field>
+    <field name="a0" type="pcre2">(?i)service$</field>
+    <field name="a1" type="pcre2">(?i)auditd</field>
+    <field name="a2" type="pcre2">(?i)(stop|disable|mask)</field>
+    <description>Linux Audit system disabled, purged or its config files tampered with (4/6)</description>
+    <mitre>
+      <id>T1685.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100004" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^EXECVE$</field>
+    <field name="a0" type="pcre2">(?i)(pkill$|killall$)</field>
+    <field name="a1" type="pcre2">(?i)auditd</field>
+    <description>Linux Audit system disabled, purged or its config files tampered with (5/6)</description>
+    <mitre>
+      <id>T1685.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100005" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^PATH$</field>
+    <field name="name" type="pcre2">(?i)(/etc/audit/audit\.rules|/etc/audit/audit\.conf|/etc/audit/rules\.d/)</field>
+    <description>Linux Audit system disabled, purged or its config files tampered with (6/6)</description>
+    <mitre>
+      <id>T1685.004</id>
+    </mitre>
+  </rule>
+</group>

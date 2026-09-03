@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\rclone.exe" or FolderPath endswith "\\azcopy.exe" or FolderPath endswith "\\megacmd.exe" or FolderPath endswith "\\megasync.exe") and (ProcessCommandLine contains "copy" or ProcessCommandLine contains "sync" or ProcessCommandLine contains "copyto" or ProcessCommandLine contains "moveto" or ProcessCommandLine contains "put"))

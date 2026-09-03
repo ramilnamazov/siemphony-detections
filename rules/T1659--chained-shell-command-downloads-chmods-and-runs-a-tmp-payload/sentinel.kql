@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((((FolderPath endswith "/sh" or FolderPath endswith "/bash" or FolderPath endswith "/dash") and (ProcessCommandLine contains "curl " or ProcessCommandLine contains "wget ")) and (ProcessCommandLine contains "/tmp/" or ProcessCommandLine contains "/var/tmp/")) and (ProcessCommandLine contains "chmod +x" or ProcessCommandLine contains "chmod 755" or ProcessCommandLine contains "chmod 777"))

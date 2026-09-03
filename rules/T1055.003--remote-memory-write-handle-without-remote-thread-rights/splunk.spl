@@ -1,0 +1,1 @@
+index=* ((TargetImage="*\\explorer.exe" OR TargetImage="*\\svchost.exe" OR TargetImage="*\\dllhost.exe" OR TargetImage="*\\taskhostw.exe" OR TargetImage="*\\winlogon.exe" OR TargetImage="*\\spoolsv.exe") AND (GrantedAccess="0x1438" OR GrantedAccess="0x1428" OR GrantedAccess="0x438" OR GrantedAccess="0x428" OR GrantedAccess="0x38" OR GrantedAccess="0x28"))

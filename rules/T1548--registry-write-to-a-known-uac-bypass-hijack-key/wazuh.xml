@@ -1,0 +1,12 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)(\\Software\\Classes\\ms-settings\\shell\\open\\command|\\Software\\Classes\\mscfile\\shell\\open\\command|\\Software\\Classes\\Folder\\shell\\open\\command|\\Software\\Classes\\exefile\\shell\\runas\\command\\isolatedCommand|\\Software\\Classes\\AppX82a6gwre4fdg3bt635tn5ctqjf8msdd2\\Shell\\open\\command|\\Environment\\windir)</field>
+    <description>Registry write to a known UAC bypass hijack key</description>
+    <mitre>
+      <id>T1548</id>
+      <id>T1548.002</id>
+    </mitre>
+  </rule>
+</group>

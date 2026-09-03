@@ -1,0 +1,1 @@
+index=* (CommandLine="*net view*" OR CommandLine="*net.exe view*" OR CommandLine="*net1 view*" OR CommandLine="*net1.exe view*" OR CommandLine="*net share*" OR CommandLine="*net.exe share*" OR CommandLine="*net1 share*" OR CommandLine="*net1.exe share*" OR CommandLine="*Get-SmbShare*" OR CommandLine="*Win32_Share*" OR CommandLine="*NetShareEnum*")

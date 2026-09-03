@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(type) == "syscall" AND (TO_LOWER(syscall) == "chmod" OR TO_LOWER(syscall) == "fchmod" OR TO_LOWER(syscall) == "fchmodat" OR TO_LOWER(syscall) == "chown" OR TO_LOWER(syscall) == "fchown" OR TO_LOWER(syscall) == "fchownat" OR TO_LOWER(syscall) == "lchown" OR TO_LOWER(syscall) == "setxattr" OR TO_LOWER(syscall) == "lsetxattr" OR TO_LOWER(syscall) == "fsetxattr" OR TO_LOWER(syscall) == "removexattr" OR TO_LOWER(syscall) == "lremovexattr" OR TO_LOWER(syscall) == "fremovexattr"))

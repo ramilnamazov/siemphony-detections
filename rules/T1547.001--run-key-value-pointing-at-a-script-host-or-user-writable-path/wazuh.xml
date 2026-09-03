@@ -1,0 +1,12 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)(\\CurrentVersion\\Run\\|\\CurrentVersion\\RunOnce\\|\\CurrentVersion\\RunOnceEx\\|\\CurrentVersion\\RunServices\\|\\CurrentVersion\\RunServicesOnce\\)</field>
+    <field name="Details" type="pcre2">(?i)(\\AppData\\Local\\|\\AppData\\Roaming\\|\\Users\\Public\\|\\ProgramData\\|\\Windows\\Temp\\|%AppData%|%LocalAppData%|%UserProfile%|%Temp%|%Public%|%ProgramData%|powershell|pwsh|cmd\.exe|mshta|rundll32|regsvr32|wscript|cscript|certutil|\.hta|\.vbs|\.ps1|\.bat|\.cmd|\.scr)</field>
+    <description>Run key value pointing at a script host or user-writable path</description>
+    <mitre>
+      <id>T1547.001</id>
+    </mitre>
+  </rule>
+</group>

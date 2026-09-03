@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\azureadconnectauthenticationagentservice.exe" OR TO_LOWER(process.executable) LIKE "*\\\\miiserver.exe" OR TO_LOWER(process.executable) LIKE "*\\\\microsoft.identityserver.servicehost.exe") AND TO_LOWER(file.code_signature.signed) == "false")

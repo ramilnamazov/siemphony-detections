@@ -1,0 +1,1 @@
+index=* ((Image="*\\wscript.exe" OR Image="*\\cscript.exe") AND (CommandLine="*.js*" OR CommandLine="*.jse*"))

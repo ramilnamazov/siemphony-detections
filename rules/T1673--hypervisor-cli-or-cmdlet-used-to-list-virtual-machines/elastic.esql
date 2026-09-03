@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (((TO_LOWER(process.executable) LIKE "*\\\\vmrun.exe" OR TO_LOWER(process.executable) LIKE "*\\\\vboxmanage.exe") AND (TO_LOWER(process.command_line) LIKE "* list*" OR TO_LOWER(process.command_line) LIKE "* showvminfo*")) OR ((TO_LOWER(process.executable) LIKE "*\\\\powershell.exe" OR TO_LOWER(process.executable) LIKE "*\\\\pwsh.exe") AND TO_LOWER(process.command_line) LIKE "*get-vm*"))

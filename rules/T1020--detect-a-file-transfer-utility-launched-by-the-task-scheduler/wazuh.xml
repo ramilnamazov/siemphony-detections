@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\svchost\.exe$|\\taskeng\.exe$)</field>
+    <field name="Image" type="pcre2">(?i)(\\curl\.exe$|\\wget\.exe$|\\bitsadmin\.exe$|\\ftp\.exe$|\\rclone\.exe$|\\scp\.exe$|\\sftp\.exe$|\\pscp\.exe$|\\psftp\.exe$|\\winscp\.com$|\\winscp\.exe$)</field>
+    <description>Detect a file-transfer utility launched by the task scheduler</description>
+    <mitre>
+      <id>T1020</id>
+    </mitre>
+  </rule>
+</group>

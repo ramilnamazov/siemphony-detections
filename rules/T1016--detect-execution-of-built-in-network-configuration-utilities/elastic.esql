@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) LIKE "*\\\\ipconfig.exe" OR TO_LOWER(process.executable) LIKE "*\\\\arp.exe" OR TO_LOWER(process.executable) LIKE "*\\\\route.exe" OR TO_LOWER(process.executable) LIKE "*\\\\nbtstat.exe" OR TO_LOWER(process.executable) LIKE "*\\\\getmac.exe")

@@ -1,0 +1,70 @@
+title: Detect an interpreter launched from the shell with a pasted one-liner
+id: 61894a28-e403-42f2-8c51-ac497c530c55
+status: experimental
+description: |
+  Matches the ClickFix shape described in AN0962: a command interpreter created
+  directly by explorer.exe — the Run dialog, the Start box or a desktop
+  double-click, which is where a socially engineered paste lands — carrying an
+  argument that only a copied one-liner tends to have, such as an encoded
+  command, an inline download-and-execute, a bare URL or a hidden window. Three
+  selections are ANDed because none of them stands alone: the parent alone fires
+  on every interactive launch, and the argument list alone is ordinary scripting
+  noise. AN0962 continues into a file drop under a user-writable path and first
+  egress; those are separate events with no join in Sigma, so the
+  ParentProcessAllowList, WritePaths and OutboundCIDRBlockList knobs are not
+  expressed here. Nothing in the telemetry records that the text was pasted
+  rather than typed, so intent is inferred from the launch context only. The
+  analytic's process source is Security 4688, which needs the Audit Process
+  Creation subcategory enabled and, because every term here sits on the
+  arguments, the separate Include command line in process creation events policy
+  as well — with either one off the rule matches nothing while appearing healthy.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0340, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1204/004
+  - https://attack.mitre.org/detectionstrategies/DET0340
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1204.004
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_shell_parent:
+    ParentImage|endswith: '\explorer.exe'
+  selection_interpreter:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\conhost.exe'
+      - '\mshta.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\curl.exe'
+      - '\msiexec.exe'
+  selection_paste_markers:
+    CommandLine|contains:
+      - ' -enc '
+      - ' -encodedcommand'
+      - ' -ec '
+      - 'frombase64string'
+      - 'invoke-expression'
+      - 'iex('
+      - 'iex '
+      - 'downloadstring'
+      - 'invoke-webrequest'
+      - 'invoke-restmethod'
+      - '--headless'
+      - ' -w hidden'
+      - ' -windowstyle hidden'
+      - 'http://'
+      - 'https://'
+  condition: selection_shell_parent and selection_interpreter and selection_paste_markers
+falsepositives:
+  - "Helpdesk-driven remediation. Support staff routinely tell a user to press Win+R and paste a fix, and the resulting event is indistinguishable from the attack it is modelled on: same parent, same interpreter, same download-and-run argument. Every environment that supports users this way needs the sanctioned commands recorded before this rule is usable."
+  - "Vendor shortcuts and installer stubs on the desktop or Start menu. A .lnk whose target is powershell.exe with a hidden window style, or msiexec.exe pointed at a package URL, is launched by explorer.exe on double-click and matches all three selections without anything unusual happening."
+  - "Administrators and developers working interactively, who paste encoded or piped one-liners into the Run box because it is faster than opening a console. MITRE's ParentProcessAllowList knob is aimed at automation rather than at people, so this population has to be scoped by account or host instead."
+  - "Bare URL terms are the loosest part of the rule: any interactive launch that passes a link to a browser helper, an updater or a documentation shortcut through one of these interpreters will match. Drop the two URL entries first if volume is a problem, accepting the loss of the mshta and curl variants."
+level: high

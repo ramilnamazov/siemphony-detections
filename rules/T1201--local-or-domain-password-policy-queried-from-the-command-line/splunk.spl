@@ -1,0 +1,1 @@
+index=* (((Image="*\\net.exe" OR Image="*\\net1.exe") AND CommandLine="* accounts*") OR (Image="*\\secedit.exe" AND CommandLine="*/export*") OR ((Image="*\\powershell.exe" OR Image="*\\pwsh.exe") AND (CommandLine="*Get-ADDefaultDomainPasswordPolicy*" OR CommandLine="*Get-ADFineGrainedPasswordPolicy*")))

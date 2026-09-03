@@ -1,0 +1,58 @@
+title: Code repository domain resolved by a script host or transfer tool
+id: 990761bd-7b63-4b65-b88c-575ea26b8272
+status: experimental
+description: |
+  Matches a DNS lookup for a public code-repository domain made by a scripting
+  host, a transfer utility or Git's HTTPS helper, which is the outbound leg of
+  AN0895 reduced to a single event. The dns_query source is chosen over the
+  Sysmon EventID 3 connection event because the repository is identified by
+  name and the connection event carries only an address — its
+  DestinationHostname comes from a reverse lookup and resolves to nothing
+  usable for these CDNs. `git.exe` is deliberately absent from the process
+  list: `git push` over HTTPS hands the transport to `git-remote-https.exe`,
+  so `git.exe` never issues the query and would be a dead selector here. The
+  analytic's other two elements — the preceding read of a sensitive directory
+  and MITRE's ExfilVolumeThreshold knob — need a correlation and a numeric
+  comparison that Sigma cannot express, so this fires on the contact rather
+  than on the volume moving through it, and it sees nothing at all unless the
+  running Sysmon configuration enables DNS query logging.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0318, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1567/001
+  - https://attack.mitre.org/detectionstrategies/DET0318
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.exfiltration
+  - attack.t1567.001
+logsource:
+  category: dns_query
+  product: windows
+detection:
+  selection_process:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cscript.exe'
+      - '\wscript.exe'
+      - '\mshta.exe'
+      - '\certutil.exe'
+      - '\curl.exe'
+      - '\python.exe'
+      - '\pythonw.exe'
+      - '\rclone.exe'
+      - '\git-remote-https.exe'
+  selection_repository:
+    QueryName|endswith:
+      - 'github.com'
+      - 'githubusercontent.com'
+      - 'gitlab.com'
+      - 'bitbucket.org'
+      - 'sourceforge.net'
+  condition: selection_process and selection_repository
+falsepositives:
+  - "Developer workstations and build agents, which are most of what this rule matches: git-remote-https.exe resolves github.com on every clone, fetch and push, and a CI runner does it continuously. Wherever source control is part of the job this is the entire result set by a wide margin, which is why the level is set no higher than low."
+  - "Package and module installation. pip, poetry and npm driven through python.exe or a shell resolve github.com and codeload.github.com to fetch dependencies, and PowerShell bootstrap scripts pull install code from raw.githubusercontent.com — the same lookup an upload produces."
+  - "Updaters and security tooling that pull detection rules, signatures or release binaries from a repository's release hosting on a fixed schedule using curl.exe or a bundled python.exe."
+  - "Administrative and reporting automation querying the repository API for issue, release or membership metadata. A read and a write resolve the same name, so inventory scripts are indistinguishable from an exfiltration client at this event."
+level: low

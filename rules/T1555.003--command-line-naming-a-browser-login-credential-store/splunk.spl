@@ -1,0 +1,1 @@
+index=* (CommandLine="*\\Login Data*" OR CommandLine="*logins.json*" OR CommandLine="*key4.db*")

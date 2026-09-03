@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\tscon.exe" or (FolderPath endswith "\\mstsc.exe" and (ProcessCommandLine contains "-shadow:" or ProcessCommandLine contains "/shadow:" or ProcessCommandLine contains "–shadow:" or ProcessCommandLine contains "—shadow:" or ProcessCommandLine contains "―shadow:")))

@@ -1,0 +1,50 @@
+title: Execution of a port or network service scanning utility
+id: 5161327d-a49b-49de-879f-5ff2a84b6170
+status: experimental
+description: |
+  AN1057 is a rate analytic — it counts unique destination addresses and ports
+  inside MITRE's TimeWindow and compares the result against ScanRateThreshold —
+  and none of that survives into single-event Sigma. What is left, and all this
+  rule claims, is that a scanning utility was launched on the host: it does not
+  observe a scan, does not know whether one host or a whole /16 was probed, and
+  is silent on scanning done from PowerShell sockets or from a renamed binary,
+  because the selection anchors on the image name. MITRE's KnownScannerExeList
+  knob is an allowlist of scanners IT is permitted to run; the list below is
+  the authored inverse of it, restricted to binaries that do their own scanning
+  rather than launchers that hand off to another process. The level is
+  deliberately medium and not higher: in any estate that uses one of these for
+  inventory this is a daily event, and treating it as an alert rather than a
+  hunting lead is how the rule gets turned off.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0376, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1046
+  - https://attack.mitre.org/detectionstrategies/DET0376
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1046
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith:
+      - '\nmap.exe'
+      - '\ncat.exe'
+      - '\masscan.exe'
+      - '\rustscan.exe'
+      - '\naabu.exe'
+      - '\fscan.exe'
+      - '\netscan.exe'
+      - '\nbtscan.exe'
+      - '\advanced_ip_scanner.exe'
+      - '\advanced_port_scanner.exe'
+      - '\portqry.exe'
+  condition: selection
+falsepositives:
+  - "Sanctioned inventory and vulnerability scanning. Advanced IP Scanner and the SoftPerfect scanner are ordinary helpdesk tools in many organisations, and a vulnerability-management agent that shells out to nmap matches on every scheduled sweep. This is precisely the noise MITRE parks in the KnownScannerExeList knob, and that knob has to be populated with the local truth before this rule is worth routing to an analyst."
+  - "Authorised penetration tests and red-team engagements, which produce the exact process this rule selects and are indistinguishable from an intruder at the process-creation event."
+  - "Network engineers using ncat or portqry interactively to check whether one service on one host is reachable. That is a single connection rather than a scan, but the process event is identical because this rule never sees the connections at all."
+  - "Portable copies of these tools bundled inside vendor support packages and diagnostic collectors, which run them once from a temporary directory during a support case."
+level: medium

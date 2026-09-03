@@ -1,0 +1,1 @@
+index=* ((((Image="*/curl" OR Image="*/wget" OR Image="*/busybox") AND (CommandLine="*-H Host:*" OR CommandLine="*-HHost:*" OR CommandLine="*--header=Host:*")) AND CommandLine="*https://*") AND (CommandLine="*cloudfront.net*" OR CommandLine="*azureedge.net*" OR CommandLine="*fastly.net*" OR CommandLine="*akamaihd.net*"))

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) == "system" AND (TO_LOWER(file.path) LIKE "*.exe" OR TO_LOWER(file.path) LIKE "*.dll" OR TO_LOWER(file.path) LIKE "*.sys" OR TO_LOWER(file.path) LIKE "*.ps1" OR TO_LOWER(file.path) LIKE "*.bat" OR TO_LOWER(file.path) LIKE "*.cmd" OR TO_LOWER(file.path) LIKE "*.vbs" OR TO_LOWER(file.path) LIKE "*.hta" OR TO_LOWER(file.path) LIKE "*.scr"))

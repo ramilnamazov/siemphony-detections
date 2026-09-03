@@ -1,0 +1,1 @@
+index=* (CommandLine="*/etc/shadow*" OR Image="*/unshadow" OR (CommandLine="*/etc/passwd*" AND (Image="*/cp" OR Image="*/tar" OR Image="*/base64" OR Image="*/xxd" OR Image="*/curl" OR Image="*/scp" OR Image="*/nc" OR Image="*/nc.openbsd" OR Image="*/nc.traditional" OR Image="*/netcat" OR Image="*/ncat")))

@@ -1,0 +1,2 @@
+DeviceImageLoadEvents
+| where ((FolderPath endswith "\\ntdll.dll" or FolderPath endswith "\\kernel32.dll" or FolderPath endswith "\\kernelbase.dll") and not ((FolderPath startswith "C:\\Windows\\System32\\" or FolderPath startswith "C:\\Windows\\SysWOW64\\" or FolderPath startswith "C:\\Windows\\WinSxS\\" or FolderPath startswith "C:\\Windows\\SyChpe32\\" or FolderPath startswith "C:\\Windows\\SysArm32\\")))

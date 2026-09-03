@@ -1,0 +1,59 @@
+title: Container process entering the host namespaces
+id: f27d0c3b-c763-4343-aa9f-c0f82a5907a6
+status: experimental
+description: |
+  Matches the escape step AN0613 describes — a containerised process crossing
+  into the host's namespaces — on the Sysmon-for-Linux process-creation source
+  the analytic offers, in two arms. The first pairs `nsenter` in `Image` with a
+  `CommandLine` naming PID 1 as the target, which is the direction that matters:
+  host tooling entering a container targets that container's PID, so a target of
+  1 (or a `/proc/1/ns` path handed to setns) is a process reaching upward out of
+  its own namespace set rather than downward into someone else's. The second arm
+  matches command lines naming `release_agent`, `notify_on_release` or
+  `/proc/sys/kernel/core_pattern`, the three host files a privileged container
+  writes to make the host kernel execute a payload for it. The analytic's other
+  log source, raw `auditd`, was not used: it records the syscall number rather
+  than the name, splits arguments into positional a0/a1 fields instead of one
+  command line, and does not watch unshare/setns/keyctl at all until an audit
+  rule is added by hand, which no default or baseline policy does. MITRE supplies
+  the SyscallWhitelist knob; the utility and path list here is authored. Three
+  limits worth stating: an escape carried out entirely in-process — a program
+  calling setns() or unshare() through libc, or a kernel exploit — creates no
+  exec and is invisible here; a shell builtin redirect such as
+  `echo … > /proc/sys/kernel/core_pattern` also creates no exec, so only the
+  `sh -c` and `tee` forms of that write are seen; and Sysmon for Linux is a
+  separate agent that no distribution installs by default, so a host running
+  stock auditd alone produces nothing this rule can read.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0219, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1611
+  - https://attack.mitre.org/detectionstrategies/DET0219
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.t1611
+logsource:
+  product: linux
+  service: sysmon
+detection:
+  selection_nsenter:
+    Image|endswith: '/nsenter'
+  selection_hostns:
+    CommandLine|contains:
+      - '-t 1 '
+      - '--target 1 '
+      - '--target=1 '
+      - '/proc/1/ns'
+  selection_hostwrite:
+    CommandLine|contains:
+      - 'release_agent'
+      - 'notify_on_release'
+      - '/proc/sys/kernel/core_pattern'
+  condition: (selection_nsenter and selection_hostns) or selection_hostwrite
+falsepositives:
+  - "Node-level agents on a Kubernetes cluster that enter the host namespaces on purpose. CSI drivers, CNI plugins, log shippers and monitoring DaemonSets routinely run `nsenter -t 1 -m -u -i -n -p` to read host state or mount volumes, and on a busy node this is the highest-volume match by a wide margin, recurring every time one of those pods is rescheduled."
+  - "Operators troubleshooting a node with `kubectl debug node/...` or a privileged `docker run`, both of which drop the user into the host mount and PID namespaces using the identical nsenter one-liner an operator would type."
+  - "Container runtime and cgroup-v1 housekeeping, where runc, systemd or a legacy container manager names release_agent or notify_on_release while creating or tearing down a cgroup hierarchy."
+  - "Crash-handler packages configuring core dumps at boot or on upgrade — ABRT, systemd-coredump and Apport post-install scripts write /proc/sys/kernel/core_pattern through `sh -c` or `tee`, which is exactly the visible form of that write."
+level: medium

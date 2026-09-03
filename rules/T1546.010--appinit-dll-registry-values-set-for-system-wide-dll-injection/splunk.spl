@@ -1,0 +1,1 @@
+index=* (TargetObject="*\\Windows NT\\CurrentVersion\\Windows\\AppInit_DLLs" OR TargetObject="*\\Windows NT\\CurrentVersion\\Windows\\LoadAppInit_DLLs" OR TargetObject="*\\Windows NT\\CurrentVersion\\Windows\\RequireSignedAppInit_DLLs")

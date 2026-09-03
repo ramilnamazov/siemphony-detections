@@ -1,0 +1,56 @@
+title: Filesystem searched for credential strings in files
+id: 9dd5b1dc-e41b-4554-b212-2f344f5f0932
+status: experimental
+description: |
+  AN0856's usable arm is the search itself: a text-search tool pointed at files
+  with a credential keyword as the pattern, which is how insecurely stored
+  passwords are found before they are used. The rule gates on the tool and on
+  the keyword, both read off the one command line, and deliberately does not
+  gate on a file extension — MITRE's FileNamePattern knob is where an estate
+  narrows this to its own `.config`, `.env` or `.xml` conventions, and a fixed
+  extension list would drop the single-file case entirely. The brief's other two
+  Windows sources are not used because neither can carry the behaviour: Sysmon
+  EventID 11 fires on file creation, not on the read that discovery consists of,
+  and Security 4624/4648 record the later logon, which only becomes evidence
+  when joined to the file access across MITRE's TimeWindow knob — a correlation
+  Sigma cannot express. Prerequisite: this is written in the Sysmon EventID 1
+  vocabulary; where an estate feeds Security 4688 into `process_creation`
+  instead, `CommandLine` is populated only if *Audit Process Creation* and the
+  separate *Include command line in process creation events* policy are both on,
+  and without them every event arrives with an empty command line and this rule
+  is silently blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0307, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1552/001
+  - https://attack.mitre.org/detectionstrategies/DET0307
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1552.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    CommandLine|contains:
+      - 'findstr'
+      - 'Select-String'
+  selection_keyword:
+    CommandLine|contains:
+      - 'password'
+      - 'passwd'
+      - 'pwd='
+      - 'credential'
+      - 'secret'
+      - 'apikey'
+      - 'api_key'
+      - 'accesskey'
+      - 'connectionstring'
+  condition: selection_tool and selection_keyword
+falsepositives:
+  - "Build and deployment automation that uses findstr or Select-String to check or rewrite a connection string, password placeholder or API key in web.config, appsettings.json or a transform file. On a build agent this runs on every pipeline execution and is the highest-volume match by a long way, which is why the level here is not raised further."
+  - "Helpdesk and administrator troubleshooting of an authentication failure, where an operator greps an application config or log for the word password to confirm which account or connection string a service is using."
+  - "Secret-scanning, DLP and compliance tooling that hunts for plaintext credentials across shares and workstations as a hardening check — it matches its own signature, because the search it performs is the search this rule looks for."
+  - "Developers running Select-String -Pattern password over a repository checkout or a log directory while debugging, which is routine on engineering workstations."
+level: medium

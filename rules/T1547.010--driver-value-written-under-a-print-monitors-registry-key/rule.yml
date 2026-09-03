@@ -1,0 +1,43 @@
+title: Driver value written under a Print Monitors registry key
+id: c02b9b98-5142-41a2-b16f-af91dc28a6c8
+status: experimental
+description: |
+  Matches a `Driver` value written under any subkey of
+  `HKLM\SYSTEM\CurrentControlSet\Control\Print\Monitors` — the mechanism
+  itself: a port monitor DLL registered here loads into `spoolsv.exe` under
+  SYSTEM at the next boot or spooler restart, regardless of which process
+  wrote the value. The subkey name is deliberately unconstrained because
+  `AddMonitor` lets an adversary create any arbitrarily named subkey under
+  `...\Monitors\`, so the observable is `TargetObject` ending in `\Driver`
+  beneath that path rather than a specific monitor name. AN0580 also lists
+  Sysmon EventID 1 (the calling process of AddMonitor), EventID 7 (spoolsv.exe
+  loading the DLL) and EventID 11 (the DLL landing in System32); of the four,
+  the registry write is the step every path through this technique shares, so
+  it is the one written here rather than a chain across events Sigma cannot
+  join. Sysmon's `registry_set` category carries the full key-plus-value path
+  in a single `TargetObject` field — the match is on the trailing `Driver`
+  value name, not the monitor subkey itself, which is the subkey-vs-value
+  distinction this rule depends on getting right.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0204, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/010
+  - https://attack.mitre.org/detectionstrategies/DET0204
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.010
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains: '\Control\Print\Monitors\'
+    TargetObject|endswith: '\Driver'
+  condition: selection
+falsepositives:
+  - "Installing or updating a printer through Devices and Printers or the Print Management console, which legitimately writes a Driver value under a new or existing Monitors subkey for Standard TCP/IP Port, Local Port, USB Monitor or WSD Port — the routine path this registry location exists to serve."
+  - "Vendor printer, scanner or multifunction-device driver packages (HP, Canon, Xerox, Epson and similar) that install their own custom port monitor DLL during setup, whether run interactively or pushed silently by software deployment tooling."
+  - "Print server migration or bulk printer provisioning scripts that recreate Monitors subkeys across many printers in a single maintenance window."
+level: medium

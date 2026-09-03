@@ -1,0 +1,47 @@
+title: Detect password hash cracking tool execution on a host
+id: eeafbb5b-e54d-49d5-ac6e-c321f675cd82
+status: experimental
+description: |
+  Matches process creation of known password-hash cracking binaries, which is
+  MITRE's HashToolName knob from AN0292 written out as an Image list. Cracking
+  is overwhelmingly an offline activity performed on adversary-controlled
+  hardware, so this rule does not observe the cracking — it observes the tooling
+  appearing on a managed host, which is the only part of the behaviour that
+  reaches endpoint telemetry at all. AN0292's other signals are a correlation:
+  the preceding SAM/SYSTEM/NTDS.dit access named by FilePathIndicators, then
+  sustained CPU or GPU load while the tool runs. Sigma can express neither a
+  join nor a resource-usage threshold, so nothing here pretends to; the rule
+  matches on Image alone, which every backend renders, at the cost of missing a
+  renamed binary.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0105, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1110/002
+  - https://attack.mitre.org/detectionstrategies/DET0105
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1110.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith:
+      - '\hashcat.exe'
+      - '\hashcat32.exe'
+      - '\hashcat64.exe'
+      - '\hashcat-legacy.exe'
+      - '\john.exe'
+      - '\john-omp.exe'
+      - '\john-mmx.exe'
+      - '\ophcrack.exe'
+      - '\rcrack.exe'
+      - '\rcracki_mt.exe'
+      - '\l0phtcrack.exe'
+  condition: selection
+falsepositives:
+  - "Authorised password-audit and red-team engagements. A security team cracking a sanctioned NTDS.dit extract produces a byte-identical process creation event; MITRE's ExecutionContext knob is the discriminator, so scope the rule by account and by the hosts designated for audit work rather than by tool name."
+  - "Analyst and researcher workstations where these binaries are installed from a package manager (Chocolatey, Scoop, winget) and launched with `--help`, `--benchmark` or against a self-made test hash while someone learns the tool."
+  - "Filename collisions. The match is Image-only, per MITRE's HashToolName knob being a name list rather than a hash list, so any unrelated binary named john.exe or rcrack.exe — a build artefact, a personal utility — alerts. Pair with the KnownGood publisher or hash of your permitted copies."
+level: high

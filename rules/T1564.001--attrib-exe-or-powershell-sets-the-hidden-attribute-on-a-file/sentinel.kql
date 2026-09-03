@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\attrib.exe" and ProcessCommandLine contains "+h") or ((FolderPath endswith "\\powershell.exe" or FolderPath endswith "\\pwsh.exe") and (ProcessCommandLine contains "attributes" and ProcessCommandLine contains "hidden")))

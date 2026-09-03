@@ -1,0 +1,56 @@
+title: Registry queried for host, software or security configuration
+id: 2c4526fb-8cc6-4933-93e8-d4cac2a711b6
+status: experimental
+description: |
+  Matches a registry read issued on a command line — reg query, or the PowerShell
+  registry-provider cmdlets — against keys that describe the host, its installed
+  software and its security posture, which is MITRE's TargetRegistryPath knob
+  populated here with the OS version, uninstall, machine GUID, BIOS, disk
+  enumeration, Defender, UAC and Terminal Server keys. The registry categories the
+  brief also offers cannot express this at all: Sysmon EventID 13 records a value
+  being written and 14 a key being renamed, so a query leaves no registry event
+  behind and a rule built on registry_set could never fire. A read performed
+  through the API without a command line — a compiled implant, or a .NET call
+  buried inside a longer script — is invisible here, so a quiet result is not
+  evidence that nothing enumerated the registry. Discovery of this kind is what
+  ordinary administration and inventory tooling does all day, which is why the
+  level below is set for a hunting input rather than an alert.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0209, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1012
+  - https://attack.mitre.org/detectionstrategies/DET0209
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1012
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_read:
+    CommandLine|contains:
+      - 'reg query'
+      - 'reg.exe query'
+      - 'Get-ItemProperty'
+      - 'Get-ItemPropertyValue'
+      - 'Get-ChildItem HKLM'
+      - 'Get-ChildItem -Path HKLM'
+  selection_key:
+    CommandLine|contains:
+      - 'Windows NT\CurrentVersion'
+      - 'CurrentVersion\Uninstall'
+      - 'CurrentVersion\Policies\System'
+      - 'Microsoft\Cryptography'
+      - 'Microsoft\Windows Defender'
+      - 'Control\SystemInformation'
+      - 'Control\Terminal Server'
+      - 'HARDWARE\DESCRIPTION\System'
+      - 'Services\Disk\Enum'
+  condition: selection_read and selection_key
+falsepositives:
+  - "Software inventory, patch-management and licensing agents, which enumerate the CurrentVersion Uninstall key on every host on a schedule to build an installed-software list. On a managed estate this is a daily event on every machine and is the loudest match by a wide margin, which is what the level reflects."
+  - "Installer bootstrappers and application launch scripts that read the Windows NT CurrentVersion key to check the OS build before deciding what to install or which code path to take."
+  - "Compliance, hardening and monitoring scans reading the Defender policy keys and the UAC values under CurrentVersion Policies System to report configuration drift, typically once per host per day."
+  - "Support sessions where an administrator runs reg query interactively against the hardware description or Terminal Server keys while diagnosing a driver, licensing or remote-desktop problem."
+level: low

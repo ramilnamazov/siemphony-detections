@@ -1,0 +1,1 @@
+index=* ((TargetObject="HKU\\*" AND TargetObject="*\\Software\\Classes\\CLSID\\*") AND (TargetObject="*\\InprocServer32\\(Default)" OR TargetObject="*\\LocalServer32\\(Default)"))

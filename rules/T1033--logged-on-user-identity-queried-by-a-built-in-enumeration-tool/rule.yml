@@ -1,0 +1,68 @@
+title: Logged-on user identity queried by a built-in enumeration tool
+id: 51878ce4-6986-4b37-b1af-613b14d0461f
+status: experimental
+description: |
+  AN0254 describes an adversary running the shipped tools that answer "who am I
+  and who else is on this box" — the analytic names `whoami`, `query user` and
+  `net user` — so each leg here anchors on one of those and on the API-level
+  equivalents that avoid the executables. What MITRE says separates
+  reconnaissance from routine use lives entirely in its tuning knobs:
+  ParentProcessContext (enumeration from a non-interactive shell or service),
+  UserContext (a service account issuing the command) and TimeWindow (grouping
+  the query with lateral movement that follows). Sigma models no timeframe and
+  no per-user baseline, so none of the three is encoded and the rule is left
+  matching the single-event precursor, which is why the level sits near the
+  bottom of the scale rather than in the middle. Two limits worth stating: the
+  `net user` leg overlaps local account enumeration and will fire on that as
+  well, and AN0254's other log source — the PowerShell 4103/4104 channel — is
+  not used, so a cmdlet or `whoami` typed into a session that is already running
+  creates no process and is invisible here. This is Sysmon EventID 1 telemetry;
+  confirm process creation is not filtered out of the running Sysmon config
+  before reading an empty result as quiet rather than blind. Three of the five
+  legs test `CommandLine`, so if the `process_creation` index is fed from
+  Security 4688 instead they need the separate *Include command line in process
+  creation events* policy, which is off in a default install and in the MS/CIS
+  baselines; without it the `whoami` and `quser` legs still fire and the rule
+  looks healthy while three of five are silently dead.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0093, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1033
+  - https://attack.mitre.org/detectionstrategies/DET0093
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1033
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_whoami:
+    Image|endswith: '\whoami.exe'
+  selection_session_tool:
+    Image|endswith:
+      - '\quser.exe'
+      - '\qwinsta.exe'
+  selection_query_verb:
+    Image|endswith: '\query.exe'
+    CommandLine|contains:
+      - ' user'
+      - ' session'
+  selection_net_user:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+    CommandLine|contains: ' user'
+  selection_api_identity:
+    CommandLine|contains:
+      - 'WindowsIdentity]::GetCurrent'
+      - 'Environment]::UserName'
+      - '$env:USERNAME'
+      - 'Win32_LoggedOnUser'
+  condition: 1 of selection*
+falsepositives:
+  - "Logon scripts and endpoint-management tooling that call whoami.exe to branch on the account running them. On a managed estate this fires at every interactive logon and on every agent check-in, and is the highest-volume match by a wide margin — MITRE's UserContext knob is the place to suppress it, keyed on the agent's service account."
+  - "Helpdesk and remote-desktop administration on session hosts, where query user or quser is the normal way to find which session to shadow, reset or log off before maintenance."
+  - "Administrators running net user against a named account to check password expiry, group membership or lockout state during ordinary account support."
+  - "Backup, licensing and monitoring agents that read the current identity through $env:USERNAME or WindowsIdentity to stamp it into their own records, producing a steady low-rate match on healthy hosts."
+level: low

@@ -1,0 +1,1 @@
+index=* ((EventID="4104" AND (ScriptBlockText="*New-InboxRule*" OR ScriptBlockText="*Set-InboxRule*")) AND (ScriptBlockText="*-DeleteMessage*" OR ScriptBlockText="*-SoftDeleteMessage*" OR ScriptBlockText="*-MoveToFolder*" OR ScriptBlockText="*-StopProcessingRules*" OR ScriptBlockText="*-MarkAsRead*"))

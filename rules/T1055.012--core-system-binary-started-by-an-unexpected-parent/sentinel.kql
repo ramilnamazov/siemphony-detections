@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\svchost.exe" or FolderPath endswith "\\spoolsv.exe" or FolderPath endswith "\\lsass.exe" or FolderPath endswith "\\services.exe" or FolderPath endswith "\\csrss.exe" or FolderPath endswith "\\wininit.exe" or FolderPath endswith "\\winlogon.exe") and not ((InitiatingProcessFolderPath endswith "\\services.exe" or InitiatingProcessFolderPath endswith "\\wininit.exe" or InitiatingProcessFolderPath endswith "\\smss.exe")))

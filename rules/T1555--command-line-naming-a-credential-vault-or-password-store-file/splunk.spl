@@ -1,0 +1,1 @@
+index=* (CommandLine="*\\Microsoft\\Protect\\*" OR CommandLine="*\\Microsoft\\Credentials\\*" OR CommandLine="*\\Microsoft\\Vault\\*" OR CommandLine="*\\Login Data*" OR CommandLine="*logins.json*" OR CommandLine="*key4.db*" OR CommandLine="*.kdbx*" OR CommandLine="*vaultcmd*" OR CommandLine="*dpapi::*")

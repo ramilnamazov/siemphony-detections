@@ -1,0 +1,70 @@
+title: Remote-write process handle opened from an unbacked call stack
+id: 2090f327-16e6-4383-8de1-36cf389116b9
+status: experimental
+description: |
+  AN0297 describes a four-step chain — OpenProcess, VirtualAllocEx,
+  WriteProcessMemory of an MZ header or shellcode, then CreateRemoteThread —
+  and Process Access is the one log source in the strategy where the access
+  rights that chain requires and the identity of the caller arrive together on
+  a single event. The rule therefore matches the OpenProcess step and requires
+  two things at once: a GrantedAccess mask that grants remote memory write,
+  memory operation and remote thread creation (the full-access variants plus
+  the narrower query/write/create-thread masks a minimal injector asks for),
+  and a CallTrace containing an UNKNOWN frame, which is how Sysmon renders a
+  return address that no loaded module backs. That second half is the closest
+  single-event proxy for the analytic's "without touching disk" — code
+  executing from allocated memory rather than from a mapped image. The mask
+  list is assembled here and is not MITRE's; this brief's knobs are
+  PayloadEntropyThreshold, TargetProcessList, TimeWindow and
+  ParentProcessAnomalyThreshold, and of those only TargetProcessList is
+  expressible, as an added TargetImage filter once a site knows which
+  processes should never be opened this way. Two limits are structural: an
+  injector whose code runs from a normal on-disk DLL produces a fully
+  module-backed CallTrace and is missed entirely, and the allocation, the
+  write and the thread creation are separate events that lib/sigma has no
+  timeframe or correlation to join, so only the handle acquisition is
+  modelled. Nothing in the logic is specific to a portable executable either:
+  the MZ header that separates this sub-technique from DLL injection, section
+  mapping or hollowing sits in the WriteProcessMemory payload, which no log
+  source in this brief records, so a hit is evidence of remote injection in
+  general and not of PE injection in particular. Prerequisite: Sysmon emits EventID 10 only where the configuration
+  carries a ProcessAccess rule, and the widely used baseline configurations
+  scope that to lsass.exe alone — on such a host this rule returns zero rows,
+  and zero rows reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0106, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1055/002
+  - https://attack.mitre.org/detectionstrategies/DET0106
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1055.002
+logsource:
+  category: process_access
+  product: windows
+detection:
+  selection_rights:
+    GrantedAccess:
+      - '0x1F0FFF'
+      - '0x1F1FFF'
+      - '0x1F2FFF'
+      - '0x1F3FFF'
+      - '0x1FFFFF'
+      - '0x147A'
+      - '0x143A'
+      - '0x47A'
+      - '0x43A'
+      - '0x42A'
+      - '0x2A'
+  selection_unbacked:
+    CallTrace|contains: 'UNKNOWN'
+  condition: selection_rights and selection_unbacked
+falsepositives:
+  - "Managed .NET applications, which are the dominant source and the reason this rule is not rated higher. JIT-compiled code is emitted into allocated memory that no module backs, so Sysmon renders those frames as UNKNOWN — any .NET process that opens a handle with these rights matches the CallTrace half by construction, including PowerShell, MSBuild, Visual Studio and the large population of management and line-of-business agents written on .NET."
+  - "Endpoint protection, EDR and DLP agents, which open full-access handles across the estate and inject their monitoring stubs from hook trampolines that live in allocated memory and so also render as UNKNOWN frames. These come from a small and stable set of SourceImage values per estate, which is where the exclusion belongs."
+  - "Debuggers and crash handlers. WerFault.exe collecting a dump, and any interactive attach from WinDbg or Visual Studio, request full access and create remote threads as their normal operation."
+  - "Anti-cheat engines, DRM wrappers and application-compatibility shims, all of which inject into their protected target by design and present the same masks."
+  - "Accessibility software, screen recorders, input-method editors and .NET profiling or APM agents that hook a running application in memory to observe or extend it."
+level: medium

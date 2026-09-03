@@ -1,0 +1,1 @@
+index=* (CommandLine="*APPDOMAIN_MANAGER_ASM*" OR CommandLine="*APPDOMAIN_MANAGER_TYPE*" OR CommandLine="*appDomainManagerAssembly*" OR CommandLine="*appDomainManagerType*")

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "netstat" or ProcessCommandLine contains "Get-NetTCPConnection" or ProcessCommandLine contains "Get-NetUDPEndpoint" or ProcessCommandLine contains "net session")

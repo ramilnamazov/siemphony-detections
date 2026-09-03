@@ -1,0 +1,51 @@
+title: Unsigned DLL loaded into LSASS as a notification package
+id: 69af3cf4-b6ff-4ae3-a58a-04ff70dd05ea
+status: experimental
+description: |
+  AN1303 asks for a three-way correlation: a registry write to the
+  Notification Packages value, a new DLL file appearing on disk, and LSASS
+  loading it during logon or a password change. RegistryPath, AllowedDLLs and
+  the TimeWindow knob are all built for that join, and Sigma has no
+  correlation operator to hold it together. Two of the three logsources also
+  carry the trap AUTHORING.md rule 12 warns about: the brief maps Security
+  EventID 4657 onto the registry_set category, but 4657 splits the changed
+  value across ObjectName and ObjectValueName, while registry_set's real
+  vocabulary — TargetObject and Details — belongs to Sysmon EventID 13, which
+  this analytic never lists as a source; writing TargetObject against 4657
+  would parse cleanly and never match. So this rule is built on the one leg
+  that is both a single event and unambiguous in its own vocabulary: Sysmon
+  EventID 7, the moment LSASS loads the new filter DLL. It matches any module
+  load into lsass.exe whose SignatureStatus is not Valid. Most legitimate
+  password filters, and most LSA plugins generally, ship signed, so an
+  unsigned or unavailable-signature load into LSASS is a real but coarse
+  anomaly — coarser than the technique itself, since it also catches any
+  other unsigned LSA notification or authentication package, not password
+  filters specifically. Confirm Sysmon's own config actually captures image
+  loads targeting lsass.exe: EventID 7 is high-volume and most shipped
+  configs, including SwiftOnSecurity's, either exclude it globally or
+  restrict it to a short target-process list that may not include lsass.exe.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0472, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1556/002
+  - https://attack.mitre.org/detectionstrategies/DET0472
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.credential-access
+  - attack.t1556.002
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection_lsass:
+    Image|endswith: '\lsass.exe'
+  filter_valid_signature:
+    SignatureStatus: 'Valid'
+  condition: selection_lsass and not filter_valid_signature
+falsepositives:
+  - "Third-party MFA, smart-card and credential-provider software, for example Duo, RSA SecurID or Azure AD Password Protection's DC agent, that installs its own LSA notification or authentication package — a legitimate LSASS-loaded plugin, and some ship in a state Sysmon reports as Unavailable rather than Valid at load time."
+  - "Endpoint security and DLP agents that inject their own module into LSASS for credential-theft self-protection, which is functionally the same load event this rule is built to catch."
+  - "A freshly patched or re-imaged host where the code-signing root or intermediate certificate is not yet trusted locally, causing Sysmon to report SignatureStatus as Invalid for genuinely signed Microsoft binaries until the local certificate store catches up."
+level: medium

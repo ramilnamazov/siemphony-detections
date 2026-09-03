@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "Add-MailboxPermission" or ProcessCommandLine contains "Add-RecipientPermission" or ProcessCommandLine contains "Add-MailboxFolderPermission" or ProcessCommandLine contains "Set-MailboxFolderPermission" or ProcessCommandLine contains "Add-ADPermission")

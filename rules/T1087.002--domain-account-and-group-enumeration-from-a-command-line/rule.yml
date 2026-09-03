@@ -1,0 +1,84 @@
+title: Domain account and group enumeration from a command line
+id: 3d0e0576-50f1-4922-b244-5f527573e683
+status: experimental
+description: |
+  Matches the Windows arm of AN0363: a process creation carrying one of the
+  four ways a domain principal list is asked for from a shell — `net`/`net1`
+  with a `user`, `group` or `localgroup` subcommand plus the `/domain` switch,
+  the Active Directory PowerShell cmdlets typed inline, an ADSI or
+  DirectorySearcher LDAP query, and `dsquery`/`dsget` for users or groups.
+  The `/domain` switch is the whole discriminator against the local-account
+  sibling T1087.001: without it `net user` reads the local SAM, so it is
+  required rather than optional in that branch, and both `net.exe` and the
+  `net1.exe` it re-executes are listed because either can be the logged image.
+  MITRE's `CommandLinePattern` knob names `net user /domain`, `Get-ADUser` and
+  `Get-ADGroupMember`; the ADSI, PowerView, WMI and `dsquery` terms are added
+  here, not taken from MITRE. `Get-ADGroup` is written without a suffix so it
+  also covers `Get-ADGroupMember` by substring. Three limits are structural.
+  A cmdlet called from inside a `.ps1`, a module or a here-string never reaches
+  `CommandLine`, and the 4103/4104 script-block leg of the same analytic is a
+  different log source that this rule does not attempt. MITRE's `SourceHost`
+  knob — fire only on hosts that are not domain controllers or admin
+  workstations — has no field in a single process-creation event and has to be
+  applied when the rule is deployed. And `Win32_UserAccount`/`Win32_GroupUser`
+  return local principals as well as domain ones on a domain-joined host, so
+  those two terms overlap T1087.001 by design. This rule is written in the
+  Sysmon EventID 1 vocabulary (`Image`, `CommandLine`) that AN0363 names; an
+  estate feeding Security 4688 instead needs `NewProcessName` mapped onto
+  `Image` first, and 4688 needs both *Audit Process Creation* and the separate
+  *Include command line in process creation events* policy before `CommandLine`
+  exists at all — neither is on by default or in the MS and CIS baselines.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0129, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1087/002
+  - https://attack.mitre.org/detectionstrategies/DET0129
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1087.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_net_binary:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+  selection_net_verb:
+    CommandLine|contains:
+      - ' user '
+      - ' group '
+      - ' localgroup '
+  selection_net_domain_flag:
+    CommandLine|contains:
+      - ' /do'
+      - ' -do'
+  selection_directory_query:
+    CommandLine|contains:
+      - 'Get-ADUser'
+      - 'Get-ADGroup'
+      - 'Get-ADPrincipalGroupMembership'
+      - 'Get-DomainUser'
+      - 'Get-DomainGroupMember'
+      - 'Get-NetUser'
+      - 'Get-NetGroupMember'
+      - 'adsisearcher'
+      - 'DirectorySearcher'
+      - 'Win32_UserAccount'
+      - 'Win32_GroupUser'
+  selection_ds_tools:
+    Image|endswith:
+      - '\dsquery.exe'
+      - '\dsget.exe'
+    CommandLine|contains:
+      - ' user'
+      - ' group'
+  condition: (selection_net_binary and selection_net_verb and selection_net_domain_flag) or selection_directory_query or selection_ds_tools
+falsepositives:
+  - "Service desk and administrative troubleshooting. Checking who is in a group with `net group \"Domain Admins\" /domain`, confirming an account state with `net user jsmith /domain` or resolving a membership question with Get-ADUser is routine first-line work, and on a support desk or an admin jump host it is the loudest match here by a wide margin — which is why this rule is medium and not high. MITRE's SourceHost knob is where those hosts are excluded."
+  - "Logon scripts and login-time group checks. A startup or logon script that branches on `net group \"VPN Users\" /domain` runs on every workstation at every logon, producing one match per user per session across the whole estate with no human involved."
+  - "Identity, HR-sync and reporting automation. Joiner-mover-leaver connectors, licence reconciliation jobs and scheduled PowerShell reports call Get-ADUser and Get-ADGroup on a fixed interval from a management server, usually under a service account, and each run enumerates far more objects than an adversary would."
+  - "Inventory, monitoring and backup agents that enumerate accounts through WMI. Asset-management and compliance agents query Win32_UserAccount on a schedule on every host, and on a domain-joined machine that class returns domain principals as well as local ones."
+  - "Legacy migration and audit tooling built on dsquery/dsget, which is still how a lot of in-house AD housekeeping scripts list users and groups during a maintenance window."
+level: medium

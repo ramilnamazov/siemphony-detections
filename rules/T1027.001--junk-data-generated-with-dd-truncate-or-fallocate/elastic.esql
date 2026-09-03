@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*/dd" AND (TO_LOWER(process.command_line) LIKE "*if=/dev/urandom*" OR TO_LOWER(process.command_line) LIKE "*if=/dev/zero*" OR TO_LOWER(process.command_line) LIKE "*if=/dev/random*")) OR (TO_LOWER(process.executable) LIKE "*/truncate" AND (TO_LOWER(process.command_line) LIKE "*-s +*" OR TO_LOWER(process.command_line) LIKE "*--size=+*")) OR (TO_LOWER(process.executable) LIKE "*/fallocate" AND TO_LOWER(process.command_line) LIKE "*-l*"))

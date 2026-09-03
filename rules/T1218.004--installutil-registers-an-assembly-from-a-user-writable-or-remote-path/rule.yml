@@ -1,0 +1,64 @@
+title: InstallUtil registers an assembly from a user-writable or remote path
+id: ddf4f1ef-da1d-4a4f-8a18-27e979305607
+status: experimental
+description: |
+  AN0388 asks for InstallUtil.exe run with arguments naming a non-standard or
+  attacker-supplied assembly, and names `AssemblyPathRegex` — "suspicious
+  assemblies, e.g. in temp folders, user profiles" — as the knob that carries
+  the discrimination. This rule implements that on Sysmon EventID 1: the process
+  is InstallUtil.exe and its command line either points at an assembly in a
+  directory an unprivileged user can write to or on a UNC share, or carries the
+  empty-log plus console-suppressed argument pair that the published application
+  control bypass uses. Both directory list and argument pair are authored,
+  populated into MITRE's knob rather than supplied by it. Note the UNC term is
+  written with four backslashes in the YAML because Sigma reads `\\` as one
+  literal backslash — written with two it would degrade to "contains a
+  backslash", which every Windows path satisfies. Two limits: a renamed copy of
+  InstallUtil.exe defeats the filename match, and an assembly dropped into a
+  legitimate application directory before registration matches neither branch,
+  so this rule sees the sloppy staging and not the careful one. The other three
+  sources in the brief are not used — the file-creation leg (EventID 11) and the
+  module-load leg (EventID 7) only become evidence when joined to the execution
+  inside MITRE's `TimeWindow`, which is a cross-event correlation Sigma cannot
+  express, and PowerShell 4103/4104 sees an InstallUtil invocation only when it
+  happened to be typed into PowerShell. Prerequisite: Sysmon is not present in a
+  default install; where this category is fed by Security 4688 instead, both
+  *Audit Process Creation* and the separate *Include command line in process
+  creation events* policy must be enabled and the field names differ — zero rows
+  from an unconfigured feed reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0138, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/004
+  - https://attack.mitre.org/detectionstrategies/DET0138
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.004
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_installutil:
+    Image|endswith: '\InstallUtil.exe'
+  selection_suspect_path:
+    CommandLine|contains:
+      - '\AppData\Local\Temp\'
+      - '\AppData\Roaming\'
+      - '\Windows\Temp\'
+      - '\ProgramData\'
+      - '\Users\Public\'
+      - '\Downloads\'
+      - '\PerfLogs\'
+      - '\\\\'
+  selection_suspect_args:
+    CommandLine|contains|all:
+      - 'logfile='
+      - 'LogToConsole=false'
+  condition: selection_installutil and 1 of selection_suspect*
+falsepositives:
+  - "Product installers and MSI custom actions that register a .NET Windows service. These stage the assembly under `%TEMP%` or `%ProgramData%` and call InstallUtil with `/logfile=` and `/LogToConsole=false` to keep the setup UI clean, which satisfies both branches at once and is the largest benign source here."
+  - "Software distribution and configuration management agents that run an install or uninstall step from a cached package directory under `\\ProgramData\\` or from a UNC deployment share, which is exactly the remote-path branch."
+  - "Developer and build-agent workstations, where InstallUtil is run by hand or by a post-build step against an assembly sitting in a project folder under the user profile."
+  - "Line-of-business application updaters that unpack a new service assembly into `\\AppData\\Local\\Temp\\`, unregister the old one and register the new one on every update cycle."
+level: medium

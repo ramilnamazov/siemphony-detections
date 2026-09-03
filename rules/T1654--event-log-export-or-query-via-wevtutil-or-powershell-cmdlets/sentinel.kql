@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((NewProcessName endswith "\\wevtutil.exe" and (ProcessCommandLine contains "epl" or ProcessCommandLine contains "qe")) or ((NewProcessName endswith "\\powershell.exe" or NewProcessName endswith "\\pwsh.exe") and (ProcessCommandLine contains "Get-WinEvent" or ProcessCommandLine contains "Get-EventLog")))

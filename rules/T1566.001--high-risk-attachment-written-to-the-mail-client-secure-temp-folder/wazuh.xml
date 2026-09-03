@@ -1,0 +1,12 @@
+<group name="sigma,windows,file_event,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetFilename" type="pcre2">(?i)\\Content\.Outlook\\</field>
+    <field name="TargetFilename" type="pcre2">(?i)((\.docm$|\.xlsm$|\.xlam$|\.xll$|\.pptm$|\.jar$|\.iso$|\.img$|\.vhd$|\.vhdx$|\.svg$|\.htm$|\.html$)|(\.zip$|\.7z$|\.rar$|\.cab$)|(\.exe$|\.scr$|\.pif$|\.com$|\.cmd$|\.bat$|\.ps1$|\.vbs$|\.vbe$|\.js$|\.jse$|\.wsf$|\.hta$|\.lnk$|\.chm$|\.reg$|\.one$))</field>
+    <description>High-risk attachment written to the mail client secure temp folder</description>
+    <mitre>
+      <id>T1566.001</id>
+    </mitre>
+  </rule>
+</group>

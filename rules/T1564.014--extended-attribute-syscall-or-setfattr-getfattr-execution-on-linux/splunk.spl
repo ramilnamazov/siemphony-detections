@@ -1,0 +1,1 @@
+index=* ((type="SYSCALL" AND (syscall="setxattr" OR syscall="lsetxattr" OR syscall="fsetxattr" OR syscall="getxattr" OR syscall="lgetxattr" OR syscall="fgetxattr")) OR (type="EXECVE" AND (a0="*setfattr" OR a0="*getfattr")))

@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\svchost\.exe$|\\spoolsv\.exe$|\\lsass\.exe$|\\services\.exe$|\\csrss\.exe$|\\wininit\.exe$|\\winlogon\.exe$)</field>
+    <field name="ParentImage" negate="yes" type="pcre2">(?i)(\\services\.exe$|\\wininit\.exe$|\\smss\.exe$)</field>
+    <description>Core system binary started by an unexpected parent</description>
+    <mitre>
+      <id>T1055.012</id>
+    </mitre>
+  </rule>
+</group>

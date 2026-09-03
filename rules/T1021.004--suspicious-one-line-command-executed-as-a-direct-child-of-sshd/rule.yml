@@ -1,0 +1,63 @@
+title: Suspicious one-line command executed as a direct child of sshd
+id: 719ec44e-743d-45a4-a953-ba7d94d3fd7f
+status: experimental
+description: |
+  Matches the non-interactive half of AN1638: `ssh host 'command'` makes sshd
+  exec the user's shell directly with `-c "command"`, so the whole remote
+  command lands on one audited execve whose ParentImage is sshd — a shape RDP
+  and SMB lateral movement cannot produce. Gating on a shell launcher plus
+  suspicious content, rather than the parent alone, keeps an ordinary
+  interactive login (a bare shell with no arguments) out of scope. The content
+  list is authored from MITRE's SuspiciousProcessList knob ("nc, base64, bash
+  -i") extended with the bash `/dev/tcp/` reverse-shell idiom; the
+  login-to-execution correlation AN1638 also asks for is a cross-event join
+  Sigma cannot express. OpenSSH 9.8 split the post-authentication session out
+  of sshd into a separate sshd-session binary, so on current distributions the
+  shell's parent is sshd-session and a gate on '/sshd' alone would be dead;
+  both names are listed. Coverage limit, stated plainly: an interactive SSH
+  login is not detected. Commands typed at a shell prompt are children of the
+  login shell rather than of sshd, several hops from what this rule inspects,
+  so interactive lateral movement over SSH passes unseen and only the
+  `ssh host 'command'` shape is caught. Prerequisite: auditd does not record
+  execve by default, so an empty result here means the syscall isn't audited
+  rather than the estate being quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0596, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1021/004
+  - https://attack.mitre.org/detectionstrategies/DET0596
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1021.004
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_parent:
+    ParentImage|endswith:
+      - '/sshd'
+      - '/sshd-session'
+  selection_shell:
+    Image|endswith:
+      - '/bash'
+      - '/sh'
+      - '/dash'
+      - '/zsh'
+  selection_suspicious:
+    CommandLine|contains:
+      - 'base64 -d'
+      - 'base64 --decode'
+      - '/dev/tcp/'
+      - 'nc -e'
+      - 'ncat -e'
+      - 'socat exec'
+      - 'mkfifo'
+      - '0>&1'
+  condition: selection_parent and selection_shell and selection_suspicious
+falsepositives:
+  - "Ansible's default SSH connection plugin, which wraps every module execution as `sh -c 'echo ... ; base64 -d ...'` piped through a decode step run directly under sshd. On any host managed by Ansible this is the highest-volume match by a wide margin and fires on ordinary configuration runs, not just when a base64 term is used maliciously."
+  - "Backup, log-shipping and media-processing scripts invoked over SSH that create a named pipe with `mkfifo` to stream data without a temp file. The term is one of the eight triggers and is ordinary shell craft, so any scheduled job of this shape matches every run on a busy ops or build host."
+  - "CI and release steps run as `ssh host 'command'` that move a small artefact, key or config blob inline by piping it through `base64 -d` on the far side, which matches the same decode term as the Ansible case and recurs at every pipeline execution."
+  - "Remote one-off maintenance commands an administrator runs with `ssh host 'command'` — for example decoding a base64-encoded config blob or piping a downloaded script through the shell — which is the exact shape this rule is built to catch and is separated from an intrusion only by who ran it and why."
+level: low

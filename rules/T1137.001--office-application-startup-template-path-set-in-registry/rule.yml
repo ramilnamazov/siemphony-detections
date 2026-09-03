@@ -1,0 +1,43 @@
+title: Office application startup template path set in registry
+id: 8e39163d-1e73-466f-ac1f-f0c7a3ada28c
+status: experimental
+description: |
+  Detects a write to the registry values that tell Word or Excel to load an
+  extra template or startup folder every time the application launches. AN1436
+  names GlobalDotName, which lives as a value (not a subkey) under the Word
+  Options key; the Excel AltStartup value is the closely related Excel
+  equivalent and is added here, not taken from MITRE. Because a registry-set
+  event puts the value name on the end of TargetObject, the match is an
+  endswith on the last two path components only — the hive prefix is left out
+  because Sysmon writes HKCU as HKU followed by the SID, and the Office version
+  number sits between the product name and Options and differs per release.
+  This is the template-redirect arm of the analytic only: a macro injected into
+  an existing Normal.dotm or Personal.xlsb writes no registry value at all and
+  is structurally invisible here, so pair this with a file-creation rule on
+  those paths. Sysmon EventID 13 must be collected for the Office subtree —
+  most shipped Sysmon configurations filter registry events down to a short
+  allowlist of keys that does not include it, and a filtered key is silence
+  rather than a clean result.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0519, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1137/001
+  - https://attack.mitre.org/detectionstrategies/DET0519
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1137.001
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|endswith:
+      - '\Word\Options\GlobalDotName'
+      - '\Excel\Options\AltStartup'
+  condition: selection
+falsepositives:
+  - "Managed estates that legitimately point GlobalDotName at a corporate template share through Group Policy, a logon script or a configuration-management baseline. This is a supported deployment mechanism, so it fires on every host in scope and again on each policy refresh that rewrites the value with unchanged data; MITRE's RegistryPath knob is where a site records the approved value, and the Details field on the event carries the path that lets you tell the sanctioned share from an attacker-controlled one."
+  - "A user turning on Excel's 'At startup, open all files in' option in the Options dialog, which writes AltStartup with no malicious intent. It is an uncommon thing for a user to do, but it is a normal supported setting, so a single hit is a question to ask rather than an incident on its own."
+  - "Office deployment, add-in packaging and template-management products that provision or repair these values during an install, a repair run or a version upgrade, typically under a service account during a maintenance window."
+level: high

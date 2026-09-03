@@ -1,0 +1,11 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(logicaldisk|Win32_Volume|Win32_DiskDrive|Get-PSDrive|Get-Volume|fsutil fsinfo drives|fsutil volume diskfree)</field>
+    <description>Local drive and volume enumeration from the command line</description>
+    <mitre>
+      <id>T1680</id>
+    </mitre>
+  </rule>
+</group>

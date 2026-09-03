@@ -1,0 +1,53 @@
+title: Another process's /proc memory named on a Linux command line
+id: f551e20a-6713-4d62-b628-369668c57f83
+status: experimental
+description: |
+  Matches a process launched with the /proc memory interface of a numbered PID
+  in its arguments — /proc/<pid>/mem, /proc/<pid>/maps or /proc/<pid>/smaps —
+  which is the shape AN1631 describes when it talks about multi-step access to
+  another process's memory to scrape credential material. The match sits on
+  CommandLine and not on Image on purpose: the published tooling for this is
+  shell and Python (mimipenguin ships as both, and the technique description
+  itself is a grep-and-cut one-liner), so on any process-creation feed the
+  executable is /bin/bash or /usr/bin/python3 and a selector keyed on a tool
+  name would never fire. MITRE supplies the `AccessedFilePath` knob; restricting
+  it to a numeric PID is authored here, because /proc/self/mem and
+  /proc/self/maps are self-inspection performed constantly by language runtimes,
+  container sandboxes and CI test suites, and the credential case in this
+  analytic is one process reading a *different* process's address space. The
+  three auditd log sources in the brief were not used. auditd file watches are
+  inode-based and /proc's per-PID entries are created and destroyed with every
+  process, so there is no stable path to watch; the syscall-filter form
+  (-F dir=/proc -F perm=r) does load but then records every read of /proc, which
+  on any host means every ps, top, monitoring agent and container-runtime poll.
+  The ptrace and process_vm_readv leg is a SYSCALL record carrying exe and a
+  numeric syscall value but no path at all, so it cannot say whose memory was
+  read and could not carry MITRE's `AccessedFilePath` knob. Two limits follow
+  from using process creation: a compiled implant that opens /proc/<pid>/mem
+  through a path it builds at runtime puts nothing in argv and is invisible
+  here, and MITRE's `UserContext` knob is not applied, since root reading /proc
+  is also how most legitimate agents work. Prerequisite: Sysmon for Linux is a
+  separate agent that no distribution installs by default, so a host running
+  stock auditd alone produces nothing this rule can read.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0593, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1003/007
+  - https://attack.mitre.org/detectionstrategies/DET0593
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1003.007
+logsource:
+  product: linux
+  service: sysmon
+detection:
+  selection:
+    CommandLine|re: '/proc/[0-9]+/(mem|maps|smaps)'
+  condition: selection
+falsepositives:
+  - "Diagnostic and support-bundle collection that walks the whole process table. sosreport, vendor support scripts and container-runtime debug bundles run cat or awk over /proc/<pid>/maps and /proc/<pid>/smaps in a loop, so a single collection run produces a burst of matches on every host it touches. This is the highest-volume source this rule has and is why the level is medium."
+  - "Memory-accounting and leak-hunting work done by hand — grep heap /proc/12345/maps, awk over /proc/<pid>/smaps to total PSS for a leaking daemon, or dd if=/proc/<pid>/mem while capturing a region for analysis. The command is identical to the one this rule is written for and only the operator account separates them."
+  - "Monitoring and capacity tooling shipped as shell wrappers rather than compiled agents, such as smem, ps_mem and per-container memory reporters, which read /proc/<pid>/smaps by numeric PID on every polling interval under a service account."
+  - "Crash and profiling helpers that read a target's maps before capturing a dump, including core-dump pipe handlers, gcore-style wrapper scripts and profiler launch scripts that resolve a PID and then inspect its address space."
+level: medium

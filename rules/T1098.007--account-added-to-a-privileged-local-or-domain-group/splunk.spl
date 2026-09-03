@@ -1,0 +1,1 @@
+index=* ((EventID="4728" OR EventID="4732" OR EventID="4756") AND (TargetSid="*-512" OR TargetSid="*-518" OR TargetSid="*-519" OR TargetSid="*-520" OR TargetSid="*-544" OR TargetSid="*-548" OR TargetSid="*-549" OR TargetSid="*-550" OR TargetSid="*-551" OR TargetSid="*-555" OR TargetSid="*-580"))

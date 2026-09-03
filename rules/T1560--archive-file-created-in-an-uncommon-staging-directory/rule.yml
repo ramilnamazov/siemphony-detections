@@ -1,0 +1,56 @@
+title: Archive file created in an uncommon staging directory
+id: 6f295040-5233-463d-8b1b-1147c0f8eea1
+status: experimental
+description: |
+  Matches the file-write half of MITRE's AN1458: an archive or compressed
+  container appearing in a directory that is a staging spot rather than a normal
+  place for software to unpack itself. It carries no process gate on purpose,
+  because the corpus already covers the utility-execution half under T1560.001
+  and the artefact is what remains visible when the compression is done by a
+  third-party library or a custom method instead of a named tool. MITRE's
+  ArchiveExtensions and SuspiciousDirectories knobs are populated here with the
+  author's own lists, and the per-user and ProgramData temp trees are left out
+  of them because installer extraction dominates those paths. Sysmon EventID 11
+  carries no file size, so MITRE's FileSizeThresholdMB knob has no
+  representation and a single compressed document looks the same here as a
+  staged collection.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0526, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1560
+  - https://attack.mitre.org/detectionstrategies/DET0526
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1560
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_extension:
+    TargetFilename|endswith:
+      - '.7z'
+      - '.rar'
+      - '.zip'
+      - '.tar'
+      - '.gz'
+      - '.tgz'
+      - '.bz2'
+      - '.cab'
+      - '.arj'
+  selection_directory:
+    TargetFilename|contains:
+      - '\Users\Public\'
+      - '\PerfLogs\'
+      - '\Windows\Temp\'
+      - '\Windows\Tasks\'
+      - '\Windows\debug\'
+      - '\Windows\addins\'
+      - '\$Recycle.Bin\'
+  condition: selection_extension and selection_directory
+falsepositives:
+  - "Windows servicing and vendor patch agents, which use the Windows Temp directory as scratch space and write cabinet and zip payloads into it on every update cycle. On a patched fleet this is the highest-volume match by a wide margin, and it is the reason the rule is not levelled above low."
+  - "Diagnostic and log-collection tooling that packages its output to a fixed path. Helpdesk collectors, vendor support bundles and crash-report packagers routinely drop a zip in the Windows Temp directory or in the Public profile."
+  - "People sharing files through the Public profile, which is the documented location for content every account on the machine can read. An archive landing there is ordinary desktop behaviour and matches with nothing else required."
+  - "Scheduled tasks and service accounts that compress their own working data in place, for example an application writing a rotated log archive under the Windows Temp directory rather than into its own install path."
+level: low

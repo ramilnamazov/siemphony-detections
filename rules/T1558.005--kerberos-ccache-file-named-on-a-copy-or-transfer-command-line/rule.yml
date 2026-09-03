@@ -1,0 +1,89 @@
+title: Kerberos ccache file named on a copy or transfer command line
+id: bf698bb4-cb9a-466c-861d-58066c48b5f5
+status: experimental
+description: |
+  AN0069's copy-and-carry leg: a process creation whose command line names a
+  Kerberos credential cache — the `krb5cc_%UID%` files Linux writes into /tmp
+  and the `krb5.ccache` form — while the executed binary is one of the
+  copy, archive, encode or transfer utilities an operator reaches for when
+  taking a ticket off the host. Both halves are required. The path alone is
+  not a signal: every kerberised client on the box opens its own cache
+  constantly, so `krb5cc_` on its own would match sssd, ssh, curl and kinit all
+  day; the tool list alone is meaningless. MITRE's `AllowedProcesses` knob
+  ("processes legitimately interacting with ccache, e.g. klist, kinit") is
+  therefore implemented by omission — the kerberos utilities are simply not in
+  the selector — and the tool list itself is authored here, not MITRE's.
+  Vocabulary matters for this one. The brief maps auditd execve onto the
+  `process_creation` / `linux` category, whose field names are the Sysmon for
+  Linux and auditbeat vocabulary (`Image`, `CommandLine`); a raw auditd feed
+  splits the same event into a SYSCALL record carrying `exe` and an EXECVE
+  record carrying `a0`, `a1`, `a2`… and needs a field mapping before this rule
+  can match anything on it. The analytic's other leg — an auditd open() on
+  /tmp/krb5cc_* — is not attempted, because auditd emits PATH and SYSCALL as
+  separate records, so the reading process cannot be gated inside one
+  selection, and an ungated watch on the cache path matches every kerberised
+  daemon on the host. The macOS arm AN0070 is not attempted either: its
+  unifiedlog and osquery sources have no standardised Sigma field names, and
+  the macOS default cache is `API:{uuid}` held in memory, so there is no file
+  path to name.
+  Limits and prerequisite. Check the ccache backend before trusting this rule:
+  a file-based cache is only the *libkrb5 compiled default*, and the
+  RHEL/CentOS/Fedora family and any host running sssd-kcm ship a
+  `default_ccache_name` of `KEYRING:persistent:%{uid}` or `KCM:` in
+  /etc/krb5.conf, which keeps the ticket in the kernel keyring or the KCM
+  daemon and writes no /tmp file at all. On those hosts nothing matches this
+  rule no matter what the adversary does, and zero rows reads as quiet when it
+  means blind — the theft there is `kcmtool`/keyctl or a KCM socket call, which
+  is a different rule. Debian and Ubuntu leave the FILE default in place, which
+  is where this rule works. A cache relocated through `KRB5CCNAME` to a path
+  that contains neither `krb5cc_` nor `krb5.ccache` is invisible for the same
+  reason — that is MITRE's `CcachePathBaseline` knob, and a site that relocates
+  its caches must add its own path here. Anything that reads the file through libkrb5 or its
+  own code rather than a shell utility writes no matching command line at all.
+  Linux process creation is not collected by default: this needs Sysmon for
+  Linux, auditbeat, or an auditd execve rule feeding a pipeline that maps into
+  the fields above, and until one is in place the rule returns zero rows.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0024, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1558/005
+  - https://attack.mitre.org/detectionstrategies/DET0024
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1558.005
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_ccache_path:
+    CommandLine|contains:
+      - 'krb5cc_'
+      - 'krb5.ccache'
+  selection_carry_tool:
+    Image|endswith:
+      - '/cp'
+      - '/mv'
+      - '/dd'
+      - '/cat'
+      - '/tar'
+      - '/base64'
+      - '/xxd'
+      - '/od'
+      - '/scp'
+      - '/rsync'
+      - '/curl'
+      - '/wget'
+      - '/nc'
+      - '/ncat'
+      - '/socat'
+      - '/gzip'
+      - '/zip'
+      - '/openssl'
+  condition: all of selection_*
+falsepositives:
+  - "Administrators troubleshooting a Kerberos failure, who cat or copy /tmp/krb5cc_<uid> aside before running kdestroy and re-running kinit. This is ordinary support work and produces exactly the event the rule looks for."
+  - "Kerberised batch and container workloads that stage a service account's cache into a job directory or a bind mount so a child job can reuse the ticket. Hadoop, Spark and several CI runners document this pattern, and on a kerberised compute cluster it becomes the dominant match — scope the rule away from those hosts before trusting its volume."
+  - "Support-bundle and diagnostic collectors that tar /tmp or a named cache path into an archive for a vendor case, which puts the ccache path on a tar command line under root."
+  - "Backup and migration jobs that rsync or copy a user's home or /tmp between hosts during a rebuild, recreating every cache file that happened to be present."
+level: medium

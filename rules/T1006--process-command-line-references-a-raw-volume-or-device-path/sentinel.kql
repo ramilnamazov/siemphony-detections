@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((ProcessCommandLine contains "PhysicalDrive" or ProcessCommandLine contains "HarddiskVolume" or ProcessCommandLine contains "GLOBALROOT") or (FolderPath endswith "\\esentutl.exe" and ProcessCommandLine contains "/vss"))

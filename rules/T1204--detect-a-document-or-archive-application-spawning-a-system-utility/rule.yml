@@ -1,0 +1,60 @@
+title: Detect a document or archive application spawning a system utility
+id: 190b7574-8f2d-47cd-b1ed-168a3789ab2e
+status: experimental
+description: |
+  Matches a document viewer, browser or archive tool spawning one of the
+  living-off-the-land binaries MITRE lists in AN1314 — the two selections are
+  that analytic's HighRiskParents and HighRiskChildren knobs written out and
+  ANDed. AN1314 is a four-stage chain: an application open/click/crash event, a
+  file created in a user-writable path, the LOLBIN child, then egress from the
+  same lineage inside a 15-minute window. Sigma has no process-lineage join and
+  no timeframe, so only stage three is expressed here, and the UserPaths and
+  EgressAllowList knobs have no equivalent in a single process_creation event.
+  explorer.exe is omitted from the parent list despite MITRE naming it, because
+  a user launching cmd.exe or powershell.exe from the shell produces the same
+  event and would drown every real hit.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0478, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1204
+  - https://attack.mitre.org/detectionstrategies/DET0478
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1204
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  high_risk_parent:
+    ParentImage|endswith:
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\powerpnt.exe'
+      - '\acrord32.exe'
+      - '\chrome.exe'
+      - '\msedge.exe'
+      - '\firefox.exe'
+      - '\7zFM.exe'
+      - '\winrar.exe'
+  high_risk_child:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\msiexec.exe'
+      - '\curl.exe'
+      - '\bitsadmin.exe'
+      - '\pcalua.exe'
+      - '\expand.exe'
+      - '\tar.exe'
+  condition: high_risk_parent and high_risk_child
+falsepositives:
+  - "Browser- and reader-driven updaters. Chrome, Edge and Acrobat launch msiexec.exe or rundll32.exe during self-update and enterprise extension deployment, which is the same parent/child pair the rule looks for. MITRE's EgressAllowList knob suppresses these downstream; at process creation you need a CommandLine exclusion for the vendor's own update package path."
+  - "Archive tools opening their payload. A user double-clicking a .bat, .msi or setup stub inside a 7-Zip or WinRAR window legitimately makes 7zFM.exe or winrar.exe the parent of cmd.exe or msiexec.exe during ordinary software installation."
+  - "Sanctioned Office automation. Line-of-business workbooks and mail-merge templates whose macros shell out to cmd.exe or cscript.exe to reach a database or a shared drive; these are exactly the entries the analyst is expected to prune out of the HighRiskParents/HighRiskChildren pairing."
+level: high

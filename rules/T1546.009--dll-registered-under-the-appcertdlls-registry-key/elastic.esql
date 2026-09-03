@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE TO_LOWER(registry.path) LIKE "*\\\\session manager\\\\appcertdlls\\\\*"

@@ -1,0 +1,1 @@
+index=* | where ((match(type, "(?i)^PATH$") AND match(name, "\\.so(\\.[0-9]+)*$")) AND (match(name, "(?i)/tmp/") OR match(name, "(?i)/var/tmp/") OR match(name, "(?i)/dev/shm/") OR match(name, "(?i)/home/")))

@@ -1,0 +1,40 @@
+title: Command line enumerating attached peripheral or USB devices
+id: 2401243f-b474-4644-971c-d7697c901039
+status: experimental
+description: |
+  Matches AN1353's Windows leg directly on the command line: the `Get-PnpDevice`
+  PowerShell cmdlet MITRE names, and the `Win32_USBController` WMI class from
+  its own `wmic path Win32_USBController` example, extended here — not by
+  MITRE — to the closely related `Win32_PnPEntity` class that enumerates all
+  Plug and Play hardware rather than only USB controllers, since both are
+  reached through the same wmic/PowerShell WMI query surface AN1353 targets.
+  The analytic's Sysmon EventID 10 process-access leg, which would show the
+  enumeration reading device-manager or driver-store handles, is a separate
+  event from process creation and is not expressed here. Peripheral discovery
+  is inherently low-signal: the commands this rule matches are the same ones
+  IT inventory tooling and helpdesk troubleshooting run constantly, so this
+  rule is a lead for correlation, not a standalone incident indicator.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0491, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1120
+  - https://attack.mitre.org/detectionstrategies/DET0491
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1120
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'Get-PnpDevice'
+      - 'Win32_USBController'
+      - 'Win32_PnPEntity'
+  condition: selection
+falsepositives:
+  - "Fleet-wide IT asset-inventory and RMM agents (SCCM, Intune, Datto, NinjaRMM and similar) that run Get-PnpDevice or WMI hardware queries on every managed endpoint on a recurring schedule — in most enterprise estates this is the largest single source of matches, which is why the level below is set low rather than higher."
+  - "Helpdesk and desktop-support troubleshooting, where a technician runs Get-PnpDevice or queries Win32_PnPEntity by hand to diagnose a malfunctioning printer, webcam or USB peripheral a user has reported."
+  - "Driver installation and Windows Update post-install scripts that enumerate Plug and Play devices to verify a driver bound correctly, which runs automatically after routine driver updates."
+level: low

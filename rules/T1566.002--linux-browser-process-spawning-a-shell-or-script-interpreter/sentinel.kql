@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((InitiatingProcessFolderPath endswith "/firefox" or InitiatingProcessFolderPath endswith "/firefox-bin" or InitiatingProcessFolderPath endswith "/chrome" or InitiatingProcessFolderPath endswith "/google-chrome" or InitiatingProcessFolderPath endswith "/chromium" or InitiatingProcessFolderPath endswith "/chromium-browser") and (FolderPath endswith "/bash" or FolderPath endswith "/sh" or FolderPath endswith "/dash" or FolderPath endswith "/zsh" or FolderPath endswith "/python3" or FolderPath endswith "/python" or FolderPath endswith "/perl"))

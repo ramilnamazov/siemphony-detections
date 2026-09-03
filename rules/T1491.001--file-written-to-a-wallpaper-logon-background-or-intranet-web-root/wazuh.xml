@@ -1,0 +1,11 @@
+<group name="sigma,windows,file_event,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetFilename" type="pcre2">(?i)(\\Windows\\Web\\Wallpaper\\|\\Windows\\Web\\Screen\\|\\Windows\\Web\\4K\\|\\AppData\\Roaming\\Microsoft\\Windows\\Themes\\|\\System32\\oobe\\info\\backgrounds\\|\\inetpub\\wwwroot\\)</field>
+    <description>File written to a wallpaper, logon background or intranet web root</description>
+    <mitre>
+      <id>T1491.001</id>
+    </mitre>
+  </rule>
+</group>

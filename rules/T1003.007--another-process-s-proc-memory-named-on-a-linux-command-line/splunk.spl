@@ -1,0 +1,1 @@
+index=* | where match(CommandLine, "/proc/[0-9]+/(mem|maps|smaps)")

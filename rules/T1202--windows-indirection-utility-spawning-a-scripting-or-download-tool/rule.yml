@@ -1,0 +1,77 @@
+title: Windows indirection utility spawning a scripting or download tool
+id: 6a33dcce-199f-4195-a4ea-03c30555b867
+status: experimental
+description: |
+  Steps 1 and 2 of AN0576's chain in a single event: a process creation whose
+  parent is one of the Windows utilities that exist to launch something else —
+  forfiles.exe, pcalua.exe, ScriptRunner.exe — and whose own image is one of
+  the interpreters, proxy binaries and downloaders that indirection is used to
+  reach. That child list is MITRE's `HighRiskChildren` knob, populated here
+  with its named entries plus wscript, cscript and certutil. A second,
+  independent selection covers the ssh.exe variant the technique text
+  describes: `ProxyCommand` and `LocalCommand` make ssh.exe execute a local
+  command, and both appear literally on the command line when passed with -o.
+  wsl.exe is named by both MITRE and the analytic and is deliberately absent.
+  A command run through WSL executes inside the Linux VM and never surfaces as
+  a Windows process creation, so the parent/child pair cannot fire for it; the
+  only remaining option would be matching wsl.exe's own command line, which on
+  a developer workstation is ordinary daily use. The ssh.exe selection has the
+  mirror-image weakness: an operator who writes ProxyCommand or LocalCommand
+  into %USERPROFILE%\.ssh\config instead of passing -o leaves nothing on the
+  command line, and catching that needs the file-access leg of the analytic on
+  a separate logsource.
+  The rest of AN0576 is out of reach here. Step 3 — the SSH config write — and
+  the network connections from the utility or its child are different events on
+  different logsources, and the analytic's `TimeWindow` knob for correlating
+  them is a join Sigma cannot express; `DestCIDRs` and `UserContext` are
+  likewise post-hoc filters rather than literals. Prerequisite: the brief maps
+  this to Sysmon EventID 1, so the fields are Sysmon's, and the rule sees
+  nothing unless Sysmon is installed with a configuration that does not exclude
+  these images from process creation. A Security 4688 feed needs the field
+  names remapped (NewProcessName / ParentProcessName), plus Audit Process
+  Creation and the separate command-line policy for the ssh.exe selection to
+  have anything to read.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0200, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1202
+  - https://attack.mitre.org/detectionstrategies/DET0200
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1202
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_indirection_parent:
+    ParentImage|endswith:
+      - '\forfiles.exe'
+      - '\pcalua.exe'
+      - '\scriptrunner.exe'
+  selection_high_risk_child:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\msiexec.exe'
+      - '\curl.exe'
+      - '\bitsadmin.exe'
+      - '\certutil.exe'
+  selection_ssh_command_option:
+    Image|endswith: '\ssh.exe'
+    CommandLine|contains:
+      - 'ProxyCommand'
+      - 'LocalCommand'
+  condition: (selection_indirection_parent and selection_high_risk_child) or selection_ssh_command_option
+falsepositives:
+  - "Scheduled log and cache pruning built on forfiles.exe. Its /c argument is always executed through cmd.exe, so every run of the classic forfiles delete one-liner produces the parent/child pair this rule matches, on a fixed schedule, on every server that runs one."
+  - "App-V and MSIX packages published through ScriptRunner.exe, which launches the package's own cmd.exe or powershell.exe scripts at publish, launch and removal time on every machine the package is deployed to."
+  - "The Program Compatibility Assistant relaunching a legacy installer or shortcut through pcalua.exe, which then calls msiexec.exe to complete an entirely ordinary installation."
+  - "Administrators and developers reaching an internal host through a jump box with an SSH ProxyCommand entry, which puts the option on ssh.exe's command line on every single hop."
+level: medium

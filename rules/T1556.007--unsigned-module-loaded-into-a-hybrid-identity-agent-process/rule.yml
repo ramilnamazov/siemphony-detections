@@ -1,0 +1,70 @@
+title: Unsigned module loaded into a hybrid identity agent process
+id: 29bb5834-24dc-45e6-89e0-d13c4c6fb82c
+status: experimental
+description: |
+  AN0814 names "injection or tampering of DLLs in hybrid identity agents
+  (e.g., AzureADConnectAuthenticationAgentService)" as its Windows signal.
+  This rule expresses that literally on Sysmon EventID 7 (image_load):
+  `Image` is the hybrid-identity process the module is loading into, and
+  `Signed: false` is the tamper signal, the same field T1014's rule uses —
+  but scoped here to a specific short list of processes rather than applied
+  system-wide, which is what keeps this a distinct observable from T1014
+  rather than a re-tagged copy of it. `AzureADConnectAuthenticationAgentService.exe`
+  is MITRE's own named example (the Pass-Through Authentication agent);
+  `miiserver.exe` (the Azure AD Connect sync engine, which brokers Password
+  Hash Sync) and `Microsoft.IdentityServer.ServiceHost.exe` (the AD FS
+  service host) are this rule's own additions, not MITRE's, added because an
+  attacker hooking either agent to harvest or bypass credentials — the
+  documented behaviour behind public PTA-hooking proof-of-concept tooling —
+  produces the identical unsigned-image-load observable in a different
+  process. `Signed: false` inherits Sysmon's own signing-check caveat already
+  documented against T1014: a genuinely Microsoft-signed module can still
+  report unsigned if the load-time WinVerifyTrust catalog check cannot
+  complete, most commonly on a host with no path to the certificate-
+  revocation service. The registry/configuration leg of AN0814, mapped to
+  Security EventID 5136, is not attempted: MITRE's description ("registry or
+  configuration changes tied to PTA/AD FS") names no concrete object class,
+  attribute or registry key the way this brief does for other 5136-based
+  analytics (T1484's rule matches ObjectClass groupPolicyContainer and
+  trustedDomain by name), and this pipeline has no reliable, sourced
+  knowledge of AD FS's own directory or registry footprint to invent one
+  honestly — a guessed ObjectClass or key path would be exactly the
+  plausible-looking-but-dead selector this corpus exists to avoid.
+  MITRE's `WatchedServices` knob is populated here with that process list,
+  only the PTA agent entry actually named by MITRE — the other two are this
+  rule's own additions as already noted above. `TimeWindow` (correlating the
+  module load with a later logon anomaly) is not implemented, since lib/sigma
+  has no cross-event join. Sysmon is not
+  installed by default, and image_load (EventID 7) is the noisiest Sysmon
+  category by volume, so most deployments that do run Sysmon explicitly
+  exclude or throttle it in their config — on a host without Sysmon, or one
+  that filters EventID 7, this rule returns nothing, which reads as quiet
+  rather than as the blind spot it actually is.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0293, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1556/007
+  - https://attack.mitre.org/detectionstrategies/DET0293
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.credential-access
+  - attack.t1556.007
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection_process:
+    Image|endswith:
+      - '\AzureADConnectAuthenticationAgentService.exe'
+      - '\miiserver.exe'
+      - '\Microsoft.IdentityServer.ServiceHost.exe'
+  selection_unsigned:
+    Signed: false
+  condition: selection_process and selection_unsigned
+falsepositives:
+  - "Air-gapped or firewalled Azure AD Connect and AD FS servers with no outbound path to the Windows certificate-revocation service, where Sysmon's load-time signature check cannot complete and reports Signed: false for a genuinely Microsoft-signed module — the same known Sysmon caveat documented against this corpus's T1014 rule, and expected to be common on these specific servers since they are frequently kept on restricted network segments."
+  - "Third-party security, backup or monitoring agents (EDR, AV, backup software) that inject their own hooking or instrumentation DLL into every long-running Windows service process on the host, including whichever of these three happens to be installed, as part of normal agent operation."
+  - "Azure AD Connect or AD FS upgrade and patching windows, during which the installer briefly loads unsigned or differently-signed staging modules into the service process while replacing binaries in place."
+level: medium

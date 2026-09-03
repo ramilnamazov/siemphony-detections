@@ -1,0 +1,54 @@
+title: Trap command written into a shell startup file
+id: c07f7012-d36e-45c2-bcb7-5c3bd8422887
+status: experimental
+description: |
+  Matches a Linux process whose command line registers a `trap` handler and
+  names a shell startup file in the same invocation — the shape a one-liner
+  takes when it appends `trap 'payload' INT` to ~/.bashrc, whether written with
+  `bash -c`, `sed -i`, `perl -pi -e` or `tee`. The gate is the command line
+  alone and not the `Image`, because the write is performed by whatever tool
+  the operator reached for, and on auditd execve the recorded binary is the
+  interpreter rather than the wrapper. Note two limits, both of which belong to
+  the telemetry rather than to the logic: `trap` and `echo` are shell builtins,
+  so a handler typed at an interactive prompt and redirected into a dotfile
+  produces no execve at all and cannot be seen here; and AN1038's second half —
+  correlating the insertion with a child process spawned when SIGINT later
+  fires — is a join across two events that Sigma has no operator for, so only
+  the insertion is covered. auditd does not record execve out of the box, so
+  this rule is blind until an audit rule such as
+  `-a always,exit -F arch=b64 -S execve` is loaded; zero matches without it
+  means unmonitored, not clean. macOS (AN1039) is out of scope: its unified-log
+  fields are not standardised in Sigma.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0369, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/005
+  - https://attack.mitre.org/detectionstrategies/DET0369
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.005
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_trap:
+    CommandLine|contains: 'trap '
+  selection_profile:
+    CommandLine|contains:
+      - '.bashrc'
+      - '.bash_profile'
+      - '.bash_login'
+      - '.profile'
+      - '.zshrc'
+      - '.zprofile'
+      - '.zlogin'
+      - '/etc/profile'
+      - '/etc/bash.bashrc'
+  condition: selection_trap and selection_profile
+falsepositives:
+  - "Configuration management and provisioning runs — an Ansible ansible.builtin.shell task, a Puppet exec, or a cloud-init bootstrap script — that install a cleanup trap and append PATH or proxy settings to ~/.bashrc inside a single /bin/sh -c invocation, which is by a wide margin the loudest match on any managed fleet."
+  - "An administrator or developer inspecting their own dotfiles, for example grep -n trap ~/.bashrc or sed -n on ~/.zshrc, which puts the word trap and the profile path on the same command line without changing anything."
+  - "Hardening and compliance scanners such as CIS benchmark or Lynis scripts that grep shell startup files for trap statements on a schedule, producing a steady low-rate match from the scanner's own service account."
+level: low

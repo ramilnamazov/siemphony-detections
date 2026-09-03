@@ -1,0 +1,12 @@
+<group name="sigma,windows,create_stream_hash,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetFilename" type="pcre2">(?i)(\.iso:Zone\.Identifier$|\.img:Zone\.Identifier$|\.vhd:Zone\.Identifier$|\.vhdx:Zone\.Identifier$|\.zip:Zone\.Identifier$|\.rar:Zone\.Identifier$|\.7z:Zone\.Identifier$|\.gz:Zone\.Identifier$|\.arj:Zone\.Identifier$)</field>
+    <field name="Contents" type="pcre2">(?i)ZoneId=3</field>
+    <description>Zone.Identifier stream stamped onto a container or disk image file</description>
+    <mitre>
+      <id>T1553.005</id>
+    </mitre>
+  </rule>
+</group>

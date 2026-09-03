@@ -1,0 +1,1 @@
+index=* (TargetFilename="*\\Windows\\Web\\Wallpaper\\*" OR TargetFilename="*\\Windows\\Web\\Screen\\*" OR TargetFilename="*\\Windows\\Web\\4K\\*" OR TargetFilename="*\\AppData\\Roaming\\Microsoft\\Windows\\Themes\\*" OR TargetFilename="*\\System32\\oobe\\info\\backgrounds\\*" OR TargetFilename="*\\inetpub\\wwwroot\\*")

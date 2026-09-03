@@ -1,0 +1,1 @@
+index=* ((ImageLoaded="*\\AppData\\Local\\Temp\\*" OR ImageLoaded="*\\AppData\\Roaming\\*" OR ImageLoaded="*\\Windows\\Temp\\*" OR ImageLoaded="*\\Users\\Public\\*" OR ImageLoaded="*\\ProgramData\\*" OR ImageLoaded="*\\\\*") AND NOT (SignatureStatus="Valid"))

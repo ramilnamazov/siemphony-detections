@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\bcdedit.exe" and (ProcessCommandLine contains "testsigning on" or ProcessCommandLine contains "testsigning yes" or ProcessCommandLine contains "testsigning 1" or ProcessCommandLine contains "testsigning true" or ProcessCommandLine contains "nointegritychecks on" or ProcessCommandLine contains "nointegritychecks yes" or ProcessCommandLine contains "nointegritychecks 1" or ProcessCommandLine contains "nointegritychecks true" or ProcessCommandLine contains "DISABLE_INTEGRITY_CHECKS"))

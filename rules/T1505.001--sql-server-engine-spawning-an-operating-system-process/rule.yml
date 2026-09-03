@@ -1,0 +1,54 @@
+title: SQL Server engine spawning an operating system process
+id: 0cd861d9-ee1f-469c-8ab4-42c8980a9b72
+status: experimental
+description: |
+  AN0511's observable at the only point where it reaches Windows telemetry: a
+  process-creation record whose parent is sqlservr.exe. Both mechanisms the
+  analytic names run inside the database engine's own process, so whatever they
+  execute is created by it — `xp_cmdshell` shells out through cmd.exe, and a CLR
+  assembly registered UNSAFE and invoked by a stored procedure launches its
+  helper directly. sqlservr.exe has almost no legitimate reason to create a
+  child, which is why the parent alone is the selector rather than a list of
+  child images that an operator can trivially change. The two children the
+  engine does spawn on its own — sqldumper.exe on a crash or non-yielding
+  scheduler, and fdlauncher.exe when full-text search starts — are filtered by
+  name only, so a payload dropped under either of those names is not caught.
+  What this rule cannot see is the persistence itself. Creating or altering the
+  malicious stored procedure, registering the CLR assembly, and flipping
+  `xp_cmdshell` on via sp_configure are all statements inside the database; they
+  appear in SQL Server's own audit or error log and never in Windows process
+  creation. This rule therefore fires when the implanted procedure runs, not
+  when it is planted, and a procedure that only reads or exfiltrates data
+  through T-SQL spawns nothing and stays invisible. The rule is written in the
+  Sysmon EventID 1 vocabulary (Image, ParentImage) named by the analytic; where
+  the same Sigma category is fed by Security EventID 4688, that channel needs
+  *Audit Process Creation* and a field mapping to NewProcessName and
+  ParentProcessName first. AN0512's Linux leg — the mysqld/postgres UDF and
+  `COPY ... PROGRAM` equivalents — is a different log source and is not covered
+  here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0181, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1505/001
+  - https://attack.mitre.org/detectionstrategies/DET0181
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.t1505.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    ParentImage|endswith: '\sqlservr.exe'
+  filter_engine_children:
+    Image|endswith:
+      - '\sqldumper.exe'
+      - '\fdlauncher.exe'
+  condition: selection and not filter_engine_children
+falsepositives:
+  - "Estates that have deliberately enabled xp_cmdshell and built maintenance around it: T-SQL job steps and stored procedures that call out to robocopy, dir or a batch file to move, verify or prune backup files. These run on a schedule, are the loudest source of matches wherever they exist, and are the same shape as the abuse — the difference is which procedure issued the call, which this event does not carry."
+  - "Vendor applications shipping signed SQLCLR assemblies that legitimately launch a helper executable — reporting, ETL and document-conversion products are the common ones — producing a child of sqlservr.exe every time that feature is used."
+  - "A DBA running xp_cmdshell interactively from Management Studio to check a path, test permissions or read a directory while troubleshooting a failed job."
+  - "SQL Server maintenance plans and third-party backup or monitoring agents that reach the filesystem through xp_cmdshell rather than through their own service account, appearing as a fixed-interval cmd.exe child."
+level: medium

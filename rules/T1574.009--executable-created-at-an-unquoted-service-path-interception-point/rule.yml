@@ -1,0 +1,73 @@
+title: Executable created at an unquoted service path interception point
+id: e5ce1763-d298-420a-a68b-32951ac5ff04
+status: experimental
+description: |
+  Matches the file-creation leg of AN0176: an executable written to one of the
+  fixed locations Windows probes when it resolves an unquoted service or
+  shortcut path containing spaces. CreateProcess splits such a path on each
+  space and tries every prefix in turn, appending `.exe` when the prefix has no
+  extension, so `C:\Program Files\Common Files\Vendor\svc.exe` written without
+  quotes is attempted first as `C:\Program.exe`, then as
+  `C:\Program Files\Common.exe`, and only then as the intended binary. The
+  prefix ends at each space, not at each path component, which is why anything
+  under `C:\Program Files (x86)\` yields a second drive-root probe at
+  `C:\Program Files.exe` — the same write permission as `C:\Program.exe` buys
+  the adversary the whole x86 tree, so both roots are listed. Those
+  prefixes are a short, closed list on a stock Windows install, which is why
+  this rule enumerates the interception points themselves rather than trying to
+  find the vulnerable service configuration — MITRE's `MonitoredServices` and
+  `BaselineServiceConfig` knobs both require a per-host inventory of ImagePath
+  values compared against a known-good baseline, and lib/sigma has neither a
+  join nor a stored baseline to compare against. The `SuspiciousBinaryList`
+  knob is what the filename list implements, populated here from the prefixes
+  Windows actually probes rather than taken from MITRE. Each entry is anchored
+  with `endswith` on `:\` or on the `Program Files` folder name so a drive root
+  is required: `C:\Program.exe` matches, `C:\Tools\Program.exe` does not, and
+  the anchor works on a system drive other than C:. Only `.exe` is listed
+  because CreateProcess appends only that extension to an extensionless prefix,
+  so a `Program.com` or `Program.bat` at the drive root is not an interception
+  target and is deliberately absent.
+  Scope and limits. This sees the payload being planted, not the hijack firing;
+  the execution half of the analytic — the intercepted process starting from
+  the unexpected location, within MITRE's `TimeWindow` knob — is a separate
+  Sysmon EventID 1 record and a cross-event correlation this rule cannot
+  express. It also sees only the standard prefixes: a service installed under
+  a bespoke unquoted path such as `C:\My App\bin\svc.exe` creates an
+  interception point at `C:\My.exe` that no static list can anticipate, and a
+  site with such services should extend the list from its own ImagePath
+  inventory. The brief's registry source is not used here: it maps Security
+  EventID 4657 onto the Sigma `registry_set` category, and detecting the
+  vulnerable configuration itself would need "ImagePath value contains a space
+  before the extension and does not begin with a quote", which is a structural
+  test on the value rather than a match on it. Prerequisite: Sysmon FileCreate
+  is an allowlist in every mainstream configuration, and the drive root and the
+  Program Files roots are not always in it, so confirm they are in scope before
+  reading an empty result as an absence of this technique.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0064, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/009
+  - https://attack.mitre.org/detectionstrategies/DET0064
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.009
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_interception_point:
+    TargetFilename|endswith:
+      - ':\Program.exe'
+      - ':\Program Files.exe'
+      - ':\Documents.exe'
+      - '\Program Files\Common.exe'
+      - '\Program Files (x86)\Common.exe'
+  condition: selection_interception_point
+falsepositives:
+  - "Hardening and remediation tooling doing exactly what this technique abuses, in reverse. A documented mitigation for unquoted service paths is to pre-create a benign, ACL-locked stub at C:\\Program.exe so no attacker can claim the name, and vulnerability-remediation scripts and some endpoint baselines ship this. The write is indistinguishable from the malicious one on this event alone; it happens once per host, usually during a build or a patch window and under SYSTEM."
+  - "Purple-team and detection-validation runs, including the Atomic Red Team test for this technique, which drops an executable at C:\\Program.exe and deletes it seconds later. These arrive as a create-then-delete pair on a known test host."
+  - "Archive extraction to the drive root. Unpacking a zip or a self-extracting installer whose top-level entry happens to be Program.exe into C:\\ produces a matching create, as does a browser or download manager configured with C:\\ as its download directory saving a file of that name."
+  - "Backup, restore and disk-imaging software replaying a volume that already contained one of these files, which recreates the original write on a new host without any new adversary action having taken place."
+level: high

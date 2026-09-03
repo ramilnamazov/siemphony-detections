@@ -1,0 +1,54 @@
+title: Exchange mailbox delegate permission granted from a command line
+id: bf75c7b0-eefc-470c-9a23-b0c0da55cf45
+status: experimental
+description: |
+  Matches process creation where the command line carries one of the Exchange
+  cmdlets that give another principal standing access to a mailbox — the
+  mechanism AN1052 describes, and the one behind the Default and Anonymous folder
+  grants used to keep reading a victim's mail after the initial compromise. The
+  whole match is a single CommandLine gate on the cmdlet name, so it holds
+  whichever shell or script host runs it; the analytic's PowerShellCmdletFilter
+  knob is where that list is widened or narrowed, populated here with the mailbox,
+  recipient, folder and Send-As delegation cmdlets. Two limits are structural
+  rather than tunable: a cmdlet typed inside an interactive Exchange Management
+  Shell or an implicitly remoted session is never an argument to a process, so
+  only -Command style invocations that carry the cmdlet name in the argument
+  string are visible at all — a powershell.exe -File run of the same script never
+  shows the cmdlet, and -EncodedCommand hides it behind base64 — and the
+  authoritative record of a delegation change is the Exchange admin audit log or
+  the Microsoft 365 unified audit log, neither of which is a log source in this
+  brief. The brief maps Security EventID 4688 onto the Sysmon-shaped
+  process_creation category and this rule is written in that vocabulary, gating
+  only on CommandLine, which both feeds carry; a 4688 feed needs both Audit
+  Process Creation and the
+  separate Include command line in process creation events policy enabled first,
+  or CommandLine is never populated and the rule returns zero rows for the wrong
+  reason.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0373, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1098/002
+  - https://attack.mitre.org/detectionstrategies/DET0373
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1098.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'Add-MailboxPermission'
+      - 'Add-RecipientPermission'
+      - 'Add-MailboxFolderPermission'
+      - 'Set-MailboxFolderPermission'
+      - 'Add-ADPermission'
+  condition: selection
+falsepositives:
+  - "Exchange administrators and helpdesk staff granting shared-mailbox, calendar or leave-cover access as a scripted one-liner. Routine delegation is the largest source of matches in any organisation that uses shared mailboxes, and nothing in the process-creation event distinguishes it from the adversary use this rule is written for."
+  - "Mailbox migration, archiving and consolidation suites that script Add-MailboxPermission to give their own service account FullAccess to each mailbox for the duration of a move and remove it afterwards, firing once per mailbox in the batch."
+  - "User-provisioning automation run from a management server or scheduled task that sets standard folder permissions on every newly created mailbox."
+  - "Backup and eDiscovery tooling that grants itself Send-As or FullAccess through Add-ADPermission before a scheduled collection run."
+level: low

@@ -1,0 +1,74 @@
+title: Sudoers file or sudo credential cache altered from a command line
+id: a1294eb5-04d1-4f6d-8e4f-4408a31a9763
+status: experimental
+description: |
+  Matches a process creation whose arguments name the sudoers configuration
+  (`/etc/sudoers` or anything under `/etc/sudoers.d/`), one of the two sudo
+  caching directives MITRE's AN0143 calls out by name (`tty_tickets`,
+  `timestamp_timeout`) or the sudo timestamp store itself (`/var/db/sudo`,
+  `/var/lib/sudo/ts`, `/run/sudo/ts`), together with the `NOPASSWD:` grant that
+  turns a sudo entry into an unauthenticated one. This is the half of AN0142
+  that a single event can carry: its other log source asks for an execve of sudo
+  where `euid != uid`, and the Linux `process_creation` vocabulary
+  (`Image`, `CommandLine`, `ParentImage`, `User`, `CurrentDirectory`) has no
+  effective-versus-real uid pair to compare, while a selector on sudo alone
+  would match every administrative command on the estate. The read-only filter
+  drops inspection tools such as grep, cat and diff whose only relationship to
+  these paths is reading them, which is discovery rather than this technique.
+  Two blind spots matter more than the coverage: a redirect typed at an
+  interactive prompt (`echo '...' >> /etc/sudoers`) is a shell builtin plus a
+  shell-performed redirect and produces no execve at all, so it is invisible
+  here — only the `sh -c "..."` form used by scripts, Dockerfile `RUN` steps
+  and ssh one-liners is audited — and bare `visudo` with no path argument
+  carries no matching string either. The filter is keyed on `Image`, so a
+  read-only command wrapped in `sh -c` still matches because the audited binary
+  is the shell. `CommandLine` here is a normalised join of the auditd SYSCALL
+  and EXECVE records; a raw auditd feed keeps the arguments in a separate
+  EXECVE record and needs that mapping applied before any selection can match,
+  and auditd does not audit execve by default, so an empty result means the
+  syscall is not being recorded rather than the estate being quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0052, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1548/003
+  - https://attack.mitre.org/detectionstrategies/DET0052
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.t1548.003
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_sudoers_path:
+    CommandLine|contains: '/etc/sudoers'
+  selection_caching_directive:
+    CommandLine|contains:
+      - 'tty_tickets'
+      - 'timestamp_timeout'
+      - 'NOPASSWD:'
+  selection_timestamp_store:
+    CommandLine|contains:
+      - '/var/db/sudo'
+      - '/var/lib/sudo/ts'
+      - '/run/sudo/ts'
+      - '/var/run/sudo/ts'
+  filter_read_only:
+    Image|endswith:
+      - '/grep'
+      - '/egrep'
+      - '/fgrep'
+      - '/cat'
+      - '/diff'
+      - '/stat'
+      - '/ls'
+      - '/find'
+      - '/md5sum'
+      - '/sha256sum'
+  condition: (1 of selection*) and not filter_read_only
+falsepositives:
+  - "Container image builds and machine provisioning, where a Dockerfile RUN step, a cloud-init runcmd, a Packer or Vagrant shell provisioner grants a build or service account passwordless sudo with a one-liner such as sh -c 'echo deploy ALL=(ALL) NOPASSWD: ALL > /etc/sudoers.d/deploy'. On build and CI hosts this is the loudest match by a wide margin, fires on every image build, and is the reason this rule is not rated higher."
+  - "Configuration management that renders a sudoers drop-in through a shell task rather than a file resource — `tee /etc/sudoers.d/90-ops`, `sed -i` against /etc/sudoers, or a post-install script from a package that ships its own sudo rules — producing a match on every managed host on every convergence run."
+  - "Compliance and audit tooling wrapped in a shell, such as sh -c 'grep -R NOPASSWD /etc/sudoers.d' run by Lynis, OpenSCAP or an osquery scheduled pack: the read-only filter keys on Image and the audited binary here is the shell, so these scans match daily on every host in scope."
+  - "Administrators editing the file by explicit path (`sudoedit /etc/sudoers`, `sudo vi /etc/sudoers.d/10-ops`) or raising timestamp_timeout to avoid re-prompting during a long maintenance window, which is exactly the change this rule is built to catch and is separated from an intrusion only by who made it and why."
+level: medium

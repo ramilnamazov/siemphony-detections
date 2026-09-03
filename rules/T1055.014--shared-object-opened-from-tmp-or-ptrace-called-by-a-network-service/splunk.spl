@@ -1,0 +1,1 @@
+index=* ((type="PATH" AND (name="*/tmp/*" OR name="*/dev/shm/*" OR name="*/var/tmp/*") AND name="*.so") OR (type="SYSCALL" AND syscall="ptrace" AND (exe="*/nginx" OR exe="*/apache2" OR exe="*/sshd")))

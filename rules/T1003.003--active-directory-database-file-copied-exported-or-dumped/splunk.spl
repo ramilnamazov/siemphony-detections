@@ -1,0 +1,1 @@
+index=* (CommandLine="*ntds.dit*" OR CommandLine="*ntdsutil*" OR CommandLine="*Windows\\NTDS*" OR CommandLine="*Invoke-NinjaCopy*" OR CommandLine="*NTDSDumpEx*")

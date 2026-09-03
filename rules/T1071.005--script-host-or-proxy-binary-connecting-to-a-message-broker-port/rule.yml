@@ -1,0 +1,65 @@
+title: Script host or proxy binary connecting to a message broker port
+id: 73b92f04-356b-4bb6-a481-2f78d8ca849b
+status: experimental
+description: |
+  AN0002's Windows leg reduced to what a single Sysmon EventID 3 record can
+  carry: an outbound connection to a publish/subscribe broker service port
+  opened by a scripting engine or a signed proxy binary rather than by an
+  application that has any business speaking MQTT, AMQP, XMPP or STOMP.
+  `Initiated`, `Image` and `DestinationPort` are all network-connection fields,
+  so the selection evaluates on one event and no process-creation field is
+  mixed in. Every process listed here opens its own socket, so EventID 3 names
+  it — the port list is MITRE's ProtocolPortList knob, which names 1883, 5222
+  and 5672, populated here with their TLS counterparts and the STOMP pair, and
+  the process list is the UnusualProcessList knob populated with script hosts
+  and download-capable signed binaries. The rule sees a connection and nothing
+  of its contents, so it cannot tell C2 topics from telemetry, cannot express
+  the beaconing interval the analytic's TimeWindow knob describes, and misses
+  any broker reached on a port outside the list — the protocol content legs of
+  the strategy need Zeek mqtt.log or xmpp.log, which this log source is not.
+  Requires Sysmon installed with network-connection logging enabled and not
+  trimmed to a short port allowlist; it is absent from a bare Windows install
+  and filtered hard in most shipped configurations, so an empty result means
+  blind, not clean.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0002, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1071/005
+  - https://attack.mitre.org/detectionstrategies/DET0002
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1071.005
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection:
+    Initiated: 'true'
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\python.exe'
+      - '\pythonw.exe'
+      - '\node.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+    DestinationPort:
+      - 1883
+      - 8883
+      - 5672
+      - 5671
+      - 5222
+      - 5223
+      - 61613
+      - 61614
+  condition: selection
+falsepositives:
+  - "Python scripts that are genuinely MQTT clients. paho-mqtt talking to a broker on 1883 or 8883 is the ordinary way an engineering, lab or OT-adjacent workstation reads sensor and telemetry topics, and the resulting event is python.exe on a broker port — exactly the tuple selected here. Where such tooling exists this is the highest-volume match by a wide margin and has to be baselined by host and destination before the rule is worth alerting on."
+  - "Build and integration jobs that queue work through RabbitMQ. A scheduled PowerShell task or a node.exe worker publishing to 5672 or 5671 is a common shape in CI and back-office automation, and neither the port nor the image distinguishes it from an implant."
+  - "Developer machines running a local broker. Mosquitto or RabbitMQ started for testing is reached over loopback by python.exe or node.exe, which still produces an initiated connection on a listed port."
+  - "Connectivity checks and scanning scripts. A PowerShell script that sweeps Test-NetConnection across broker ports for inventory or monitoring fires this rule on every host it probes."
+level: low

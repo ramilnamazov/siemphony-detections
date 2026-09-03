@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "syscall" AND (TO_LOWER(exe) LIKE "*/insmod" OR TO_LOWER(exe) LIKE "*/rmmod" OR TO_LOWER(exe) LIKE "*/modprobe" OR TO_LOWER(exe) LIKE "*/depmod" OR TO_LOWER(exe) LIKE "*/kmod")) OR (TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*.ko" OR TO_LOWER(name) LIKE "*.ko.xz" OR TO_LOWER(name) LIKE "*.ko.zst" OR TO_LOWER(name) LIKE "*.ko.gz")) OR (TO_LOWER(type) == "path" AND TO_LOWER(name) LIKE "*/lib/modules/*"))

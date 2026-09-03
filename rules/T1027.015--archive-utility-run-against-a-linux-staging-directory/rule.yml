@@ -1,0 +1,107 @@
+title: Archive utility run against a Linux staging directory
+id: 2f09cb2d-5428-4cb0-93ef-b9d946a569b6
+status: experimental
+description: |
+  AN0783 describes a compression utility run against a scratch location and
+  then the unpacked file being executed shortly afterwards. Only the first half
+  of that is a single event, so this rule matches it alone: one of the
+  command-line archivers, with a staging path anywhere in its arguments. The
+  tool list is MITRE's `CompressionToolPatterns` knob, populated here with the
+  tar, gzip, bzip2, xz, zstd, zip, rar, 7-Zip and cpio families rather than
+  taken from MITRE; the path list is MITRE's `PathRegex` knob, which names
+  /tmp, /dev/shm and the user's home directory — the first two are used, and
+  the home directory is left out because a `/home/` substring matches nearly
+  every command line typed on a workstation and would make the rule fire on
+  itself. Both terms are written without a trailing slash on purpose: the
+  destination is at least as often given as a bare directory argument —
+  `tar -C /tmp -xf pkg.tgz`, `unzip -d /tmp pkg.zip`, `7z x -o/tmp` — as it is
+  as a full path to a file, and a `/tmp/` term with the slash matches only the
+  second of those, which would have made the gate look tighter than it is while
+  quietly dropping the common extraction form. `/var/tmp` needs no separate
+  entry, since it contains `/tmp`. The
+  direction is deliberately not constrained: the same selection catches an
+  archive being unpacked into the staging directory and one being built there.
+  Only the first of those is AN0783's observable — the analytic describes a
+  compression utility followed by execution of the unpacked file — so the
+  archive-creation half is authored scope rather than MITRE's, and on that half
+  the rule overlaps the collection technique T1560.001 rather than this one.
+  The tools that only ever decompress (gunzip, bunzip2, unxz, unzstd, unzip,
+  unrar, zcat) are the arm grounded in the analytic; tar, zip, rar, cpio and the
+  7-Zip family match in both directions, because separating them needs a verb
+  list and a wrong verb term would silently kill the selection instead.
+  What this cannot see is the larger half of the technique. Unpacking done
+  inside a compiled dropper, or by a script using a language runtime's own
+  archive library — Python's zipfile, Perl's Archive::Tar, a Go program with
+  archive/zip — execs no archiver and produces no match, and shellcode
+  compressed into a registry value or a config blob never touches a
+  filesystem archiver at all. MITRE's `ExecutionAfterUnpackWindow` knob, which
+  is what would make this rule specific, is a cross-event correlation between
+  the unpack and a later execve, and lib/sigma models neither a timeframe nor
+  a join. Note also that on p7zip the `7z` in the path is a shell wrapper, so
+  the exec that matches here is the second one, of the real binary under
+  /usr/lib/p7zip — which still ends in `/7z`, but the wrapper invocation itself
+  appears as a shell.
+  Two arms of DET0281 are not attempted. AN0784 (macOS) offers only
+  `macos:unifiedlog`, which has no standardised Sigma field vocabulary, so
+  ditto, xar and pkgutil would have to be written against invented field names.
+  AN0782 (Windows) is skipped for a different reason: its observable is
+  archiving utilities run with an archive verb on `process_creation/windows`,
+  and that selection is already published in this corpus under T1560.001, so
+  re-authoring it here would add a second copy of the same logic rather than
+  new coverage.
+  Vocabulary and prerequisite: this rule is written in the Sysmon-for-Linux
+  shaped `process_creation` vocabulary (Image, CommandLine) that the brief maps
+  `auditd:SYSCALL::execve` onto. Raw auditd carries the same values as `exe=`
+  on the SYSCALL record and `a0`..`aN` on a separate EXECVE record, so that
+  feed needs a field mapping first, and auditd records no execve until a rule
+  such as `-a always,exit -F arch=b64 -S execve -k exec` is loaded. Until one
+  is, this rule returns zero rows, and zero rows here means blind rather than
+  quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0281, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/015
+  - https://attack.mitre.org/detectionstrategies/DET0281
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1027.015
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tool:
+    Image|endswith:
+      - '/tar'
+      - '/bsdtar'
+      - '/gzip'
+      - '/gunzip'
+      - '/zcat'
+      - '/bzip2'
+      - '/bunzip2'
+      - '/xz'
+      - '/unxz'
+      - '/lzma'
+      - '/zstd'
+      - '/unzstd'
+      - '/zip'
+      - '/unzip'
+      - '/rar'
+      - '/unrar'
+      - '/7z'
+      - '/7za'
+      - '/7zr'
+      - '/7zz'
+      - '/cpio'
+  selection_staging:
+    CommandLine|contains:
+      - '/tmp'
+      - '/dev/shm'
+  condition: selection_tool and selection_staging
+falsepositives:
+  - "Software builds and package management. Unpacking a source tarball into a scratch directory is the first step of every build, and dpkg-buildpackage, rpmbuild, pip, npm, cargo, Maven and Gradle all extract archives under /tmp or a TMPDIR pointing there. On a build server or CI runner this is the dominant match by a very wide margin, and it is why the level is low rather than medium."
+  - "Container and image tooling. docker build, podman, buildah and containerd unpack layer tarballs through tar into temporary directories, so every image pull and every layer extraction on a busy node produces matches."
+  - "Ordinary user activity. Browsers and mail clients hand attachments off through /tmp, so a person downloading a .tar.gz or .zip and unpacking it where it landed looks identical to this rule."
+  - "Initramfs and boot-image tooling. dracut and mkinitramfs assemble the initrd by unpacking and repacking cpio and compressed archives in a scratch directory, and they run on every kernel, microcode and driver update."
+  - "Backup, log handling and diagnostic collection. Nightly tar jobs that stage an archive under /tmp or /var/tmp before shipping it, logrotate compressing rotated files, and support-bundle collectors such as sosreport or supportconfig that build their tarball in a temporary directory."
+level: low

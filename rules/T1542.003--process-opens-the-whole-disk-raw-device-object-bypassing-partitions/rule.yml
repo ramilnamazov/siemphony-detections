@@ -1,0 +1,69 @@
+title: Process opens the whole-disk raw device object bypassing partitions
+id: 1af80580-4105-4ee4-9af3-f14cee1cdbbd
+status: experimental
+description: |
+  AN0428 asks for "raw access to physical drives, modification of boot records
+  (MBR/VBR), and suspicious file creation ... within the EFI System Partition
+  (ESP)" across two Sysmon feeds. This rule is written against the first,
+  EventID 9 (`raw_access_thread`) and matches `Device` on whichever of the two
+  real whole-disk device objects the caller opened. The Windows disk class
+  driver exposes the entire physical disk two ways: `\Device\HarddiskN\DRN`,
+  reached through the `\\.\PhysicalDriveN` symbolic link that essentially every
+  raw-disk tool actually calls — including the malware this technique is
+  named for; NotPetya's MBR overwrite and `dd for Windows` both open
+  `\\.\PhysicalDrive0`, which resolves to `\Device\Harddisk0\DR0` — and the
+  legacy `\Device\HarddiskN\Partition0` alias, the reserved logical unit
+  representing the same unpartitioned whole disk under the older per-disk
+  partition naming. An earlier draft of this rule matched only the Partition0
+  alias, which a source review found is not the path real raw-disk-access
+  tools take — that selector would validate clean and never fire on the
+  primary case. Both are now matched; either one bypasses every filesystem and
+  partition boundary a normal application respects, and sector 0 of that block
+  is the MBR, so a process opening either device object is asking for exactly
+  the access an MBR/VBR overwrite requires. Almost nothing on a running system
+  has a legitimate reason to address a disk that way instead of through a
+  drive letter or a specific partition, which is what makes this a reasonably
+  tight single-event proxy for "about to touch the boot sectors" even though
+  it cannot see whether a write actually followed.
+  Two honesty points follow directly from what EventID 9 records. First, its
+  own name is RawAccessRead — Sysmon emits it for raw *read* operations issued
+  through the `\\.\` device path, not for writes, so this rule is watching the
+  read that precedes or accompanies a sector edit (most MBR-writing tools open
+  the device and read the existing sectors before patching them, or share one
+  handle for both), not the write itself; a tool that opens the device
+  write-only and never reads is invisible here. Second, this is a Sysmon
+  feed and needs the event enabled in whatever configuration the host is
+  running — a bare `sysmon -i` with no config captures everything, but several
+  widely used community configs restrict EventID 9 to a short device or
+  process allowlist to cut noise, and a bootkit dropper outside that allowlist
+  produces silence that reads as "clean" rather than "not being watched."
+  This rule does not attempt AN0428's second leg (Sysmon EventID 11, ESP file
+  creation) — a different logsource category, so it cannot share this rule —
+  or MITRE's `KnownGoodMBRHashes` and `ESPFileWhitelist` knobs, both hash/
+  allowlist comparisons lib/sigma has no operator for, or the Linux leg
+  (AN0429, `auditd`/`syslog` writes to `/dev/sda`, `/dev/nvme0n1` or EFI
+  mounts), a separate product and therefore a separate rule.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0150, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1542/003
+  - https://attack.mitre.org/detectionstrategies/DET0150
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.t1542.003
+logsource:
+  category: raw_access_thread
+  product: windows
+detection:
+  selection_partition0:
+    Device|endswith: '\Partition0'
+  selection_physicaldrive:
+    Device|contains: '\DR'
+  condition: 1 of selection*
+falsepositives:
+  - "Disk-imaging and full-disk backup tools such as FTK Imager, dd for Windows, Macrium Reflect and Acronis True Image, which open a whole-disk device object (typically `\\.\\PhysicalDriveN`, i.e. `\\Device\\HarddiskN\\DRN`) to capture or restore an image that includes the boot sectors, as routine, scheduled backup activity."
+  - "Anti-rootkit and bootkit scanners themselves, including GMER, TDSSKiller and vendor UEFI/MBR scan modules, which read raw MBR and VBR sectors specifically to detect the technique this rule targets, so a security sweep produces the identical event."
+  - "Third-party partition managers and disk-cloning utilities such as MiniTool Partition Wizard, EaseUS Partition Master and Paragon Hard Disk Manager, which open Partition0 during routine resize, clone or partition-table-repair operations run by IT staff."
+level: medium

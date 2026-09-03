@@ -1,0 +1,1 @@
+index=* (((CommandLine="*Terminal Server Client*" OR CommandLine="*Default.rdp*") AND (CommandLine="* delete *" OR CommandLine="*del *" OR CommandLine="*rd *" OR CommandLine="*rmdir *" OR CommandLine="*Remove-Item*")) OR ((Image="*\\netsh.exe" AND CommandLine="*advfirewall*") AND (CommandLine="* reset*" OR CommandLine="*delete rule*")))

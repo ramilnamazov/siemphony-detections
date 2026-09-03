@@ -1,0 +1,1 @@
+index=* ((Image="*/steghide" OR Image="*/outguess" OR Image="*/stegsnow" OR Image="*/stegify") AND (CommandLine="* embed*" OR CommandLine="* encode*" OR CommandLine="* -d *" OR CommandLine="* -m *"))

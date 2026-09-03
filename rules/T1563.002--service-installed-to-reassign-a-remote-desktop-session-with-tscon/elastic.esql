@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(winlog.provider_name) == "service control manager" AND event.code == 7045) AND (TO_LOWER(ImagePath) LIKE "*tscon*" OR TO_LOWER(ImagePath) LIKE "*rdp-tcp#*"))

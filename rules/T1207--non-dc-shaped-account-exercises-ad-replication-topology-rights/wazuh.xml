@@ -1,0 +1,25 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)(^4928$|^4929$)</field>
+    <description>Non-DC-shaped account exercises AD replication topology rights (1/2)</description>
+    <mitre>
+      <id>T1207</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4662$</field>
+    <field name="AccessMask" type="pcre2">(?i)^0x100$</field>
+    <field name="Properties" type="pcre2">(?i)(1131f6ac-9c07-11d1-f79f-00c04fc2dcd2|1131f6ab-9c07-11d1-f79f-00c04fc2dcd2)</field>
+    <field name="SubjectUserName" negate="yes" type="pcre2">(?i)\$$</field>
+    <description>Non-DC-shaped account exercises AD replication topology rights (2/2)</description>
+    <mitre>
+      <id>T1207</id>
+    </mitre>
+  </rule>
+</group>

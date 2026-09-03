@@ -1,0 +1,69 @@
+title: Process executed from an anonymous in-memory file on Linux
+id: a3d63a84-c6b4-4f5a-a70b-8cd0f8d22e99
+status: experimental
+description: |
+  AN0839 asks for mmap + mprotect turning writable memory executable inside one
+  process with no ELF on disk behind it. The permission-change half is not
+  reachable here: the analytic's only source for it is the raw
+  `auditd:MMAP` feed, which the brief gives no field names for, and lib/sigma
+  has no way to join two syscalls in one process anyway. What is reachable is
+  the end of that chain that does create an event — an `execve` whose executable
+  is an anonymous file rather than a path on a filesystem. A payload placed with
+  `memfd_create` and executed with `fexecve` has no directory entry at all, so
+  the kernel reports its path as `/memfd:<label> (deleted)`, and that
+  `memfd:` marker is the whole selection. MITRE's `ProcessNameScope` knob is what
+  this implements — the knob's own text says it is uncommon for service binaries
+  to call `memfd_create` — though scoping it to a named set of high-risk
+  processes is left to the deployer rather than baked in, because on a clean host
+  the unscoped form is already rare. One exclusion is applied: `runc` defends
+  against CVE-2019-5736 by copying its own binary into a memfd and re-executing
+  it, labelling the clone `runc_cloned:/proc/self/exe`, so on any container host
+  that self-copy would otherwise be nearly every match. The exclusion matches
+  runc's full label rather than a fragment of it, but the label of a memfd is
+  chosen by whoever creates it, so an adversary who names theirs the same string
+  is excluded too — treat the filter as noise suppression, not as a boundary that
+  holds under contact. MITRE's
+  `RWXMemoryThreshold` knob (allow some RWX allocations before alerting, for JIT
+  runtimes) is not applied at all: it is a count over a window, and Sigma models
+  neither.
+  Scope and limits. This is the fileless *execution* case only. Reflective
+  loading into a process that is already running — `Assembly.Load()` in a live
+  PowerShell session, shellcode written into a JIT'd region, a dlopen from a
+  memory buffer — creates no new process and therefore no event this rule can
+  see, and that is the larger half of the technique. The Windows arm AN0838 is
+  not attempted: it describes a VirtualAlloc/VirtualProtect/CreateThread sequence
+  inside a single PID, and none of its three sources record it — Sysmon EventID 1
+  is process creation, EventID 7 fires only for modules that *have* a backing
+  file, and EventID 10 is cross-process access, which reflective loading by
+  definition does not perform. The macOS arm AN0840 offers only
+  `macos:unifiedlog`, which has no standardised Sigma field vocabulary, so its
+  fields would have to be invented. Vocabulary and prerequisite: this rule is
+  written in the Sysmon-for-Linux-shaped `process_creation` vocabulary (`Image`)
+  that the brief maps `auditd:SYSCALL::execve` onto; raw auditd carries the same
+  value as `exe=` on a SYSCALL record and needs that field mapping first, and it
+  records no execve at all until a rule such as
+  `-a always,exit -F arch=b64 -S execve -k exec` is loaded. Until one is, this
+  rule returns zero rows, and zero rows here means blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0300, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1620
+  - https://attack.mitre.org/detectionstrategies/DET0300
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1620
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_memfd_exec:
+    Image|contains: 'memfd:'
+  filter_runc_self_clone:
+    Image|contains: 'runc_cloned:/proc/self/exe'
+  condition: selection_memfd_exec and not filter_runc_self_clone
+falsepositives:
+  - "Container runtimes whose self-clone is not the excluded string. The filter removes runc's own label, but forks and vendored rebuilds of runc, and other OCI runtimes that copy their binary into an anonymous file for the same CVE-2019-5736 mitigation, use labels of their own and still match once per container start. On a busy Kubernetes worker node that remains the highest-volume source here by a wide margin, which is why this rule is medium rather than high."
+  - "Authorised offensive testing and malware analysis. In-memory stagers and shellcode loaders are built to execute exactly this way, so on a red-team range, a detonation sandbox or an analyst workstation every sample and every exercise produces a match that is identical in the log to a real intrusion, distinguishable only by the host it came from."
+  - "Administrative work on hosts where the writable filesystems are mounted noexec. Writing a statically linked troubleshooting tool into an anonymous file and running it from there is a documented way to work around that restriction on appliances and hardened builds, and some vendor support scripts and self-updating agents fetch and run their helper the same way rather than dropping it on disk."
+level: medium

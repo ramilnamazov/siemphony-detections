@@ -1,0 +1,1 @@
+index=* ((Image="*/socat" OR Image="*/ncat") AND (CommandLine="*TCP-LISTEN*" OR CommandLine="*TCP4-LISTEN*" OR CommandLine="*TCP6-LISTEN*" OR CommandLine="*UDP-LISTEN*" OR CommandLine="*OPENSSL-LISTEN*" OR CommandLine="*SOCKS4*" OR CommandLine="*SOCKS5*" OR CommandLine="*PROXY:*" OR CommandLine="*--proxy*" OR CommandLine="*--broker*"))

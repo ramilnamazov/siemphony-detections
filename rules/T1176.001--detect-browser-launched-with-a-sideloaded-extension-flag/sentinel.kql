@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "--load-extension=" or ProcessCommandLine contains "--disable-extensions-except=" or ProcessCommandLine contains "--pack-extension=" or ProcessCommandLine contains "--install-chrome-app=")

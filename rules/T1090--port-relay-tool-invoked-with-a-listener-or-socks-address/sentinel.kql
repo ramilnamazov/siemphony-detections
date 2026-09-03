@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "/socat" or FolderPath endswith "/ncat") and (ProcessCommandLine contains "TCP-LISTEN" or ProcessCommandLine contains "TCP4-LISTEN" or ProcessCommandLine contains "TCP6-LISTEN" or ProcessCommandLine contains "UDP-LISTEN" or ProcessCommandLine contains "OPENSSL-LISTEN" or ProcessCommandLine contains "SOCKS4" or ProcessCommandLine contains "SOCKS5" or ProcessCommandLine contains "PROXY:" or ProcessCommandLine contains "--proxy" or ProcessCommandLine contains "--broker"))

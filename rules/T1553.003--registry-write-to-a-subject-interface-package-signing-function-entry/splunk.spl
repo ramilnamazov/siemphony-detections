@@ -1,0 +1,1 @@
+index=* (TargetObject="*\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllGetSignedDataMsg\\*" OR TargetObject="*\\Cryptography\\OID\\EncodingType 0\\CryptSIPDllVerifyIndirectData\\*")

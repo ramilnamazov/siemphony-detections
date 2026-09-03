@@ -1,0 +1,43 @@
+title: AutoIt or AutoHotkey binary executing under a different file name
+id: 4340c739-27e0-4327-af00-adc41efe9a6e
+status: experimental
+description: |
+  Matches Sysmon EventID 1's `OriginalFileName`, PE version-resource metadata
+  the compiler embeds and a rename cannot remove, against the AutoIt/AutoHotkey
+  interpreter names — the direct answer to AN0942's own ScriptExtension knob,
+  which flags "unknown .exe names compiled from these": once a `.ahk`/`.au3`
+  script is compiled to a standalone executable the extension is gone, so
+  matching on `Image` or `CommandLine` for those scripts would miss exactly the
+  compiled case MITRE names. This selector needs no companion field to be
+  meaningful and stays true whether the interpreter kept its own name or was
+  renamed to blend in. MITRE's other tuning knobs — ParentProcessName,
+  TimeWindow, ChildProcessCount — are left for a site to add; none is
+  incorporated here. A determined adversary can still strip or forge the
+  version-resource block before compiling, which removes the one field this
+  rule relies on.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0332, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1059/010
+  - https://attack.mitre.org/detectionstrategies/DET0332
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1059.010
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    OriginalFileName:
+      - 'AutoIt3.exe'
+      - 'AutoIt.exe'
+      - 'AutoHotkey.exe'
+      - 'AutoHotkeyU32.exe'
+      - 'AutoHotkeyU64.exe'
+      - 'AutoHotkeyA32.exe'
+  condition: selection
+falsepositives:
+  - "Legitimate business-process automation and RPA built on AutoIt or AutoHotkey — help-desk password-reset macros, kiosk automation, unattended-install wrappers — all carry the same OriginalFileName metadata as malicious use and are indistinguishable from it on this field alone."
+  - "Third-party installers and updaters that embed an AutoIt3.exe-compiled component as their own installer engine; several commercial Windows applications ship this way, so the vendor's executable name differs but the original AutoIt3.exe metadata survives."
+level: medium

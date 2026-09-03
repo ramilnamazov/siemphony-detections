@@ -1,0 +1,13 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4104$</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)Set-PSReadLineOption</field>
+    <field name="ScriptBlockText" type="pcre2">(?i)(SaveNothing|(HistorySavePath \$null|HistorySavePath NUL|HistorySavePath /dev/null))</field>
+    <description>PowerShell history saving disabled via Set-PSReadLineOption</description>
+    <mitre>
+      <id>T1690</id>
+    </mitre>
+  </rule>
+</group>

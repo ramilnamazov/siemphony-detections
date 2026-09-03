@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.parent.executable) LIKE "*\\\\explorer.exe" AND (TO_LOWER(process.executable) LIKE "d:\\\\*" OR TO_LOWER(process.executable) LIKE "e:\\\\*" OR TO_LOWER(process.executable) LIKE "f:\\\\*" OR TO_LOWER(process.executable) LIKE "g:\\\\*" OR TO_LOWER(process.executable) LIKE "h:\\\\*"))

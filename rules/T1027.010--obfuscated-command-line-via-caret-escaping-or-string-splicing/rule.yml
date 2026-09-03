@@ -1,0 +1,66 @@
+title: Obfuscated command line via caret escaping or string splicing
+id: 8f30bca2-dc70-4991-8b5a-991dcf7dd7c0
+status: experimental
+description: |
+  AN1394 asks for "excessive escape characters, base64 encoding, command
+  concatenation, or outlier command length and entropy" on a single 4688
+  record, and this rule takes the three of those four that are actual string
+  shapes rather than a statistic: `CommandLineEntropyThreshold` and
+  `SuspiciousCharacterCount` are both a measurement over the whole string, and
+  lib/sigma has no entropy or length function, so neither knob can be applied
+  as MITRE defines it. In its place, three concrete constructions the
+  technique's own description names are matched directly. `selection_encoded`
+  is `-EncodedCommand`/`-enc` on a PowerShell host process — the base64
+  leg, and the one MITRE calls out first, standing in for
+  `CommandLineEntropyThreshold` because the flag is a reliable proxy for a
+  high-entropy blob even though the blob's entropy itself is unmeasured.
+  `selection_caret` is `SuspiciousCharacterCount` made concrete: five or more
+  `^`-escaped characters in a row, the shape produced by `p^o^w^e^r^s^h^e^l^l`
+  or `c^m^d`, a cmd.exe evasion old enough to predate this ATT&CK release.
+  `selection_concat` matches the technique description's own worked example —
+  two double-quoted fragments joined by `+`, as in `"Wor"+"d.Application"` —
+  which is string-splitting obfuscation regardless of which interpreter runs
+  it. The brief maps Security 4688 onto Sigma's `process_creation` category,
+  which is Sysmon-shaped; this rule is written in that vocabulary
+  (`Image`, `CommandLine`), so a raw 4688 feed needs `NewProcessName` mapped to
+  `Image` before it applies, and 4688 itself needs *Audit Process Creation*
+  plus the separate *Include command line in process creation events* policy —
+  neither is on by default or in the CIS baseline, and without the
+  command-line policy every event arrives with an empty `CommandLine` and this
+  rule silently matches nothing. `TimeWindow`, correlating the obfuscated
+  command to a later child process or file write, is not attempted — lib/sigma
+  has no timeframe construct. The inline-string decode this rule targets is
+  deliberately distinct from T1027.013, which covers an encoded or encrypted
+  *file* read from disk; `selection_encoded` here fires on the flag alone with
+  no file argument required.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0505, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/010
+  - https://attack.mitre.org/detectionstrategies/DET0505
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1027.010
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_encoded:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+    CommandLine|contains|windash:
+      - '-enc'
+      - '-EncodedCommand'
+  selection_caret:
+    CommandLine|re: '(\^[A-Za-z]){5,}'
+  selection_concat:
+    CommandLine|re: '"[^"]{1,40}"\s*\+\s*"[^"]{1,40}"'
+  condition: 1 of selection*
+falsepositives:
+  - "Enterprise PowerShell deployment tooling. SCCM, Intune, GPO logon scripts and CI/CD runners routinely pass -EncodedCommand to avoid multi-layer quoting problems when a script crosses shells or a scheduler, and this is the highest-volume match in most estates, which is why the level is medium rather than high."
+  - "Legacy VBScript and batch logon scripts that build COM automation strings by concatenation as ordinary (if dated) programming style, such as CreateObject(\"Wor\" + \"d.Application\") written by a non-security author with no intent to evade anything."
+  - "Installer and packaging tooling — WiX, InstallShield and older NSIS-generated batch wrappers — that caret-escapes every token defensively regardless of whether escaping is actually required, producing the same five-or-more ^-escaped run this rule matches."
+  - "Security-awareness and detection-engineering exercises that run canonical obfuscated-PowerShell samples from public trainings and atomic-test repositories, which reproduce this exact shape on analyst and lab workstations."
+level: medium

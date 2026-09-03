@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\wscript.exe" or FolderPath endswith "\\cscript.exe" or FolderPath endswith "\\mshta.exe" or FolderPath endswith "\\rundll32.exe") and (ProcessCommandLine contains ".svg" or ProcessCommandLine contains ".svgz"))

@@ -1,0 +1,56 @@
+title: XSL stylesheet transform executed via msxsl or wmic format switch
+id: 159f32b6-fb61-44d1-9597-a39dfeac9cf3
+status: experimental
+description: |
+  AN0581 covers proxy execution of embedded JScript/VBScript through XSL
+  transforms and names two paths: the standalone msxsl.exe utility, and
+  wmic.exe's built-in /format: switch pointed at an .xsl stylesheet — the
+  Squiblytwo variant of the same abuse. msxsl.exe is not shipped with Windows
+  at all, so its mere presence and execution is the whole signal; the
+  selection gates on the binary name alone. wmic.exe does ship with Windows
+  and has a legitimate output-formatting feature built on the same XSL engine,
+  so that selection additionally requires the command line to reference both
+  the /format switch and an .xsl target — narrowing to the abuse pattern
+  rather than every wmic invocation.
+  The brief's second log source, Sysmon EventID 7 module load of jscript.dll,
+  is not used here. It would only strengthen this same detection by confirming
+  the script engine actually loaded — a correlation between a process-creation
+  event and a later module-load event in the same process, which lib/sigma has
+  no join or timeframe to express. Taken alone, an image-load selection on
+  jscript.dll would fire on ordinary Internet Explorer/WSH/HTA activity and
+  add nothing MITRE's `TimeWindow` knob wasn't already describing as needing
+  correlation.
+  MITRE's `CommandLinePattern` knob is populated here only with the literal
+  .xsl extension; an adversary renaming the stylesheet to .jpeg or another
+  extension, as the knob's own description anticipates, defeats this rule
+  entirely, and MITRE's `RemoteXSLDomainWhitelist` knob (filtering known-safe
+  remote XSL URLs) is not implemented — this rule alerts on local and remote
+  XSL targets alike. Prerequisite: this logic depends on Sysmon being deployed
+  with EventID 1 enabled and command-line logging in the config, which is not
+  a Windows default; without Sysmon this returns zero rows, and zero rows here
+  means no sensor rather than no activity.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0205, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1220
+  - https://attack.mitre.org/detectionstrategies/DET0205
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1220
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_msxsl:
+    Image|endswith: '\msxsl.exe'
+  selection_wmic_xsl:
+    Image|endswith: '\wmic.exe'
+    CommandLine|contains|all:
+      - 'format'
+      - '.xsl'
+  condition: 1 of selection*
+falsepositives:
+  - "Administrative or reporting scripts that use wmic's built-in HTML output formatters, such as `wmic process list /format:hform.xsl` or `/format:htable.xsl`, which are the shipped .xsl transforms under `%windir%\\System32\\wbem\\en-us` and are a real, if dated, scripting pattern in some estates."
+  - "Legacy line-of-business software that bundles msxsl.exe as a redistributable to perform XML/XSLT transforms as part of report generation, data export or EDI processing — msxsl.exe was Microsoft's own recommended redistributable for this before .NET's XslCompiledTransform, and some older enterprise installers still carry it."
+level: medium

@@ -1,0 +1,2 @@
+DeviceFileEvents
+| where (FolderPath endswith ".lnk" and FolderPath contains "\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\")

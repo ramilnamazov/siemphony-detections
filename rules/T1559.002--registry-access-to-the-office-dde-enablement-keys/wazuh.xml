@@ -1,0 +1,15 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)(^4656$|^4670$)</field>
+    <field name="ObjectType" type="pcre2">(?i)^Key$</field>
+    <field name="ObjectName" type="pcre2">(?i)\\Microsoft\\Office\\</field>
+    <field name="ObjectName" type="pcre2">(?i)(\\Word\\Security|\\Excel\\Security)</field>
+    <field name="ObjectName" negate="yes" type="pcre2">(?i)\\Policies\\Microsoft\\Office</field>
+    <description>Registry access to the Office DDE enablement keys</description>
+    <mitre>
+      <id>T1559.002</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,61 @@
+title: Scheduled task registered to run a recurring file transfer
+id: 1c2d8038-5d37-4ffa-a4f5-a7a1e8063d4c
+status: experimental
+description: |
+  Catches the registration of a Windows scheduled task whose action is a file
+  transfer utility and whose trigger repeats — minute, hourly, daily or an
+  explicit repetition interval. AN1118 is about time-based regularity, and Sigma
+  has no time-window or aggregation operator, so recurrence cannot be measured
+  across events; what this rule can see is the moment the recurrence is
+  *declared* on the command line, which is the only point in the chain where a
+  single event carries both the schedule and the transfer. Coverage is therefore
+  genuinely partial: a task created through the COM Task Scheduler API, an XML
+  import, or an existing task repurposed to exfiltrate produces no schtasks
+  command line and this rule stays silent. MITRE's TimeWindow, DestIPAllowlist
+  and ParentProcessBaseline knobs all describe cross-event correlation and none
+  of them can be expressed here. Requires process-creation telemetry with
+  arguments — Sysmon EventID 1, or Security 4688 with both *Audit Process
+  Creation* and the separate *Include command line in process creation events*
+  policy, neither of which is on by default.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0399, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1029
+  - https://attack.mitre.org/detectionstrategies/DET0399
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.exfiltration
+  - attack.t1029
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith: '\schtasks.exe'
+  selection_create:
+    CommandLine|contains|windash: '/create'
+  selection_recurrence:
+    CommandLine|contains|windash:
+      - '/sc minute'
+      - '/sc hourly'
+      - '/sc daily'
+      - '/ri '
+  selection_transfer:
+    CommandLine|contains:
+      - 'curl'
+      - 'wget'
+      - 'bitsadmin'
+      - 'certutil'
+      - 'rclone'
+      - 'winscp'
+      - 'Invoke-WebRequest'
+      - 'Invoke-RestMethod'
+      - 'Start-BitsTransfer'
+      - 'WebClient'
+  condition: all of selection*
+falsepositives:
+  - "Backup, log-shipping and monitoring agents that register their own recurring upload job at install time. A deployment script creating a daily rclone or curl task is byte-for-byte the same event as an operator scheduling exfiltration, and this is the single largest source of benign volume."
+  - "Administrators scheduling nightly report, inventory or log uploads with schtasks driving curl, bitsadmin or a PowerShell WebClient one-liner. MITRE's ParentProcessBaseline knob exists for exactly this, populated here by whatever job runners and provisioning tools the environment actually uses."
+  - "Software updaters and vendor maintenance tasks whose action string contains one of the transfer keywords for a legitimate reason, for example a certutil call that refreshes a certificate revocation list on a daily trigger."
+  - "The transfer keywords are unanchored substrings, so a task whose command line merely mentions a path or argument containing curl, wget or rclone matches without any transfer occurring."
+level: medium

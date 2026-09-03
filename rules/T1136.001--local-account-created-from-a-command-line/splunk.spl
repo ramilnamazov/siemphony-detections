@@ -1,0 +1,1 @@
+index=* (((((Image="*\\net.exe" OR Image="*\\net1.exe") AND CommandLine="* user *") AND (CommandLine="* /add*" OR CommandLine="* -add*")) AND NOT ((CommandLine="* /do*" OR CommandLine="* -do*"))) OR CommandLine="*New-LocalUser*")

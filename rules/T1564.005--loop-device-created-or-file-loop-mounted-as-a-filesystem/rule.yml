@@ -1,0 +1,67 @@
+title: Loop device created or file loop-mounted as a filesystem
+id: 5ea14faf-680d-49d0-a15f-5a5a1172f2f9
+status: experimental
+description: |
+  Matches the Linux leg of AN1272: an EXECVE record for `losetup`, or for
+  `mount` carrying a `loop` option, either of which is the concrete mechanism
+  behind the technique's core claim — a filesystem stored inside a regular
+  file rather than a disk partition, so that standard file-system tools never
+  see it as a volume. `losetup` is matched on its own because attaching a file
+  to a loop device is itself the act of creating that abstraction, independent
+  of what happens to the device afterward; `mount` is only matched when one of
+  its next five arguments contains the string `loop`, since a bare `mount`
+  call covers every ordinary bind mount, tmpfs and device mount on the system
+  and would swamp the rule with unrelated noise. Argument position is not
+  fixed — `-o loop`, `-o loop,ro` and `--options=loop` can each land in a
+  different argv slot depending on what else is on the command line — so the
+  five-argument OR mirrors the a1-a4 pattern already used for T1499.001 rather
+  than pinning one position. This rule cannot tell a hidden VFS from an
+  entirely ordinary use of the same two commands: nothing in an EXECVE record
+  carries where the resulting mount point sits, whether it was subsequently
+  unmounted and its backing file deleted, or whether the file itself lives in
+  a location a user would call hidden, so the loudest false positives below
+  are not edge cases, they are the majority of what this rule returns on a
+  typical Linux estate. The Windows analytic (AN1271) and macOS analytic
+  (AN1273) in this technique's brief are not used here: AN1271 asks for
+  "suspicious disk I/O patterns" and "bootkit-like behavior", neither of which
+  names a field on Sysmon EventID 13/14 or Security 4663/4670/4656, and its
+  own MonitoredRegistryKeys knob has no MITRE-supplied values to populate it
+  with; AN1273's {product: macos, service: unifiedlog} source has no
+  established field vocabulary anywhere in this corpus. Prerequisite: raw
+  auditd does not record execve by default, so this returns zero rows until a
+  rule such as `-a always,exit -F arch=b64 -S execve -k exec` is loaded, and
+  zero rows reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0461, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/005
+  - https://attack.mitre.org/detectionstrategies/DET0461
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1564.005
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_losetup:
+    type: 'EXECVE'
+    a0|endswith: 'losetup'
+  selection_mount:
+    type: 'EXECVE'
+    a0:
+      - 'mount'
+      - '/bin/mount'
+      - '/usr/bin/mount'
+  selection_loop_evidence:
+    - a1|contains: 'loop'
+    - a2|contains: 'loop'
+    - a3|contains: 'loop'
+    - a4|contains: 'loop'
+    - a5|contains: 'loop'
+  condition: selection_losetup or (selection_mount and selection_loop_evidence)
+falsepositives:
+  - "snapd on Ubuntu and other snap-enabled distributions loop-mounts a squashfs image for every installed or refreshed snap package, which is the highest-volume source of matches on any desktop or server running snapd by a wide margin."
+  - "Forensic and VM-image tooling such as guestmount, libguestfs and qcow2/vdi conversion scripts that loop-mount a disk image to inspect, repair or convert it as part of routine backup verification or incident response."
+  - "Administrators and build engineers loop-mounting an ISO to browse install media or verify a freshly built image, and image-pipeline tooling such as live-build, debootstrap or cloud-init that loop-mounts a rootfs during provisioning."
+level: low

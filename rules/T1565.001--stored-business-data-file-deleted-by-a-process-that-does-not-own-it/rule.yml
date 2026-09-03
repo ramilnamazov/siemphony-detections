@@ -1,0 +1,60 @@
+title: Stored business data file deleted by a process that does not own it
+id: 95361a8a-b91f-43e3-a3ef-f1eafc6f5a1b
+status: experimental
+description: |
+  Matches the deletion of a business-record file — a SQL Server data or log
+  file, an Access database or an Outlook store — by any process other than the
+  engine or client that owns it, which is the destructive arm of AN0555 and the
+  only arm that produces a discrete event. The exclusion list is MITRE's
+  AuthorizedProcesses knob populated here with the engines and clients that
+  legitimately remove their own files; anything else unlinking one of these
+  extensions is left to alert. Two limits decide what this can be read as.
+  Backup archives are deliberately not in the extension list: deleting backups
+  to block recovery is T1490, not this technique, and retention jobs pruning
+  .bak files would have dominated the output. And Sysmon has no
+  file-modification event, so the arm the technique is actually named for — a
+  non-owning process writing false values into an existing database file in
+  place — generates no record at all and is structurally invisible here. This
+  rule therefore covers destruction of a record, never falsification of one,
+  and a quiet result says nothing about tampering. File-delete telemetry is
+  also absent from most shipped Sysmon configurations and is expensive to
+  collect, so confirm EventID 23 or 26 is actually being gathered before
+  reading silence as an absence.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0193, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1565/001
+  - https://attack.mitre.org/detectionstrategies/DET0193
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1565.001
+logsource:
+  category: file_delete
+  product: windows
+detection:
+  selection_stored_data:
+    TargetFilename|endswith:
+      - '.mdf'
+      - '.ldf'
+      - '.ndf'
+      - '.mdb'
+      - '.accdb'
+      - '.pst'
+      - '.ost'
+  filter_owning_applications:
+    Image|endswith:
+      - '\sqlservr.exe'
+      - '\sqlagent.exe'
+      - '\sqlwriter.exe'
+      - '\mysqld.exe'
+      - '\postgres.exe'
+      - '\outlook.exe'
+      - '\msaccess.exe'
+  condition: selection_stored_data and not filter_owning_applications
+falsepositives:
+  - "Database maintenance done by hand. A DBA detaching a database and deleting its .mdf and .ldf from Explorer, cmd.exe or PowerShell, or a developer resetting a local instance, matches precisely because the deleting image is a shell rather than the engine, and on a shared development server this is the most frequent source."
+  - "Antivirus and EDR engines removing a file. A scheduled scan quarantining an infected .pst or .ost attachment store, or deleting a corrupted Access or SQL data file, deletes it under the scanner's own image, which is a non-owning process exactly like an attacker's shell."
+  - "Mailbox cache and profile churn driven by something other than outlook.exe — profile migration tooling, a mail-archiving product clearing a stale .ost, or a user deleting an old .pst archive from Explorer."
+  - "Installers and uninstallers. msiexec.exe and vendor setup programs remove bundled Access .mdb files and SQL Express data files during an upgrade, a repair run or a clean removal."
+level: medium

@@ -1,0 +1,13 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^5140$</field>
+    <field name="ShareName" type="pcre2">(?i)(\\ADMIN\$$|\\C\$$)</field>
+    <field name="SubjectUserName" negate="yes" type="pcre2">(?i)\$$</field>
+    <description>Remote connection to an administrative share by a user account</description>
+    <mitre>
+      <id>T1021.002</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,61 @@
+title: Mail forwarding rule created in a script block
+id: a49ae288-4a24-414f-816c-9524bc0347cb
+status: experimental
+description: |
+  Matches AN1589's cmdlet half: a PowerShell script block that names an inbox,
+  transport or mailbox cmdlet together with one of the parameters that actually
+  redirects mail to another recipient. Both halves are required, because the
+  cmdlet alone is ordinary administration — Set-Mailbox is used for a hundred
+  unrelated settings — and the parameter name alone appears in any script that
+  merely reports on forwarding. The whole selection sits on `ScriptBlockText`
+  under EventID 4104, the field that carries the command text after the engine
+  has resolved encoding or obfuscation; the same channel's 4103 records carry
+  the cmdlet in `Payload` instead, so that feed needs a field mapping and is not
+  matched here. The brief's other source, Security 4688, was not used: it sees
+  only powershell.exe's own command line, which for an interactive Exchange
+  session carries no cmdlet text at all. MITRE supplies the TargetMailbox and
+  UserContext knobs; the cmdlet and parameter lists here are authored. Two
+  limits worth stating: a forwarding rule created in the web client, in the mail
+  client's own rules dialog, or through a Graph API call writes nothing to any
+  Windows event channel — that activity is recorded in the tenant's own audit
+  log, which is not in this brief — and EventID 4104 requires *Script Block
+  Logging* to be enabled by policy, which is off in a default install, so zero
+  rows here reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0576, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1114/003
+  - https://attack.mitre.org/detectionstrategies/DET0576
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1114.003
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_cmdlet:
+    EventID: 4104
+    ScriptBlockText|contains:
+      - 'New-InboxRule'
+      - 'Set-InboxRule'
+      - 'New-TransportRule'
+      - 'Set-TransportRule'
+      - 'Set-Mailbox'
+  selection_forward:
+    ScriptBlockText|contains:
+      - 'ForwardTo'
+      - 'ForwardAsAttachmentTo'
+      - 'RedirectTo'
+      - 'RedirectMessageTo'
+      - 'ForwardingSmtpAddress'
+      - 'ForwardingAddress'
+      - 'DeliverToMailboxAndForward'
+      - 'BlindCopyTo'
+  condition: selection_cmdlet and selection_forward
+falsepositives:
+  - "Mail administrators and helpdesk staff setting forwarding for a departing or absent employee, which is done with exactly `Set-Mailbox -ForwardingSmtpAddress` or a New-InboxRule with -ForwardTo. On an administration jump host with script block logging enabled this is the highest-volume match, and it is why the level is not higher — the suppression is the account and the host role, since the command itself is the supported one."
+  - "Joiner-mover-leaver runbooks that call Set-Mailbox with -ForwardingAddress once per departing user, producing a burst of matches from a single service account whenever an offboarding batch runs. MITRE's UserContext knob is where those accounts get recorded."
+  - "Remediation and hygiene scripts that hunt for unauthorised forwarding and clear it, typically piping mailboxes into `Set-Mailbox -ForwardingSmtpAddress $null` — the audit tooling matches on the same two terms as the abuse it is looking for."
+  - "Compliance and supervision provisioning, where a transport rule is created with -BlindCopyTo or -RedirectMessageTo to journal a regulated group's mail to a review mailbox, run legitimately by the compliance team."
+level: medium

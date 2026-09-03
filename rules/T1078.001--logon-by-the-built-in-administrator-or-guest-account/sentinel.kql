@@ -1,0 +1,2 @@
+SecurityEvent
+| where (((EventID == 4624 and (LogonType == 2 or LogonType == 3 or LogonType == 10)) or EventID == 4648) and (TargetUserName =~ "Administrator" or TargetUserName =~ "Guest"))

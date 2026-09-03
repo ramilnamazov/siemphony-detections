@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) LIKE "*\\\\msxsl.exe" OR (TO_LOWER(process.executable) LIKE "*\\\\wmic.exe" AND (TO_LOWER(process.command_line) LIKE "*format*" AND TO_LOWER(process.command_line) LIKE "*.xsl*")))

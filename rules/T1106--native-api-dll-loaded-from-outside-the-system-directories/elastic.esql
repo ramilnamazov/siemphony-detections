@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(file.path) LIKE "*\\\\ntdll.dll" OR TO_LOWER(file.path) LIKE "*\\\\kernel32.dll" OR TO_LOWER(file.path) LIKE "*\\\\kernelbase.dll") AND NOT ((TO_LOWER(file.path) LIKE "c:\\\\windows\\\\system32\\\\*" OR TO_LOWER(file.path) LIKE "c:\\\\windows\\\\syswow64\\\\*" OR TO_LOWER(file.path) LIKE "c:\\\\windows\\\\winsxs\\\\*" OR TO_LOWER(file.path) LIKE "c:\\\\windows\\\\sychpe32\\\\*" OR TO_LOWER(file.path) LIKE "c:\\\\windows\\\\sysarm32\\\\*")))

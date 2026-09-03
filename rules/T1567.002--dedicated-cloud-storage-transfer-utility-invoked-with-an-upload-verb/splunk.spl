@@ -1,0 +1,1 @@
+index=* ((Image="*\\rclone.exe" OR Image="*\\azcopy.exe" OR Image="*\\megacmd.exe" OR Image="*\\megasync.exe") AND (CommandLine="*copy*" OR CommandLine="*sync*" OR CommandLine="*copyto*" OR CommandLine="*moveto*" OR CommandLine="*put*"))

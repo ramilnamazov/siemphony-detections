@@ -1,0 +1,11 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\winvnc\.exe$|\\winvnc4\.exe$|\\vncserver\.exe$|\\vncserverui\.exe$|\\vncviewer\.exe$|\\tvnserver\.exe$|\\tvnviewer\.exe$|\\uvnc_service\.exe$)</field>
+    <description>Detect VNC server or viewer process starting on a host</description>
+    <mitre>
+      <id>T1021.005</id>
+    </mitre>
+  </rule>
+</group>

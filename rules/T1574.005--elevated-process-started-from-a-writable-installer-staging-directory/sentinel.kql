@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((ProcessIntegrityLevel =~ "High" or ProcessIntegrityLevel =~ "System") and (FolderPath contains "\\AppData\\Local\\Temp\\" or FolderPath contains ":\\Windows\\Temp\\"))

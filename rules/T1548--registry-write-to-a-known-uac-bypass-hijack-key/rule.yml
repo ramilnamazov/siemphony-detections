@@ -1,0 +1,58 @@
+title: Registry write to a known UAC bypass hijack key
+id: 35087c6f-73b0-4d35-ba7d-45eb9563e746
+status: experimental
+description: |
+  Matches registry writes to the per-user keys an auto-elevating binary reads
+  when it is hijacked: the shell-open command classes used by the fodhelper,
+  eventvwr, sdclt and computerdefaults family (ms-settings, mscfile, exefile
+  runas, Folder and the AppX class the store handler uses), plus the Environment
+  windir value that the SilentCleanup scheduled task expands. AN0975's other
+  half — "unusual parent-child process relationships" — has no concrete value
+  list at parent-technique level and would be arbitrary, so the rule is built on
+  the registry evidence, which is bounded and specific.
+  Two things a reader has to be told. First, every key here is T1548.002 Bypass
+  User Account Control; the rule is filed under the parent because that is the
+  brief it was authored from, but nothing it matches touches .001 setuid, .003
+  sudo, .004 elevated prompts, .005 cloud access or .006 TCC, and the tags name
+  .002 for that reason. Second, the class list is illustrative rather than
+  closed — new auto-elevating binaries and their handler classes are found
+  regularly, and a COM elevation-moniker bypass such as ICMLuaUtil writes no
+  registry value at all.
+  The three UAC policy values (EnableLUA, ConsentPromptBehaviorAdmin,
+  LocalAccountTokenFilterPolicy) are deliberately not in the selection. They are
+  applied as Security Settings, which the policy client re-applies on its own
+  refresh interval — 16 hours by default — on every managed host whether or not
+  anything changed, so a UAC baseline GPO produces them per host per cycle
+  forever. ORing that volume into these near-zero-noise keys would make the
+  whole rule unshippable at this level; they belong in a separate low-severity
+  hunt. The correlation MITRE describes, a write followed by an elevated spawn
+  inside a time window, is not expressible in Sigma either way.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0345, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1548
+  - https://attack.mitre.org/detectionstrategies/DET0345
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.t1548
+  - attack.t1548.002
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains:
+      - '\Software\Classes\ms-settings\shell\open\command'
+      - '\Software\Classes\mscfile\shell\open\command'
+      - '\Software\Classes\Folder\shell\open\command'
+      - '\Software\Classes\exefile\shell\runas\command\isolatedCommand'
+      - '\Software\Classes\AppX82a6gwre4fdg3bt635tn5ctqjf8msdd2\Shell\open\command'
+      - '\Environment\windir'
+  condition: selection
+falsepositives:
+  - "Machine-side class registration during operating-system setup, servicing and feature updates. The rule matches on the class path only and does not pin the hive, so the HKLM\\SOFTWARE\\Classes copies of ms-settings, mscfile and Folder shell-open commands match exactly as the HKCU ones do."
+  - "Setup and sysprep writing the machine environment block at HKLM\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Environment, which contains a windir value and so matches the last entry on every image build and on some servicing reboots."
+  - "Shell tweaks and file-association repair tools — alternative file managers, 'open command window here' utilities and portable applications — which rewrite Folder\\shell\\open\\command or the exefile runas verb for the current user."
+  - "Control validation and purple-team tooling (Atomic Red Team and similar harnesses) that creates and deletes these exact keys on a schedule to test endpoint coverage."
+level: high

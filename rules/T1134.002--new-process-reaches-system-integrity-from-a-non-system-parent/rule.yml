@@ -1,0 +1,74 @@
+title: New process reaches System integrity from a non-system parent
+id: 28d6b737-2a7e-4c41-8f46-eeb745612e6c
+status: experimental
+description: |
+  Matches the result AN1253 describes rather than the API call that produces
+  it: a new process whose own IntegrityLevel is System, spawned by a parent
+  that is not one of the process-hosting binaries Windows itself uses to start
+  SYSTEM work. CreateProcessWithTokenW, CreateProcessAsUserW and runas.exe all
+  converge on this same signature regardless of which one was used, which is
+  the point — this rule does not require a runas command line, because that
+  path is already covered separately by T1134.001 in this corpus and repeating
+  it here would double-count the same event under two technique IDs. The
+  filter is MITRE's ParentChildUserMismatch knob turned into an allowlist of
+  parents that legitimately start SYSTEM processes (services.exe, wininit.exe,
+  smss.exe, csrss.exe, winlogon.exe, userinit.exe, lsass.exe, svchost.exe,
+  taskhostw.exe, WmiPrvSE.exe, TrustedInstaller.exe — the last four added
+  because native Windows services hosted in svchost.exe, and the Task
+  Scheduler/WMI/servicing helpers they hand off to, are the single most common
+  legitimate source of System-integrity children on a real endpoint; without
+  them this rule would have alerted on routine OS background activity far
+  louder than any false positive named below); anything else reaching System
+  integrity is the anomaly the analytic asks for. This cannot
+  see IntegrityEscalationDelta as MITRE frames it (a jump measured against the
+  parent's own integrity) because that would require reading the parent's own
+  process_creation event, a cross-event join lib/sigma does not support — the
+  proxy here is coarser: any non-allowlisted parent producing a System-integrity
+  child, not specifically a jump from Medium or Low. The brief also maps this
+  analytic onto Security 4688, but 4688 has no IntegrityLevel field at all —
+  only TokenElevationType, which encodes UAC elevation type, not integrity
+  level — so a 4688-only feed cannot run this rule even with a field mapping;
+  it requires genuine Sysmon EventID 1 telemetry.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0456, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1134/002
+  - https://attack.mitre.org/detectionstrategies/DET0456
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1134.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    IntegrityLevel: 'System'
+  filter_known_system_parents:
+    ParentImage|endswith:
+      - '\services.exe'
+      - '\wininit.exe'
+      - '\smss.exe'
+      - '\csrss.exe'
+      - '\winlogon.exe'
+      - '\userinit.exe'
+      - '\lsass.exe'
+      - '\svchost.exe'
+      - '\taskhostw.exe'
+      - '\WmiPrvSE.exe'
+      - '\TrustedInstaller.exe'
+      # Microsoft's own management agents, on stable in-box paths. Both host
+      # SYSTEM-integrity children by design and sit on virtually every managed
+      # Windows estate, so their absence made this the loudest rule in the
+      # corpus against a benign baseline — it fired on ordinary ConfigMgr and
+      # Intune script execution. Same intent as the entries above: things that
+      # legitimately host a SYSTEM process.
+      - '\CcmExec.exe'
+      - '\Microsoft.Management.Services.IntuneWindowsAgent.exe'
+  condition: selection and not filter_known_system_parents
+falsepositives:
+  - "Endpoint management, patching and backup agents whose updater or repair component relaunches its own service host with System integrity from a parent binary not on the allowlist above (e.g. a vendor-installed driver service hosting its own executable rather than svchost.exe)."
+  - "PsExec and similar legitimate remote-administration tooling run with the -s (system) flag, which produces a System-integrity child whose immediate parent is the PsExec-installed service binary itself rather than services.exe, if that installed binary's path is not already on the allowlist above."
+  - "Driver installation and hardware-enablement helpers that legitimately run with System integrity when launched from Device Manager or a plug-and-play event, if their parent is not one of the allowlisted system-hosting binaries."
+level: medium

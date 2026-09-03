@@ -1,0 +1,1 @@
+index=* (TargetImage="*\\lsass.exe" AND (GrantedAccess="0x1F0FFF" OR GrantedAccess="0x1F1FFF" OR GrantedAccess="0x1F2FFF" OR GrantedAccess="0x1F3FFF" OR GrantedAccess="0x1FFFFF" OR GrantedAccess="0x143A" OR GrantedAccess="0x1438" OR GrantedAccess="0x1410" OR GrantedAccess="0x1010"))

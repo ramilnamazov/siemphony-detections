@@ -1,0 +1,60 @@
+title: WMI event subscription objects named on a command line
+id: f566af8e-af06-4ec0-8d37-bc58a7ab16c1
+status: experimental
+description: |
+  Matches the registration half of AN0236: a process whose command line names
+  the WMI subscription classes, the subscription namespace, the PowerShell
+  event-registration cmdlets, or the MOF compiler that turns a .mof file into
+  those same objects. All terms sit on the single `CommandLine` field, so the
+  rule renders the same way in every backend and does not depend on how a
+  pipeline populates `Image`. The namespace is listed in both separator forms
+  because WMI accepts `root/subscription` as readily as `root\subscription`,
+  and a single-form gate is defeated by typing the other one. Note that
+  `Register-WmiEvent` and `Register-CimIndicationEvent` register temporary,
+  session-scoped subscriptions that die with the session: they are named in
+  MITRE's analytic text and are kept here for that reason, but a match on
+  either is not by itself evidence of the persistence this technique describes. The brief also offers the WMI-Activity channel
+  (5857/5858/5860/5861), which is the more direct evidence — 5861 records the
+  consumer binding itself — but that channel's fields are not standardised in
+  Sigma's Windows taxonomy, and inventing field names there would produce a rule
+  that parses and never matches, so it is not used here. Two limits: a
+  subscription created entirely through the WMI API by compiled code, or one
+  whose class names live only inside the .mof file rather than on the command
+  line, leaves nothing for this rule except the mofcomp term; and the second
+  half of the analytic — anomalous children of WmiPrvSE.exe within MITRE's
+  `TimeWindow` knob — is a correlation Sigma cannot express. If your
+  process_creation feed is Security 4688 rather than Sysmon EventID 1, note that
+  4688 needs *Audit Process Creation* and its `CommandLine` field needs the
+  separate *Include command line in process creation events* policy; without the
+  latter every selector here is blank and the rule silently returns nothing.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0086, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/003
+  - https://attack.mitre.org/detectionstrategies/DET0086
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - '__EventFilter'
+      - '__FilterToConsumerBinding'
+      - 'EventConsumer'
+      - 'Register-WmiEvent'
+      - 'Register-CimIndicationEvent'
+      - 'root\subscription'
+      - 'root/subscription'
+      - 'mofcomp'
+  condition: selection
+falsepositives:
+  - "Management agents and vendor packages compiling MOF files with mofcomp.exe during installation, client repair and hardware-inventory extension, which is a supported and routine operation — on an estate with a configuration-management client this is the loudest term in the rule and it arrives as a fleet-wide burst at image build time and after every agent update."
+  - "Monitoring, backup and power-management products that register permanent event consumers as their designed mechanism, so their own setup scripts contain __EventFilter and CommandLineEventConsumer verbatim. This is MITRE's ProcessNameAllowlist knob, populated locally with whichever products your estate actually runs."
+  - "Hygiene and audit scripts that enumerate rather than create, for example a scheduled `Get-WmiObject -Namespace root\\subscription -Class __EventFilter` inventory run by the security team — read-only, and it matches on the namespace and class name exactly like a creation would."
+  - "Administrators using Register-WmiEvent or Register-CimIndicationEvent interactively while troubleshooting, which registers only a temporary session-scoped subscription that disappears when the console closes."
+level: medium

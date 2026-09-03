@@ -1,0 +1,86 @@
+title: Kernel module loaded or the module tree modified on Linux
+id: 443de8eb-79c3-4f99-8749-e1ef2c0e7f8b
+status: experimental
+description: |
+  Covers both halves of AN1243 on the one log source they share: an auditd
+  SYSCALL record whose `exe` is a module-management tool, and an auditd PATH
+  record naming a kernel object file or anything inside the module tree. The
+  path half is MITRE's `FilePathRegex` knob, populated here with the
+  `/lib/modules/` substring — a substring rather than a prefix so that
+  distributions which ship the tree at `/usr/lib/modules/` are included — plus
+  the kernel object suffixes themselves, and those are listed as `.ko`,
+  `.ko.xz`, `.ko.zst` and `.ko.gz` because most current distributions install
+  modules compressed and a bare `.ko` endswith silently misses every one of
+  them. The tool half needs the same care in the other direction: on Debian,
+  Ubuntu, RHEL, Fedora and Arch, `insmod`, `rmmod`, `modprobe`, `depmod`,
+  `lsmod` and `modinfo` are all symlinks to a single `kmod` binary, and auditd
+  resolves `exe=` to the executable that was actually mapped, so a selector
+  listing only `/insmod` and `/modprobe` is dead on a modern host. `/kmod` is
+  therefore in the list, and the price of including it is that the read-only
+  queries `lsmod` and `modinfo` match exactly as a load does.
+  Four limits are worth stating before this is deployed. First, the loading
+  paths that skip the tools entirely are missed: `systemd-modules-load` and
+  `systemd-udevd` call `finit_module` directly at boot, and a rootkit dropper
+  that calls `init_module` from its own compiled code execs nothing at all, so
+  the SYSCALL leg never sees either. Second, the `.ko` selection is only as
+  good as the audit configuration behind it — a PATH record is emitted for an
+  audited syscall or a watched path, so a module staged in `/tmp` and loaded
+  from there produces no PATH record unless `openat` is audited globally, which
+  almost nobody does for cost reasons. Third, MITRE's `UserContext` knob
+  cannot be applied inside this rule: auditd splits one event across records
+  and `uid`/`auid` live only on the SYSCALL side, so the PATH selections have
+  no user to filter on. Fourth, MITRE's `TimeWindow` knob is a change-window
+  suppression, which lib/sigma has no way to express. The macOS arm AN1244 is
+  not attempted — its sources are `macos:unifiedlog` and `macos:osquery`,
+  neither of which has a standardised Sigma field vocabulary, so `kextload`,
+  the `/Library/Extensions` write and the KextPolicy database change would all
+  have to be written against invented field names; that is the same ground on
+  which T1543.001 and T1546.014 declined their macOS legs. The osquery leg of
+  AN1243 is unattempted for the same reason.
+  Prerequisite: auditd ships with no rules loaded on any mainstream
+  distribution, so this rule returns zero rows until both an execve rule such
+  as `-a always,exit -F arch=b64 -S execve -k exec` and a watch such as
+  `-w /lib/modules -p wa -k modules` are in place — and zero rows reads as
+  quiet when it actually means blind. The watch permission also sets the noise
+  floor: `wa` records writes and attribute changes only, whereas adding `r`
+  makes every module the kernel loads on demand match as well.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0450, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/006
+  - https://attack.mitre.org/detectionstrategies/DET0450
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.006
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_module_tools:
+    type: 'SYSCALL'
+    exe|endswith:
+      - '/insmod'
+      - '/rmmod'
+      - '/modprobe'
+      - '/depmod'
+      - '/kmod'
+  selection_module_object:
+    type: 'PATH'
+    name|endswith:
+      - '.ko'
+      - '.ko.xz'
+      - '.ko.zst'
+      - '.ko.gz'
+  selection_module_tree:
+    type: 'PATH'
+    name|contains: '/lib/modules/'
+  condition: 1 of selection*
+falsepositives:
+  - "Kernel package installation and upgrade. A single kernel update unpacks several thousand kernel object files into a new /lib/modules/<version> directory and then runs depmod across the whole tree, so one unattended-upgrade or dnf update run produces thousands of matches on both path selections on every host in the fleet. This is the loudest source here by an enormous margin and is the reason the level is low."
+  - "Inventory and monitoring agents polling loaded modules. Because lsmod and modinfo resolve to the same kmod binary as insmod and modprobe, osquery, Zabbix, Nagios, EDR sensors and CIS-benchmark scripts all match the tool selection on a schedule while doing nothing but reading."
+  - "DKMS rebuilds of out-of-tree drivers after every kernel change, which compile a kernel object, copy it into the module tree, and then call depmod and modprobe. Graphics drivers, hypervisor guest additions, ZFS and various VPN modules all behave this way on ordinary workstations and servers."
+  - "On-demand module loading during normal operation. Mounting a filesystem, bringing up a network interface, attaching a USB device, starting a container, or running an iptables or nftables command all cause the kernel to request a module and userspace to exec modprobe."
+  - "Administrative hardware troubleshooting, where an operator cycles a network, storage or audio driver with rmmod followed by modprobe, or loads a vendor diagnostic module by hand from a support bundle."
+level: low

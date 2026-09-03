@@ -1,0 +1,12 @@
+<group name="sigma,windows,create_remote_thread,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetImage" type="pcre2">(?i)(\\winlogon\.exe$|\\explorer\.exe$|\\logonui\.exe$|\\credentialuibroker\.exe$|\\chrome\.exe$|\\msedge\.exe$|\\firefox\.exe$)</field>
+    <description>Remote thread created inside a credential-handling process</description>
+    <mitre>
+      <id>T1056.004</id>
+      <id>T1055</id>
+    </mitre>
+  </rule>
+</group>

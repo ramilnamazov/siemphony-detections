@@ -1,0 +1,2 @@
+DeviceFileEvents
+| where (FolderPath contains "\\Windows\\Web\\Wallpaper\\" or FolderPath contains "\\Windows\\Web\\Screen\\" or FolderPath contains "\\Windows\\Web\\4K\\" or FolderPath contains "\\AppData\\Roaming\\Microsoft\\Windows\\Themes\\" or FolderPath contains "\\System32\\oobe\\info\\backgrounds\\" or FolderPath contains "\\inetpub\\wwwroot\\")

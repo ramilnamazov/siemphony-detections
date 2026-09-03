@@ -1,0 +1,2 @@
+Event
+| where ((EventID == 4104 and (ScriptBlockText contains "New-InboxRule" or ScriptBlockText contains "Set-InboxRule")) and (ScriptBlockText contains "-DeleteMessage" or ScriptBlockText contains "-SoftDeleteMessage" or ScriptBlockText contains "-MoveToFolder" or ScriptBlockText contains "-StopProcessingRules" or ScriptBlockText contains "-MarkAsRead"))

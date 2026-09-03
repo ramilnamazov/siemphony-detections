@@ -1,0 +1,2 @@
+SecurityEvent
+| where ((EventID == 5136 and ObjectClass =~ "trustedDomain") and (AttributeLDAPDisplayName =~ "trustPartner" or AttributeLDAPDisplayName =~ "trustDirection" or AttributeLDAPDisplayName =~ "trustType" or AttributeLDAPDisplayName =~ "trustAttributes" or AttributeLDAPDisplayName =~ "msDS-TrustForestTrustInfo"))

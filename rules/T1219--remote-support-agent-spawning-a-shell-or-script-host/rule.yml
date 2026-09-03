@@ -1,0 +1,67 @@
+title: Remote support agent spawning a shell or script host
+id: dfe5a8d3-eb3b-4a37-bfcb-3a75cc02b57f
+status: experimental
+description: |
+  Step four of MITRE's behaviour chain is the only part of it that lands in a
+  single event: interactive control signals arriving over the remote access
+  session appear as shell or script-host children spawned by the agent
+  process. Execution of a remote support tool on its own is ordinary in any
+  estate that runs remote administration, and the persistence and long-lived
+  egress steps need a correlation window Sigma has no way to carry, so this
+  rule matches the parent-child pair instead — a remote-control or remote
+  management agent as ParentImage and a command interpreter, script host or
+  download-capable binary as Image. Both halves are single-field value lists,
+  which keeps the rule to one AND of two fields.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0496, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1219
+  - https://attack.mitre.org/detectionstrategies/DET0496
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1219
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_agent_parent:
+    ParentImage|endswith:
+      - '\AnyDesk.exe'
+      - '\TeamViewer.exe'
+      - '\TeamViewer_Service.exe'
+      - '\ScreenConnect.ClientService.exe'
+      - '\ScreenConnect.WindowsClient.exe'
+      - '\rutserv.exe'
+      - '\rfusclient.exe'
+      - '\AteraAgent.exe'
+      - '\SRService.exe'
+      - '\SRManager.exe'
+      - '\Supremo.exe'
+      - '\UltraViewer_Desktop.exe'
+      - '\LogMeIn.exe'
+      - '\LMIGuardianSvc.exe'
+      - '\dwrcs.exe'
+      - '\NinjaRMMAgent.exe'
+      - '\SyncroLive.Agent.exe'
+      - '\GoToAssist.exe'
+      - '\AA_v3.exe'
+  selection_interactive_child:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\bitsadmin.exe'
+      - '\certutil.exe'
+  condition: selection_agent_parent and selection_interactive_child
+falsepositives:
+  - "Sanctioned helpdesk and RMM automation. A remote management platform running maintenance scripts is indistinguishable from an operator typing at a shell over the same agent, and MITRE's ProcessAllowlist knob exists precisely to suppress the agents your organisation licenses. Suppress by agent, not by child process."
+  - "Software deployment and patching jobs pushed through an RMM agent, which shell out to cmd.exe or powershell.exe to run installers and post-install tasks on a predictable maintenance schedule."
+  - "Agent self-update and repair routines that call rundll32.exe or certutil.exe as part of installing their own new build under the service account."
+  - "Jump hosts and support workstations where remote administration is the machine's purpose. MITRE's UserContext knob is the intended separator here, and this rule deliberately encodes no user filter."
+level: high

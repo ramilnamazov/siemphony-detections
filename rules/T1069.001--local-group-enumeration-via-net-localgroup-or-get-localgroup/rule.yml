@@ -1,0 +1,55 @@
+title: Local group enumeration via net localgroup or Get-LocalGroup
+id: 722bbce4-af36-43c4-a392-66bf5ef0408c
+status: experimental
+description: |
+  Matches the Windows leg of AN0317: a process-creation event where net.exe or
+  its net1.exe helper is invoked with the localgroup verb, or where the command
+  line carries the Get-LocalGroup cmdlet family (Get-LocalGroup and
+  Get-LocalGroupMember both satisfy the same substring). Both forms read only
+  the SAM of the local machine, which is what keeps this rule inside T1069.001
+  and out of T1069.002 — `net group` and Get-ADGroupMember read domain groups
+  and are deliberately not matched here, because the parent T1069 was declined
+  precisely for ORing the two together. The analytic's real signal is
+  correlation, not the command: MITRE's TimeWindow knob asks for enumeration
+  followed by lateral movement and its UserContext knob asks whether the caller
+  is privileged, and lib/sigma models neither a timeframe nor an identity
+  lookup, so a match means one enumeration command ran and nothing more. Three
+  coverage limits are structural: the direct API route the analytic also names
+  (NetLocalGroupEnum, NetLocalGroupGetMembers) writes no process event at all,
+  a base64-encoded PowerShell command hides the cmdlet name from CommandLine,
+  and matching net.exe on its image path misses a renamed copy. The brief maps
+  Security EventID 4688 onto the Sysmon-shaped process_creation category, and
+  this rule is written in the Sysmon EventID 1 vocabulary (Image, CommandLine);
+  an estate feeding 4688 into the same category must map NewProcessName onto
+  Image first, and must have both Audit Process Creation and the separate
+  Include command line in process creation events policy enabled — neither is
+  on by default, and without the second one CommandLine is absent and every
+  selection here is dead.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0114, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1069/001
+  - https://attack.mitre.org/detectionstrategies/DET0114
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1069.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_net_image:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+  selection_localgroup_verb:
+    CommandLine|contains: ' localgroup'
+  selection_cmdlet:
+    CommandLine|contains: 'Get-LocalGroup'
+  condition: (selection_net_image and selection_localgroup_verb) or selection_cmdlet
+falsepositives:
+  - "Compliance, inventory and vulnerability scanners that enumerate the local Administrators group on every host at every scan — CIS and STIG baseline checks, SCCM configuration items and agent-based posture tools all do this on a fixed schedule, which makes them the highest-volume match by a wide margin and is why this rule is scored low rather than medium."
+  - "Provisioning and logon scripts that add or remove accounts with net localgroup Administrators <user> /add, which matches the same localgroup substring as a read. Imaging task sequences, domain-join scripts and local-admin rotation tooling produce one or more hits per machine build."
+  - "Helpdesk and desktop-support sessions, where net localgroup administrators is the standard first command when checking why a user cannot install software or elevate."
+  - "Application installers and their prerequisite checks that verify the installing account is a local administrator, or that create and populate a product-specific local group, once per install and again at every upgrade."
+level: low

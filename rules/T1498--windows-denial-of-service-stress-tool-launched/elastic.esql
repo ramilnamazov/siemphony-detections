@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\loic.exe" OR TO_LOWER(process.executable) LIKE "*\\\\hoic.exe" OR TO_LOWER(process.executable) LIKE "*\\\\hoic2.exe" OR TO_LOWER(process.executable) LIKE "*\\\\xoic.exe") OR ((TO_LOWER(process.executable) LIKE "*\\\\python.exe" OR TO_LOWER(process.executable) LIKE "*\\\\pythonw.exe") AND (TO_LOWER(process.command_line) LIKE "*goldeneye.py*" OR TO_LOWER(process.command_line) LIKE "*slowloris.py*" OR TO_LOWER(process.command_line) LIKE "*hulk.py*")))

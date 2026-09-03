@@ -1,0 +1,1 @@
+index=* (TargetObject="*\\Control\\Lsa\\Authentication Packages*" OR TargetObject="*\\Control\\Lsa\\Notification Packages*" OR TargetObject="*\\Control\\Lsa\\Security Packages*" OR TargetObject="*\\Control\\Lsa\\OSConfig\\Security Packages*" OR TargetObject="*\\Control\\LsaExtensionConfig\\*")

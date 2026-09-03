@@ -1,0 +1,13 @@
+<group name="sigma,windows,file_event,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\chrome\.exe$|\\msedge\.exe$|\\firefox\.exe$|\\iexplore\.exe$|\\brave\.exe$|\\opera\.exe$)</field>
+    <field name="TargetFilename" type="pcre2">(?i)(\.exe$|\.dll$|\.scr$|\.hta$|\.js$|\.jse$|\.vbs$|\.vbe$|\.wsf$|\.ps1$|\.lnk$|\.jar$)</field>
+    <field name="TargetFilename" negate="yes" type="pcre2">(?i)(\\Downloads\\|\\Google\\Chrome\\Application\\|\\Google\\Chrome\\User Data\\|\\Google\\Update\\|\\Microsoft\\Edge\\Application\\|\\Microsoft\\Edge\\User Data\\|\\Microsoft\\EdgeUpdate\\|\\Mozilla Firefox\\|\\Mozilla\\Firefox\\Profiles\\)</field>
+    <description>Browser writing executable content outside its download folder</description>
+    <mitre>
+      <id>T1189</id>
+    </mitre>
+  </rule>
+</group>

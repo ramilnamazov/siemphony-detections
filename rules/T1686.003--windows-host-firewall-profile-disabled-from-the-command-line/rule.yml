@@ -1,0 +1,57 @@
+title: Windows host firewall profile disabled from the command line
+id: 966cc04e-0239-4867-948d-e46630a0e3fe
+status: experimental
+description: |
+  Matches a command line that names a Windows Defender Firewall management
+  surface and, in the same invocation, the argument that turns a profile off or
+  opens its default inbound policy — the firewall-management execution half of
+  MITRE's AN2043. Both predicates run on CommandLine so the rule catches the
+  action whether it is netsh, the NetSecurity PowerShell module, or either of
+  them wrapped in a shell, since the wrapper's own command line carries the same
+  text. Scope is deliberately narrowed to profile-level disablement: adding and
+  modifying individual rules is equally part of the technique but is what every
+  software installer does, and folding it in here would bury the signal. The
+  service-stop and registry-mutation paths the analytic also lists are separate
+  log sources in the brief and are not attempted here. Prerequisite: on the
+  Security EventID 4688 feed this needs the Audit Process Creation subcategory
+  *and* the separate "Include command line in process creation events" policy —
+  neither is on by default, and without the second one CommandLine arrives empty
+  and this rule, which reads nothing else, matches nothing while appearing
+  healthy. MITRE's AuthorizedAdminAccounts and MaintenanceWindow knobs are
+  suppression inputs a single-event rule cannot apply and have to be handled in
+  the SIEM.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0901, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1686/003
+  - https://attack.mitre.org/detectionstrategies/DET0901
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1686.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_scope:
+    CommandLine|contains:
+      - 'advfirewall'
+      - 'netsh firewall'
+      - 'NetFirewallProfile'
+  selection_disable:
+    CommandLine|contains:
+      - 'state off'
+      - 'opmode disable'
+      - 'opmode mode=disable'
+      - 'firewallpolicy allowinbound'
+      - 'Enabled False'
+      - 'Enabled:False'
+      - 'Enabled $false'
+      - 'Enabled:$false'
+      - 'DefaultInboundAction Allow'
+  condition: selection_scope and selection_disable
+falsepositives:
+  - "Imaging and provisioning steps, and third-party endpoint-protection installers that disable the Windows profiles because the suite supplies its own firewall. These arrive as a burst under a management parent such as an SCCM, Intune or GPO client early in a build, which is what MITRE's AllowedManagementParents knob is there to carve out."
+  - "Help-desk troubleshooting of a connectivity complaint, where an administrator turns a profile off, tests, and turns it back on within a few minutes under the same account. The disable half of that pair is indistinguishable from the attack in a single event and needs the re-enable to be looked for before escalating."
+  - "Lab, test and reference images where the firewall is off by policy and the disabling command runs from a startup script on every boot, producing one match per machine per reboot. Scoping the rule away from those hosts is more reliable than trying to fingerprint the script."
+level: high

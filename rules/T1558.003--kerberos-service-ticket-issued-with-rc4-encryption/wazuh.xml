@@ -1,0 +1,14 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^4769$</field>
+    <field name="TicketEncryptionType" type="pcre2">(?i)^0x17$</field>
+    <field name="Status" type="pcre2">(?i)^0x0$</field>
+    <field name="ServiceName" negate="yes" type="pcre2">(?i)(\$$|krbtgt$)</field>
+    <description>Kerberos service ticket issued with RC4 encryption</description>
+    <mitre>
+      <id>T1558.003</id>
+    </mitre>
+  </rule>
+</group>

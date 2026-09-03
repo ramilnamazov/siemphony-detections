@@ -1,0 +1,38 @@
+title: Detect browser launched with a sideloaded extension flag
+id: 93c9e97b-4861-4042-9b15-38c1d0ee87fa
+status: experimental
+description: |
+  Matches process creation where the command line carries a Chromium
+  extension-sideloading switch — the unpacked-extension load path an adversary
+  uses to install a browser extension from a local directory without going
+  through the web store. The match is on CommandLine alone rather than on the
+  browser image: MITRE's BrowserExecutablePath knob warns that custom and
+  portable browsers do not sit at default paths, and these switches are
+  browser-specific enough to stand on their own. The rest of the analytic —
+  the file writes and outbound connections that follow the install — is a
+  correlation Sigma cannot express, so this rule covers the install event only.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0044, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1176/001
+  - https://attack.mitre.org/detectionstrategies/DET0044
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1176.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - '--load-extension='
+      - '--disable-extensions-except='
+      - '--pack-extension='
+      - '--install-chrome-app='
+  condition: selection
+falsepositives:
+  - "Extension developers. Loading an unpacked extension from a working directory is the normal development loop, so on engineering endpoints this fires constantly. MITRE's UserContext knob is the tuning point — reserve the alert for accounts that have no business developing extensions, or exclude command lines whose extension path sits under a known source tree."
+  - "Automated browser testing. Selenium, Puppeteer and Playwright launch Chromium with '--load-extension=' and '--disable-extensions-except=' pointing at a temporary profile directory; the ExtensionInstallPath knob is where that temp-directory prefix gets excluded."
+  - "Packaging steps in a build pipeline that call '--pack-extension=' to produce a signed .crx as a release artefact."
+level: medium

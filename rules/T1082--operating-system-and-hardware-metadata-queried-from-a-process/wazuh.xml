@@ -1,0 +1,11 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(systeminfo|msinfo32|dxdiag|Get-ComputerInfo|Win32_OperatingSystem|Win32_ComputerSystem|Win32_Processor|Win32_BIOS|csproduct get|wmic os get|Environment\]::OSVersion|/v ProductName|Windows NT\\CurrentVersion)</field>
+    <description>Operating system and hardware metadata queried from a process</description>
+    <mitre>
+      <id>T1082</id>
+    </mitre>
+  </rule>
+</group>

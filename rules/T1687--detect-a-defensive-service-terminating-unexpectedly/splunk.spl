@@ -1,0 +1,1 @@
+index=* (Provider_Name="Service Control Manager" AND (EventID="7031" OR EventID="7034") AND (param1="*Defender*" OR param1="*Firewall*" OR param1="*Security Center*" OR param1="*Windows Security*" OR param1="*System Guard*" OR param1="*Sysmon*" OR param1="*Windows Event Log*"))

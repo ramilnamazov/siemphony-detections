@@ -1,0 +1,1 @@
+index=* ((CommandLine="*PhysicalDrive*" OR CommandLine="*HarddiskVolume*" OR CommandLine="*GLOBALROOT*") OR (Image="*\\esentutl.exe" AND CommandLine="*/vss*"))

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*logicaldisk*" OR TO_LOWER(process.command_line) LIKE "*win32_volume*" OR TO_LOWER(process.command_line) LIKE "*win32_diskdrive*" OR TO_LOWER(process.command_line) LIKE "*get-psdrive*" OR TO_LOWER(process.command_line) LIKE "*get-volume*" OR TO_LOWER(process.command_line) LIKE "*fsutil fsinfo drives*" OR TO_LOWER(process.command_line) LIKE "*fsutil volume diskfree*")

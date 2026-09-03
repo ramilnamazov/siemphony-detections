@@ -1,0 +1,1 @@
+index=* ((EventID="4769" AND TicketEncryptionType="0x17" AND Status="0x0") AND NOT ((ServiceName="*$" OR ServiceName="*krbtgt")))

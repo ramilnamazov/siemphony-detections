@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\powershell.exe" or FolderPath endswith "\\powershell_ise.exe") and (ProcessCommandLine contains "-version 2" or ProcessCommandLine contains "-versio 2" or ProcessCommandLine contains "-versi 2" or ProcessCommandLine contains "-vers 2" or ProcessCommandLine contains "-ver 2" or ProcessCommandLine contains "-ve 2"))

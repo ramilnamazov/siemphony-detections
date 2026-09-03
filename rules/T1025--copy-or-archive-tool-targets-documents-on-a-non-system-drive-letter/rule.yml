@@ -1,0 +1,61 @@
+title: Copy or archive tool targets documents on a non-system drive letter
+id: 1cb5eedb-101d-4b24-8376-d153ee9e7ccb
+status: experimental
+description: |
+  Matches AN1410's "mounts a USB device and begins enumerating, copying, or
+  compressing files using scripting engines, cmd, or remote access tools" in
+  the single event Sigma can express: a shell, scripting host or archiver
+  whose command line names both a drive letter other than C: and a document
+  extension. MITRE's TargetFileType knob is populated here with common
+  office and archive formats. The VolumeLabel and TimeWindow knobs have no
+  equivalent — Sigma process_creation carries no volume metadata to confirm
+  the target letter is actually removable rather than a second internal disk
+  or a persistent network mapping, and there is no cross-event join available
+  to tie this command line back to the System EventID 2003 drive-arrival
+  record the brief also offers, so a quiet result only means no matching
+  command line was seen, not that no media was mounted.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0511, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1025
+  - https://attack.mitre.org/detectionstrategies/DET0511
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1025
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\robocopy.exe'
+      - '\xcopy.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+  selection_offdrive:
+    CommandLine|contains:
+      - ' D:\'
+      - ' E:\'
+      - ' F:\'
+      - ' G:\'
+      - ' H:\'
+  selection_target:
+    CommandLine|contains:
+      - '.docx'
+      - '.xlsx'
+      - '.pptx'
+      - '.pdf'
+      - '.csv'
+      - '.zip'
+      - '.rar'
+      - '.7z'
+  condition: selection_tool and selection_offdrive and selection_target
+falsepositives:
+  - "Employees on multi-disk workstations who routinely copy documents to a second internal disk or a persistently mapped network share assigned a drive letter in the D:-H: range, using PowerShell, cmd, or robocopy for a scheduled sync — a common daily pattern on machines with more than one volume."
+  - "IT or backup staff running robocopy or xcopy jobs that mirror a user's documents to an external backup drive as a sanctioned data-protection task, which produces exactly this tool-plus-drive-plus-extension combination."
+  - "Software installers and update packages staged on a D: or E: optical/DVD image or a secondary partition, whose setup scripts copy .zip or .pdf documentation files as part of installation."
+level: low

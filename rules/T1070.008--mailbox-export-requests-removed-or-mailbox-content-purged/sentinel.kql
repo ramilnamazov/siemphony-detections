@@ -1,0 +1,2 @@
+Event
+| where (EventID == 4104 and ((ScriptBlockText contains "Remove-MailboxExportRequest" or ScriptBlockText contains "Remove-MailboxImportRequest") or ((ScriptBlockText contains "Search-Mailbox" or ScriptBlockText contains "New-ComplianceSearchAction") and (ScriptBlockText contains "-DeleteContent" or ScriptBlockText contains "-Purge"))))

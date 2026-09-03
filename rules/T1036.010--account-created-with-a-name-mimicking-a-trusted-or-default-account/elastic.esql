@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (event.code == 4720 AND (TO_LOWER(TargetUserName) LIKE "*admin*" OR TO_LOWER(TargetUserName) LIKE "*help*" OR TO_LOWER(TargetUserName) LIKE "*root*" OR TO_LOWER(TargetUserName) LIKE "*backup*" OR TO_LOWER(TargetUserName) LIKE "*service*" OR TO_LOWER(TargetUserName) LIKE "*adm1n*" OR TO_LOWER(TargetUserName) LIKE "*backup_help*"))

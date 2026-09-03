@@ -1,0 +1,12 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)\\Active Setup\\Installed Components\\</field>
+    <field name="TargetObject" type="pcre2">(?i)\\StubPath$</field>
+    <description>Registry write to an Active Setup StubPath value</description>
+    <mitre>
+      <id>T1547.014</id>
+    </mitre>
+  </rule>
+</group>

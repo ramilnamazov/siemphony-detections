@@ -1,0 +1,72 @@
+title: bcdedit invoked to disable driver signature enforcement or test signing
+id: 7f4a7913-d3cb-4e2d-9b71-67a73d510044
+status: experimental
+description: |
+  AN1446 names "administrative utilities (e.g., bcdedit.exe)" that "disable
+  Driver Signature Enforcement (DSE) or enable Test Signing" as its
+  process-creation signal, and this rule matches that directly: `bcdedit.exe`
+  with a command line containing one of the documented boot-configuration
+  edits that weaken code-signing enforcement for drivers — `testsigning`
+  (permits self-signed and test-signed drivers to load) or `nointegritychecks`
+  (disables Driver Signature Enforcement outright on BIOS/legacy boot) set to
+  a true value, or the `loadoptions DISABLE_INTEGRITY_CHECKS` spelling of the
+  same setting. bcdedit's boolean element type takes four interchangeable
+  spellings for "true" — `on`, `yes`, `1` and `true` (and the same four for
+  "false") — so an earlier draft matching only `on`/`yes` left `bcdedit /set
+  testsigning 1` and `bcdedit /set testsigning true` as an unfiltered bypass
+  despite being no less standard a spelling; all four true-spellings are
+  matched here for both directives so the selector cannot be evaded just by
+  choosing a different synonym for the same setting.
+  AN1446's second logsource, Security EventID 4657 mapped onto `registry_set`,
+  is deliberately not used. Unlike the registry-based rules elsewhere in this
+  corpus, the Boot Configuration Data this setting lives in is not a normal
+  HKLM/HKCU key with a SACL an administrator would set — it is a separate BCD
+  hive file (`\Boot\BCD` or its ESP equivalent) that Windows loads and edits
+  through boot-configuration APIs, not through the registry calls 4657 audits
+  in a default or CIS-baseline configuration. Asserting a `registry_set` path
+  here without that hive being explicitly loaded and audited would be the
+  telemetry-off-by-default trap this pipeline exists to avoid, so this rule
+  states the limitation instead of a path that would return nothing.
+  AN1447 (macOS: `csrutil disable`, `g_CiOptions` tampering, unsigned execution
+  following a SIP change) is not attempted. Its only logsource is {product:
+  macos, service: unifiedlog}, which has no field vocabulary anywhere in this
+  pipeline — not in the brief, not in lib/sigma, not in Sigma's own taxonomy —
+  the same conclusion already recorded for T1037.002, T1059.002, T1548.004
+  and T1678 on this identical source.
+  Prerequisite: this needs Security EventID 4688 with *Audit Process Creation*
+  enabled, and separately *Include command line in process creation events*
+  for `CommandLine` to be populated at all; neither is on by default or in the
+  MS/CIS baselines, so a silent rule may mean the command-line policy is off
+  rather than that nobody ran bcdedit.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0523, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1553/006
+  - https://attack.mitre.org/detectionstrategies/DET0523
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1553.006
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_binary:
+    Image|endswith: '\bcdedit.exe'
+  selection_directive:
+    CommandLine|contains:
+      - 'testsigning on'
+      - 'testsigning yes'
+      - 'testsigning 1'
+      - 'testsigning true'
+      - 'nointegritychecks on'
+      - 'nointegritychecks yes'
+      - 'nointegritychecks 1'
+      - 'nointegritychecks true'
+      - 'DISABLE_INTEGRITY_CHECKS'
+  condition: selection_binary and selection_directive
+falsepositives:
+  - "Driver developers and WHQL/EV-certification test workstations running `bcdedit /set testsigning on` to load unsigned or self-signed test drivers during ordinary development, the same command line this rule matches."
+  - "Automated imaging and build pipelines (WinPE-based provisioning scripts, nested-VM or lab-image build tooling) that toggle testsigning or nointegritychecks as a scripted step when assembling a custom boot image."
+  - "Kernel-debugging setups on dedicated crash-dump or driver-triage machines, where testsigning is commonly left on alongside `bcdedit /debug on` for the lifetime of the workstation."
+level: medium

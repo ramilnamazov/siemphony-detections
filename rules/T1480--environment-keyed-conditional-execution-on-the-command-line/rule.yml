@@ -1,0 +1,60 @@
+title: Environment-keyed conditional execution on the command line
+id: ce7e4089-ab36-41ec-828f-22846147096a
+status: experimental
+description: |
+  The observable MITRE describes is a burst of discovery followed by execution
+  that only proceeds when the collected values match an expected target — a
+  threshold over a time window, which Sigma has no construct for. What survives
+  into a single event is the shape of the guardrail itself: a command line that
+  both reads an environment-identifying value and compares it. This rule
+  therefore requires two matches on CommandLine, one for the identity source
+  MITRE lists under EnvironmentalArtifactList (hostname, domain, logon server,
+  hardware UUID, AD or interface enumeration) and one for the conditional
+  operator that gates the payload on it. Discovery alone is left to T1082;
+  neither the four-activity threshold nor the discovery-to-execution delay is
+  encoded here, because faking them would need fields that do not exist.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0562, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1480
+  - https://attack.mitre.org/detectionstrategies/DET0562
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1480
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_environment:
+    CommandLine|contains:
+      - 'env:COMPUTERNAME'
+      - 'env:USERDOMAIN'
+      - 'env:USERDNSDOMAIN'
+      - 'env:LOGONSERVER'
+      - 'Win32_ComputerSystem'
+      - 'Win32_ComputerSystemProduct'
+      - 'csproduct get uuid'
+      - 'computersystem get domain'
+      - 'GetHostByName'
+      - 'GetIPGlobalProperties'
+      - 'Get-ADDomain'
+      - 'DirectoryServices.ActiveDirectory'
+      - 'NetworkInformation.NetworkInterface'
+  selection_conditional:
+    CommandLine|contains:
+      - ' -eq '
+      - ' -ne '
+      - ' -match '
+      - ' -like '
+      - ' -contains '
+      - '.Equals('
+      - 'if('
+      - 'if ('
+  condition: selection_environment and selection_conditional
+falsepositives:
+  - "Configuration management, imaging and login scripts, which are built almost entirely out of this pattern — read the hostname or domain, branch on it, apply the matching policy. This is the dominant source of noise and no field in a process creation event separates it from a guardrail; MITRE's EnvironmentalArtifactList knob is the place to narrow the identity terms to values an attacker would key on rather than ones your own scripts branch on."
+  - "Software inventory and licensing agents that query Win32_ComputerSystemProduct for the hardware UUID and compare it against a registered value before continuing."
+  - "Health-check and monitoring one-liners that resolve a hostname or enumerate interfaces and test the result before reporting, especially on domain controllers and jump hosts where they run on a schedule."
+  - "Administrative PowerShell typed interactively, where a single command line commonly contains both an environment lookup and a comparison operator with no payload behind it at all."
+level: medium

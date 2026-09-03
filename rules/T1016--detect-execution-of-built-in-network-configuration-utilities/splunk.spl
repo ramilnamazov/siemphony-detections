@@ -1,0 +1,1 @@
+index=* (Image="*\\ipconfig.exe" OR Image="*\\arp.exe" OR Image="*\\route.exe" OR Image="*\\nbtstat.exe" OR Image="*\\getmac.exe")

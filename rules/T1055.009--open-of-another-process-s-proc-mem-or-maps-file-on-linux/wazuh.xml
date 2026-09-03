@@ -1,0 +1,12 @@
+<group name="sigma,linux,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^PATH$</field>
+    <field name="name" type="pcre2">(?i)^/proc/[0-9]+/(mem|maps)$</field>
+    <description>Open of another process's /proc mem or maps file on Linux</description>
+    <mitre>
+      <id>T1055.009</id>
+    </mitre>
+  </rule>
+</group>

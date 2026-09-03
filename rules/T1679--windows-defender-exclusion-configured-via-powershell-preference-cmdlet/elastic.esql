@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((event.code == 4104 AND (TO_LOWER(powershell.file.script_block_text) LIKE "*add-mppreference*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*set-mppreference*")) AND (TO_LOWER(powershell.file.script_block_text) LIKE "*-exclusionpath*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*-exclusionextension*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*-exclusionprocess*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*-exclusionipaddress*"))

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\InstallUtil.exe" and ((ProcessCommandLine contains "\\AppData\\Local\\Temp\\" or ProcessCommandLine contains "\\AppData\\Roaming\\" or ProcessCommandLine contains "\\Windows\\Temp\\" or ProcessCommandLine contains "\\ProgramData\\" or ProcessCommandLine contains "\\Users\\Public\\" or ProcessCommandLine contains "\\Downloads\\" or ProcessCommandLine contains "\\PerfLogs\\" or ProcessCommandLine contains "\\\\") or (ProcessCommandLine contains "logfile=" and ProcessCommandLine contains "LogToConsole=false")))

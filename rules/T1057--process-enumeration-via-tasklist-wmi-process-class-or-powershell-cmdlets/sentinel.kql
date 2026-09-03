@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\tasklist.exe" or (ProcessCommandLine contains "Get-Process" or ProcessCommandLine contains "Get-CimInstance -ClassName Win32_Process" or ProcessCommandLine contains "Get-CimInstance Win32_Process" or ProcessCommandLine contains "Get-WmiObject -Class Win32_Process" or ProcessCommandLine contains "Get-WmiObject Win32_Process") or (FolderPath endswith "\\wmic.exe" and ProcessCommandLine contains "process"))

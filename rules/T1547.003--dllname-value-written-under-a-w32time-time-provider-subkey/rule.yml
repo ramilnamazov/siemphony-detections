@@ -1,0 +1,44 @@
+title: DllName value written under a W32Time time provider subkey
+id: 5ef58136-2603-46e1-a2cf-c78a051b18be
+status: experimental
+description: |
+  Matches the registry write that arms a Windows time provider — a DllName value
+  set under a subkey of Services\W32Time\TimeProviders — which is the value the
+  time provider manager reads at service start to decide which DLL to load, and
+  the half of MITRE's AN0341 that a single event can carry. The path gate is
+  anchored on \Services\ deliberately: the Group Policy copy of this tree lives
+  under SOFTWARE\Policies\Microsoft\W32time\TimeProviders, no DLL is ever loaded
+  from there, and an unanchored match would fire on every policy refresh in the
+  domain. The built-in NtpClient, NtpServer and VMICTimeProvider subkeys are not
+  excluded, because overwriting an existing provider's DllName is as workable a
+  persistence route as the new arbitrarily named subkey MITRE describes and
+  produces an identical event. The rule is written in the Sysmon registry_set
+  vocabulary, where TargetObject carries key path and value name as one string;
+  Sysmon EventID 13 is not collected at all unless the deployed configuration
+  includes this key, and the widely used community configurations do not, so an
+  unprepared host returns zero rows for reasons unrelated to adversary activity.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0122, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/003
+  - https://attack.mitre.org/detectionstrategies/DET0122
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.003
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_key:
+    TargetObject|contains: '\Services\W32Time\TimeProviders\'
+  selection_value:
+    TargetObject|endswith: '\DllName'
+  condition: selection_key and selection_value
+falsepositives:
+  - "An administrator or helpdesk script repairing time synchronisation with w32tm /unregister followed by w32tm /register, which rewrites DllName for NtpClient and NtpServer and is the most likely benign hit this rule ever produces."
+  - "Hyper-V integration component installation and virtual machine template deployment, which registers VMICTimeProvider and writes its DllName as part of guest tooling setup."
+  - "Third-party time synchronisation products — GPS and PTP hardware clock software, NTP appliance agents — registering their own provider subkey with a vendor DLL at install time. This is structurally identical to the attack and cannot be separated from it on this event alone; MITRE's RegistryPathScope knob is the wrong place to narrow it, so the exclusion belongs on the installing process."
+  - "Image build, sysprep and specialisation pipelines that reset the time service on every new image, producing a burst of these writes on hosts that are about to be handed out."
+level: high

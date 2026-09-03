@@ -1,0 +1,65 @@
+title: Stop or disable command targeting a data-store service
+id: 81de870c-eec8-4c59-a2d3-7adb3a286c54
+status: experimental
+description: |
+  AN0061's chain is elevated context, then sc.exe/Stop-Service/ChangeServiceConfigW,
+  then a terminated service, then possible follow-on file manipulation — Sigma has
+  no construct for that window, so this rule keeps only the second link: the
+  process invoking a controlled stop or a persistent disable against a named
+  data-store service. That link is also what separates this technique from the
+  published T1687 rule in this corpus, which keys on System 7031/7034 — the SCM
+  recording a service that died *without* a control call — and says explicitly
+  that a rule built on the control interface selects for the complement of
+  exploitation. This is that complement: `sc.exe stop`, `net stop` and
+  `Stop-Service` all use the sanctioned path and never produce a 7031. The
+  service-name list is scoped to Exchange, SQL and IIS deliberately, not to AV
+  or EDR names, even though AN0061's own example text pairs "Exchange, SQL"
+  with "AV, endpoint monitoring" — narrowing away from that half avoids
+  reproducing the security-tooling rule that belongs to T1562.001. For the same
+  reason the list carries no shadow-copy term: stopping VSS is the precursor to
+  inhibiting recovery and belongs to T1490, not to the data-store impact this
+  rule is filed under. MITRE's
+  `ServiceName` knob is populated here with that narrower list; a raw
+  `ChangeServiceConfigW` call made directly from a process's own code, without
+  going through any of these command-line tools, leaves nothing on this
+  selector at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0021, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1489
+  - https://attack.mitre.org/detectionstrategies/DET0021
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1489
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith:
+      - '\sc.exe'
+      - '\net.exe'
+      - '\net1.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_verb:
+    CommandLine|contains:
+      - ' stop '
+      - 'Stop-Service'
+      - 'start= disabled'
+      - 'start=disabled'
+  selection_target:
+    CommandLine|contains:
+      - 'MSExchangeIS'
+      - 'MSExchangeTransport'
+      - 'MSSQLSERVER'
+      - 'SQLSERVERAGENT'
+      - 'W3SVC'
+  condition: selection_tool and selection_verb and selection_target
+falsepositives:
+  - "Planned maintenance. Helpdesk and messaging/database administrators routinely stop Exchange, SQL or IIS services with exactly these tools before a patch, a config change or a certificate renewal, and on a server fleet with a regular patch cadence this is the highest-volume match by a wide margin."
+  - "Backup and reporting jobs that stop SQLSERVERAGENT for the duration of a maintenance window before restarting it, which are scheduled, recurring, and use exactly the command shape this rule matches."
+  - "Update and installer packages for Exchange, SQL Server or IIS that stop their own services as a documented step before replacing binaries, producing a burst of matches during a rollout."
+  - "Cluster failover tooling that stops a service on one node as part of a planned role transfer, which looks identical to a malicious stop at the command-line level and is distinguished only by the account and the absence of a matching service start shortly after."
+level: low

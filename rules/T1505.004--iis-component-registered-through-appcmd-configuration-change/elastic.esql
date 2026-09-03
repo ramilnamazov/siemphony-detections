@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) LIKE "*\\\\appcmd.exe" AND (TO_LOWER(process.command_line) LIKE "*isapifilters*" OR TO_LOWER(process.command_line) LIKE "*globalmodules*" OR TO_LOWER(process.command_line) LIKE "*system.webserver/modules*" OR TO_LOWER(process.command_line) LIKE "*add module*"))

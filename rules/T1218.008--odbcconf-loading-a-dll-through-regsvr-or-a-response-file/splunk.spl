@@ -1,0 +1,1 @@
+index=* (Image="*\\odbcconf.exe" AND (CommandLine="*REGSVR*" OR (CommandLine="*-f *" OR CommandLine="*/f *" OR CommandLine="*–f *" OR CommandLine="*—f *" OR CommandLine="*―f *")))

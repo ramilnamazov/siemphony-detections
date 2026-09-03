@@ -1,0 +1,40 @@
+title: VBScript or legacy Visual Basic runtime loaded into a process
+id: 30add5e6-a6a2-4cf7-bda1-e7267b48e0ed
+status: experimental
+description: |
+  Matches AN0209's ModuleName knob directly: `vbscript.dll`, the classic
+  VBScript engine that wscript.exe, cscript.exe, mshta.exe and Internet
+  Explorer load to run a .vbs/.vbe file or inline VBScript in an HTA, plus
+  `msvbvm60.dll`, the VB6 p-code runtime any legacy compiled VB6 executable
+  pulls in at launch. This is written on image_load rather than on the
+  Office-spawns-script-host chain AN0209 also describes, because that
+  parent/child pattern is already the corpus's T1204 rule; a module load is a
+  narrower, technique-specific signal that fires regardless of what launched
+  the host process, including a VBScript engine loaded directly by a compiled
+  binary with no visible script-host parent at all. It says nothing about what
+  the script did — VBA macro execution inside vbe7.dll is a different engine
+  entirely and is invisible to this rule.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0076, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1059/005
+  - https://attack.mitre.org/detectionstrategies/DET0076
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1059.005
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection:
+    ImageLoaded|endswith:
+      - '\vbscript.dll'
+      - '\msvbvm60.dll'
+  condition: selection
+falsepositives:
+  - "Internet Explorer or Edge running in IE mode against a legacy intranet application that still contains classic VBScript, which loads vbscript.dll on every page render and is common wherever such an application has not been retired."
+  - "Group Policy logon, logoff or startup scripts authored in VBScript, which run through wscript.exe or cscript.exe on every interactive session and load vbscript.dll once per logon on every affected host."
+  - "Legacy line-of-business software compiled against Visual Basic 6, which loads msvbvm60.dll unconditionally at every launch regardless of what the program does."
+  - "HTA-based setup wizards and internal tooling that embed VBScript for their UI logic, loading vbscript.dll through mshta.exe as part of ordinary software installation."
+level: medium

@@ -1,0 +1,2 @@
+DeviceImageLoadEvents
+| where ((FolderPath contains "\\AppData\\Local\\Temp\\" or FolderPath contains "\\AppData\\Roaming\\" or FolderPath contains "\\Windows\\Temp\\" or FolderPath contains "\\Users\\Public\\" or FolderPath contains "\\ProgramData\\" or FolderPath contains "\\\\") and not (SignatureStatus =~ "Valid"))

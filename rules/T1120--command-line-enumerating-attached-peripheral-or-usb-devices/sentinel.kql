@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "Get-PnpDevice" or ProcessCommandLine contains "Win32_USBController" or ProcessCommandLine contains "Win32_PnPEntity")

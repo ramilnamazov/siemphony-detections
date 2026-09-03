@@ -1,0 +1,61 @@
+title: Firmware flashing utility executed on an endpoint
+id: 6014f108-64b1-41b7-ac74-384e2d53d2e2
+status: experimental
+description: |
+  Matches process creation of the native Windows utilities that write to system
+  or peripheral flash — the AMI and Intel BIOS programmers, vendor BIOS update
+  executables, the open-source flashrom port, and the GPU VBIOS flashers — which
+  is the first clause of the analytic and the only clause that is a single event.
+  The list spans vendors and bitness variants rather than one name because it is
+  authored here from the utilities that are redistributed as standalone binaries.
+  It is not MITRE's: the `ToolName` knob belongs to the Linux analytic AN0475,
+  while the Windows analytic this rule follows (AN0474) names `ParentImage` and
+  `CommandLine`, and both are left for the reader to add as a filter — the first
+  is what separates a vendor update chain from a hand-run flash, the second is
+  MITRE's note that silent or forced flash flags vary by tool. A renamed or newly signed flasher defeats
+  it, and Python-launched tooling such as chipsec is invisible on process
+  creation because the recorded image is the interpreter. The analytic's second
+  clause — raw access to the firmware device path, or a boot-configuration change
+  in the same window — is a correlation Sigma cannot express, and the elevation
+  test it also describes is omitted because the two feeds disagree on how to
+  express it. The rule is written in the Sysmon EventID 1 process-creation
+  vocabulary (`Image`); the Security EventID 4688 feed the
+  analytic names calls the same path `NewProcessName` and needs a field mapping
+  first, plus *Audit Process Creation*, which is not enabled in a default
+  install or in the MS and CIS baselines.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0167, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1495
+  - https://attack.mitre.org/detectionstrategies/DET0167
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1495
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith:
+      - '\flashrom.exe'
+      - '\afuwin.exe'
+      - '\afuwinx64.exe'
+      - '\afuwingui.exe'
+      - '\fpt.exe'
+      - '\fptw.exe'
+      - '\fptw64.exe'
+      - '\flash64w.exe'
+      - '\winflash.exe'
+      - '\winflash64.exe'
+      - '\nvflash.exe'
+      - '\nvflash64.exe'
+      - '\amdvbflash.exe'
+      - '\atiflash.exe'
+  condition: selection
+falsepositives:
+  - "Fleet BIOS and firmware update campaigns. Vendor update packages and their management agents invoke these exact binaries under SYSTEM during a maintenance window, so a scheduled BIOS rollout matches on every host it touches — the loudest source by volume, and the reason this rule is not rated higher. Separate it by parent process and by whether the run falls inside a change window rather than by the tool name."
+  - "Hardware validation, repair and imaging benches, where technicians reflash boards and GPUs as routine work, so the same binaries run daily on a small set of known workstations."
+  - "Engineering and firmware-development workstations, where flashrom is run against an external programmer or a development board many times a day, and the target is not the host's own system flash at all."
+  - "Enthusiast GPU VBIOS flashing on developer, CAD and lab machines, where amdvbflash or nvflash is run by the logged-on user to change fan or power tables."
+level: medium

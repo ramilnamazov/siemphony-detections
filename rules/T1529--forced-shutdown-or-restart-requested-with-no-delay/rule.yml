@@ -1,0 +1,57 @@
+title: Forced shutdown or restart requested with no delay
+id: 1ac179b6-b5e3-4e05-aa1a-1396c41b653f
+status: experimental
+description: |
+  Matches shutdown.exe run with a shutdown or restart action and with either
+  the force flag or a zero timeout, which is the destructive shape AN1538
+  describes: an operator-scheduled reboot normally leaves a grace period so
+  users can save work, while an adversary ending a system takes it now. Flags
+  are matched with windash because shutdown.exe accepts /f, -f and the Unicode
+  dash forms interchangeably. The nearest MITRE knob is CommandLineMatch, but
+  DET0559 attaches that one to the Linux analytic AN1539, not to AN1538; the
+  flag combinations here are authored either way. AN1538's own two knobs are
+  not expressible in this Sigma subset — "user not in Helpdesk group" needs a
+  group lookup and "unexpected during business hours" needs a time comparison,
+  and without them the rule cannot separate an adversary from an admin, which
+  is why the level is low rather than the severity of the outcome.
+  The brief's other Windows source, EventID 1074, is not used: it is written by
+  USER32 to the System channel, but the brief maps it onto product windows /
+  service security, and a rule on the Security service would parse, render and
+  match nothing. Blind spots that follow from keying on the process: PowerShell
+  Restart-Computer and Stop-Computer, and the API routes ATT&CK names
+  (InitiateSystemShutdownExW, ExitWindowsEx, NtRaiseHardError for a forced
+  BSOD), all shut the host down without ever creating a shutdown.exe process.
+  The rule is written in the Sysmon EventID 1 vocabulary the brief names; if
+  Security 4688 feeds this category instead, CommandLine is populated only with
+  both Audit Process Creation and the separate Include command line in process
+  creation events policy enabled, and the field is empty otherwise.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0559, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1529
+  - https://attack.mitre.org/detectionstrategies/DET0559
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1529
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_binary:
+    Image|endswith: '\shutdown.exe'
+  selection_action:
+    CommandLine|contains|windash:
+      - '/r'
+      - '/s'
+  selection_force:
+    CommandLine|contains|windash:
+      - '/f'
+      - '/t 0'
+  condition: selection_binary and selection_action and selection_force
+falsepositives:
+  - "Patch and configuration management closing a maintenance window — the SCCM client, Intune, WSUS scripts, Ansible win_reboot and Puppet or Chef reboot handlers all end a run with a forced zero-delay restart; on a managed estate this is the highest-volume match by a wide margin and it arrives in waves on patch night."
+  - "Helpdesk and administrators restarting an unresponsive or newly configured machine, typed by hand or pushed remotely, where the force flag is used precisely because an application is hung and will not close on its own."
+  - "Imaging and provisioning task sequences — MDT and SCCM OSD steps, sysprep wrappers, Packer and Vagrant template builds — that force an immediate restart between phases of an unattended build."
+  - "Driver, agent and suite installers or uninstallers that call shutdown.exe with the force flag on completion, and lab, kiosk or classroom images carrying a scheduled task that forces a nightly restart."
+level: low

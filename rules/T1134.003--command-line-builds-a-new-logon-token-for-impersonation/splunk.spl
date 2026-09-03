@@ -1,0 +1,1 @@
+index=* ((Image="*\\runas.exe" AND CommandLine="*/netonly*") OR ((CommandLine="*LogonUser*" OR CommandLine="*LsaLogonUser*") AND (CommandLine="*SetThreadToken*" OR CommandLine="*ImpersonateLoggedOnUser*")))

@@ -1,0 +1,2 @@
+DeviceImageLoadEvents
+| where ((InitiatingProcessFolderPath endswith "\\AzureADConnectAuthenticationAgentService.exe" or InitiatingProcessFolderPath endswith "\\miiserver.exe" or InitiatingProcessFolderPath endswith "\\Microsoft.IdentityServer.ServiceHost.exe") and Signed =~ "false")

@@ -1,0 +1,2 @@
+Event
+| where (EventID == 8001 or EventID == 8002 or EventID == 8003)

@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where ((RegistryKey startswith "HKU\\" and RegistryKey contains "\\Software\\Classes\\CLSID\\") and (RegistryKey endswith "\\InprocServer32\\(Default)" or RegistryKey endswith "\\LocalServer32\\(Default)"))

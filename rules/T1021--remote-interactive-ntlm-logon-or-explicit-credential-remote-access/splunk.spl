@@ -1,0 +1,1 @@
+index=* ((EventID="4624" AND LogonType="10" AND LogonProcessName="NtLmSsp") OR (EventID="4648" AND (ProcessName="*\\mstsc.exe" OR ProcessName="*\\wmic.exe" OR ProcessName="*\\winrs.exe" OR ProcessName="*\\powershell.exe" OR ProcessName="*\\pwsh.exe" OR ProcessName="*\\psexec.exe" OR ProcessName="*\\psexec64.exe")))

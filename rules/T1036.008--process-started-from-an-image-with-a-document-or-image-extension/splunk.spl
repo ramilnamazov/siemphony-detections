@@ -1,0 +1,1 @@
+index=* (Image="*.jpg" OR Image="*.jpeg" OR Image="*.png" OR Image="*.gif" OR Image="*.bmp" OR Image="*.txt" OR Image="*.log" OR Image="*.pdf" OR Image="*.rtf" OR Image="*.doc" OR Image="*.docx" OR Image="*.xls" OR Image="*.xlsx" OR Image="*.csv")

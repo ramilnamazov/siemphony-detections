@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "/chmod" or FolderPath endswith "/install") and (ProcessCommandLine contains "+s" or ProcessCommandLine contains "4755" or ProcessCommandLine contains "4777" or ProcessCommandLine contains "4711" or ProcessCommandLine contains "4750" or ProcessCommandLine contains "4700" or ProcessCommandLine contains "6755" or ProcessCommandLine contains "6777" or ProcessCommandLine contains "2755" or ProcessCommandLine contains "2775" or ProcessCommandLine contains "2777"))

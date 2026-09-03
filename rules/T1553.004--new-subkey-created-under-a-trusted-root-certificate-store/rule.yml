@@ -1,0 +1,58 @@
+title: New subkey created under a trusted root certificate store
+id: 6ff67238-a6ab-41db-aa0b-256f5075f193
+status: experimental
+description: |
+  AN0153 asks for unauthorised modification of the Windows root certificate
+  stores, and names three feeds for it: Security EventID 4657, Sysmon EventID 12
+  and Sysmon EventID 1. This rule is written against the Sysmon registry-creation
+  feed, because installing a root certificate creates a new subkey named after
+  the certificate's thumbprint under the store, and a key creation is the single
+  event that says "a certificate the machine did not have before is now trusted".
+  The three paths matched cover the machine-wide store
+  (HKLM\SOFTWARE\Microsoft\SystemCertificates\Root\Certificates), the
+  automatic-root-update store (AuthRoot), the group-policy-pushed store under
+  SOFTWARE\Policies, and the per-user store under HKU\<SID>, since every one of
+  those spellings contains the same middle fragment. The certificate blob itself
+  arrives afterwards as a registry value set, which is a different event class;
+  matching key creation instead keeps this to the moment the trust is granted.
+  Two things to be clear about before deploying it. The vocabulary here is
+  Sysmon's — TargetObject holds the whole key path — so the brief's other feed,
+  Security EventID 4657, cannot be pointed at this rule as an interchangeable
+  source: 4657 is a value-change event and splits the path across ObjectName and
+  ObjectValueName, so it needs a field mapping and a different predicate before
+  it could match anything here. And Sysmon EventID 12 is only emitted for keys a
+  site's Sysmon configuration includes; the widely used community configurations
+  filter registry events aggressively and several do not cover
+  SystemCertificates at all, so confirm the key is in scope for the running
+  config before reading a silent rule as a clean estate. The svchost.exe
+  exclusion drops the two machine-driven writers — the automatic root update
+  service and group-policy certificate deployment, both hosted there — which
+  also means a certificate installed by code injected into a service host will
+  not be seen by this rule.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0056, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1553/004
+  - https://attack.mitre.org/detectionstrategies/DET0056
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1553.004
+logsource:
+  category: registry_add
+  product: windows
+detection:
+  selection_store:
+    TargetObject|contains:
+      - '\\SystemCertificates\\Root\\Certificates\\'
+      - '\\SystemCertificates\\AuthRoot\\Certificates\\'
+      - '\\EnterpriseCertificates\\Root\\Certificates\\'
+  filter_service_host:
+    Image: 'C:\\Windows\\System32\\svchost.exe'
+  condition: selection_store and not filter_service_host
+falsepositives:
+  - "Certificate distribution by endpoint management agents. Intune, SCCM, RMM tooling and MDM enrolment agents install a corporate issuing CA or a device-management root into the machine store as a documented onboarding step, and they do it from their own executable rather than from a service host, so every managed device produces a match as it enrols. During a fleet rollout or a CA rotation this is the loudest source this rule has, and it is why the level is medium rather than high."
+  - "TLS-inspection, VPN and secure-web-gateway clients. Zscaler, Netskope, Cisco Umbrella, Forcepoint and similar agents must install their own interception root for HTTPS inspection to work, and they reinstall it after each client upgrade, from a signed vendor process under C:\\Program Files that this rule does not exclude."
+  - "Developer and test tooling on engineering workstations. mkcert, Fiddler, Burp Suite, Charles, the .NET dev-certs tool and local Docker registries all generate a local CA and add it to the user or machine root store, often several times a week on a single developer machine, which matches both the HKU and HKLM spellings covered here."
+  - "Vendor software installers. Some backup, print-management and hardware-support packages ship their own signing root and add it during setup, so a routine application deployment window can produce a burst of matches across the hosts it targets."
+level: medium

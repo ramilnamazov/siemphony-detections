@@ -1,0 +1,66 @@
+title: Odbcconf loading a DLL through REGSVR or a response file
+id: b8a43262-a4ad-4d8e-a2a4-8b8bff725426
+status: experimental
+description: |
+  Matches the first step of AN1335's behaviour chain: a process creation of
+  odbcconf.exe carrying either the `REGSVR` action, which hands a DLL path to
+  the ODBC installer to load and call, or the `/f` response-file switch, which
+  moves that same action into a text file where the string `REGSVR` never
+  reaches the command line. Both branches are required because either one on
+  its own leaves half the technique invisible — `odbcconf /a {REGSVR
+  c:\users\public\file.dll}` is the form every public write-up shows, and
+  `odbcconf /f payload.rsp` is how that command is hidden from exactly this
+  kind of string match. The response-file branch is written with `windash`
+  because odbcconf accepts `/f` and `-f` alike, and the dash variants are a
+  standard way to slip a literal match. MITRE's `AllowedCommandPatterns` and
+  `ParentProcessName` knobs are where an estate records the installer processes
+  and argument shapes it expects to see; neither is applied here, because both
+  are site-specific and an empty allowlist would silently disable the rule.
+  Four limits are worth stating. A renamed copy of odbcconf.exe defeats the
+  `Image` gate entirely, and renaming a signed LOLBIN is cheap. Sysmon EventID 1
+  does carry `OriginalFileName`, which survives a rename, and this rule is
+  already written in Sysmon field names, so that gate is available and is simply
+  not used here: it would put the binary anchor on two different fields, and the
+  brief's own process source for this analytic is Security 4688, which has no
+  equivalent to fall back on. A Sysmon-only estate should add
+  `OriginalFileName: 'odbcconf.exe'` as an alternative to the `Image` test, and
+  should expect the extra field to cost a backend or two. The rest of the chain
+  is also not attempted: the module
+  load of the payload DLL (Sysmon EventID 7) needs MITRE's
+  `ApprovedModuleHashes` baseline to say anything, and the network and DNS legs
+  (Sysmon EventID 3 and 22) describe what the loaded payload does rather than
+  what odbcconf did, gated by a `TimeWindow` correlation lib/sigma cannot
+  express. Vocabulary and prerequisite: the brief maps Security 4688 onto the
+  Sysmon-shaped `process_creation` category, and this rule is written in the
+  Sysmon EventID 1 vocabulary (`Image`, `CommandLine`); an estate feeding 4688
+  instead needs `NewProcessName` mapped onto `Image` first, and 4688 requires
+  both *Audit Process Creation* and the separate *Include command line in
+  process creation events* policy before `CommandLine` exists at all — neither
+  is on in a default install or in the MS and CIS baselines, and without them
+  this rule returns zero rows, which reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0486, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/008
+  - https://attack.mitre.org/detectionstrategies/DET0486
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.008
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_binary:
+    Image|endswith: '\odbcconf.exe'
+  selection_action_regsvr:
+    CommandLine|contains: 'REGSVR'
+  selection_action_responsefile:
+    CommandLine|contains|windash: '-f '
+  condition: selection_binary and 1 of selection_action*
+falsepositives:
+  - "ODBC driver installation, which is what odbcconf.exe is for. The setup packages for the Microsoft ODBC Driver for SQL Server, Oracle, PostgreSQL, MySQL, Snowflake and the Simba/Magnitude family register their driver libraries with exactly `odbcconf /a {REGSVR <driver>.dll}` or drive the same action from a `/f` response file. The command shape is identical to the abuse, so on any estate that deploys database drivers this is the loudest match by a wide margin and is why the rule is medium rather than high."
+  - "Software deployment waves. An SCCM, Intune, Chocolatey or Ansible package that installs or upgrades a BI, ERP, reporting or line-of-business client runs those same driver installers unattended across hundreds of hosts in one window, producing a burst of identical matches from a management service account."
+  - "MSI repair, self-healing and upgrade custom actions re-registering an already-installed ODBC driver, which fires whenever an application is repaired, patched or launched by a user whose profile is missing a registered component."
+  - "Developer and analyst workstations, where installing or reinstalling a driver by hand to fix a broken data source is routine and is done interactively from an elevated prompt."
+level: medium

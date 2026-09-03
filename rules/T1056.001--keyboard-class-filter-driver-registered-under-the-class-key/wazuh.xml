@@ -1,0 +1,11 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)(\\Control\\Class\\\{4D36E96B-E325-11CE-BFC1-08002BE10318\}\\UpperFilters|\\Control\\Class\\\{4D36E96B-E325-11CE-BFC1-08002BE10318\}\\LowerFilters)</field>
+    <description>Keyboard class filter driver registered under the class key</description>
+    <mitre>
+      <id>T1056.001</id>
+    </mitre>
+  </rule>
+</group>

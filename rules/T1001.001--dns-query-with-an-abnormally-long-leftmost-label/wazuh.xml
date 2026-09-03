@@ -1,0 +1,11 @@
+<group name="sigma,windows,dns_query,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="QueryName" type="pcre2">(?i)^[A-Za-z0-9-]{45,}\.</field>
+    <description>DNS query with an abnormally long leftmost label</description>
+    <mitre>
+      <id>T1001.001</id>
+    </mitre>
+  </rule>
+</group>

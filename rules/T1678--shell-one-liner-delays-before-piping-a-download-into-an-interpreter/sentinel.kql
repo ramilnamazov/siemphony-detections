@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "/sh" or FolderPath endswith "/bash" or FolderPath endswith "/dash" or FolderPath endswith "/ash") and (ProcessCommandLine contains "sleep " or ProcessCommandLine contains "ping ")) and (ProcessCommandLine contains "curl" or ProcessCommandLine contains "wget" or ProcessCommandLine contains "|sh" or ProcessCommandLine contains "| sh" or ProcessCommandLine contains "|bash" or ProcessCommandLine contains "| bash"))

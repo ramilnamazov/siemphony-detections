@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "APPDOMAIN_MANAGER_ASM" or ProcessCommandLine contains "APPDOMAIN_MANAGER_TYPE" or ProcessCommandLine contains "appDomainManagerAssembly" or ProcessCommandLine contains "appDomainManagerType")

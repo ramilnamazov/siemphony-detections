@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\.txt\.|\.jpg\.|\.jpeg\.|\.png\.|\.gif\.|\.pdf\.|\.doc\.|\.docx\.|\.xls\.|\.xlsx\.|\.ppt\.|\.pptx\.|\.csv\.|\.zip\.|\.mp3\.|\.mp4\.)</field>
+    <field name="Image" type="pcre2">(?i)(\.exe$|\.scr$|\.hta$|\.lnk$|\.bat$|\.cmd$|\.vbs$|\.js$|\.jar$|\.msi$|\.ps1$)</field>
+    <description>Executable run from a file name carrying a benign extension before it</description>
+    <mitre>
+      <id>T1036.007</id>
+    </mitre>
+  </rule>
+</group>

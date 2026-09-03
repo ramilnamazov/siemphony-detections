@@ -1,0 +1,2 @@
+SecurityEvent
+| where (EventID == 6416 and (ClassName =~ "HIDClass" or ClassName =~ "Net" or ClassName =~ "DiskDrive" or ClassName =~ "SCSIAdapter"))

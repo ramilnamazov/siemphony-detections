@@ -1,0 +1,34 @@
+<group name="sigma,linux,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 3 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)/dd$</field>
+    <field name="CommandLine" type="pcre2">(?i)(if=/dev/urandom|if=/dev/zero|if=/dev/random)</field>
+    <description>Junk data generated with dd, truncate or fallocate (1/3)</description>
+    <mitre>
+      <id>T1027.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)/truncate$</field>
+    <field name="CommandLine" type="pcre2">(?i)(-s \+|--size=\+)</field>
+    <description>Junk data generated with dd, truncate or fallocate (2/3)</description>
+    <mitre>
+      <id>T1027.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)/fallocate$</field>
+    <field name="CommandLine" type="pcre2">(?i)-l</field>
+    <description>Junk data generated with dd, truncate or fallocate (3/3)</description>
+    <mitre>
+      <id>T1027.001</id>
+    </mitre>
+  </rule>
+</group>

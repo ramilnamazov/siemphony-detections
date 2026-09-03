@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*driverquery*" OR (TO_LOWER(process.command_line) LIKE "*query*" AND TO_LOWER(process.command_line) LIKE "*currentcontrolset\\\\services*") OR TO_LOWER(process.command_line) LIKE "*currentcontrolset\\\\hardwareprofiles*")

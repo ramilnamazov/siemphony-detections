@@ -1,0 +1,42 @@
+title: File written to a wallpaper, logon background or intranet web root
+id: 81c5145a-2f58-4014-9fe0-88fbfd79b803
+status: experimental
+description: |
+  Internal defacement on Windows lands as a file write: a new wallpaper, a
+  replaced logon-screen background, or altered content under an intranet web
+  root. This rule matches Sysmon File Creation — which also fires when an
+  existing file is overwritten — on `TargetFilename` under the locations MITRE's
+  FilePathPattern knob names, plus the two logon-branding directories that carry
+  the same behaviour. Path is the only field the analytic actually constrains;
+  MITRE's other knobs, TimeWindow (off-hours) and UserContext (which account is
+  writing), are time and baseline conditions that Sigma cannot hold, so they are
+  left to tuning rather than approximated with fields that would not mean what
+  they appear to.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0082, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1491/001
+  - https://attack.mitre.org/detectionstrategies/DET0082
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1491.001
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection:
+    TargetFilename|contains:
+      - '\Windows\Web\Wallpaper\'
+      - '\Windows\Web\Screen\'
+      - '\Windows\Web\4K\'
+      - '\AppData\Roaming\Microsoft\Windows\Themes\'
+      - '\System32\oobe\info\backgrounds\'
+      - '\inetpub\wwwroot\'
+  condition: selection
+falsepositives:
+  - "A user changing their own desktop background, which rewrites TranscodedWallpaper and the slideshow state under %APPDATA%\\Microsoft\\Windows\\Themes on every change. This is the single loudest source here and is why MITRE's UserContext knob matters — the write is expected from explorer.exe under the interactive user, not from a script interpreter or a service account."
+  - "Corporate branding and theme deployment via Group Policy, MDM or an imaging task sequence, which writes wallpaper and logon-background files across many hosts at once, usually inside a maintenance window."
+  - "Ordinary publishing to an intranet site — a web deploy, CI release or CMS save writing under \\inetpub\\wwwroot — which is indistinguishable from defacement on path alone and needs the publishing account and change window to separate it."
+  - "Windows feature and cumulative updates that replace the stock images under %SystemRoot%\\Web after servicing."
+level: medium

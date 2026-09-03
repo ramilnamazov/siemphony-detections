@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "RDP-Tcp" and ProcessCommandLine contains "PortNumber")

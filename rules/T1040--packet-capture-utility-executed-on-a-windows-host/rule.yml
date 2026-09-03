@@ -1,0 +1,62 @@
+title: Packet capture utility executed on a Windows host
+id: d44dd7fd-773c-405a-92b0-800d8710d77d
+status: experimental
+description: |
+  Matches process creation of the capture engines and built-in tracing tools
+  that put a Windows NIC into capture mode — the ToolNames half of AN0875,
+  populated here with the Wireshark suite, the WinPcap/Npcap command-line
+  ports, NirSoft's sniffer, Microsoft Network Monitor's collector, pktmon and
+  a netsh packet capture. The netsh leg requires capture=yes alongside
+  trace start, because netsh trace start on its own starts an ETW scenario
+  trace and captures no packets — that form is Microsoft's standard
+  troubleshooting step, not this technique. The capture engine is selected
+  rather than the GUI on purpose: wireshark.exe never touches the adapter itself, it spawns
+  dumpcap.exe, so a selector on the GUI name would miss every capture started
+  from a script or from tshark. The brief maps Security EventID 4688 onto
+  Sigma's process_creation category, which is Sysmon-shaped; this rule is
+  written in that vocabulary (Image, CommandLine), so a Sysmon EventID 1 feed
+  matches directly while a 4688 feed needs NewProcessName mapped onto Image
+  first, plus Audit Process Creation enabled and the separate "Include command
+  line in process creation events" policy before the netsh selection can ever
+  match. AN0875's other leg — the capture driver arriving as a service
+  install, System EventID 7045 — is a different log source and cannot be
+  joined into one Sigma rule. A renamed binary, or a tool that links a capture
+  library statically instead of shelling out, produces no match here at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0314, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1040
+  - https://attack.mitre.org/detectionstrategies/DET0314
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.discovery
+  - attack.t1040
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_capture_tool:
+    Image|endswith:
+      - '\dumpcap.exe'
+      - '\tshark.exe'
+      - '\rawshark.exe'
+      - '\windump.exe'
+      - '\tcpdump.exe'
+      - '\rawcap.exe'
+      - '\netcap.exe'
+      - '\nmcap.exe'
+      - '\smsniff.exe'
+      - '\pktmon.exe'
+  selection_netsh_trace:
+    Image|endswith: '\netsh.exe'
+    CommandLine|contains|all:
+      - 'trace start'
+      - 'capture=yes'
+  condition: 1 of selection*
+falsepositives:
+  - "Network and desktop engineers troubleshooting with Wireshark, which spawns dumpcap.exe for every capture. On the subset of hosts where the suite is installed this is the dominant volume the rule produces, and MITRE's ToolNames knob is better used to scope the rule by host than to drop tools from the list."
+  - "Microsoft's own diagnostics, where netsh trace start capture=yes and pktmon.exe are the standard collection steps in the log-gathering scripts that Microsoft and third-party vendors hand to customers during a support case."
+  - "Monitoring, VoIP call-quality and application-performance agents that bundle dumpcap or tshark and run scheduled or triggered captures on servers, producing a regular per-host rhythm from a fixed parent process."
+  - "Lab, imaging and CI test harnesses that run windump.exe or tcpdump.exe to assert on network behaviour as part of an automated build or acceptance run."
+level: medium

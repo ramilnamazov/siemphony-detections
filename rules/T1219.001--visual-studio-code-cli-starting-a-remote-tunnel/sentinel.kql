@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\code.exe" or FolderPath endswith "\\code-tunnel.exe" or FolderPath endswith "\\code-insiders.exe") and ProcessCommandLine contains " tunnel")

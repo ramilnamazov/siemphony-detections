@@ -1,0 +1,1 @@
+index=* (CommandLine="*netstat*" OR CommandLine="*Get-NetTCPConnection*" OR CommandLine="*Get-NetUDPEndpoint*" OR CommandLine="*net session*")

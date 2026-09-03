@@ -1,0 +1,62 @@
+title: Remote scriptlet proxied through PubPrn.vbs
+id: 74a32afe-7f23-41cb-a088-6830b9cb5f24
+status: experimental
+description: |
+  AN1464 describes a single command shape: the signed Microsoft printer
+  publishing script pubprn.vbs run under a script host with its second argument
+  set to the `script:` moniker, so that the script's GetObject call fetches and
+  executes a remote .sct scriptlet instead of resolving an LDAP container. All
+  three legs are required together — cscript.exe or wscript.exe as the image,
+  `pubprn` somewhere in the command line, and a `script:` moniker carrying a
+  remote location — because the documented legitimate invocation passes an
+  `LDAP://` path as that argument and therefore never satisfies the third. MITRE's
+  `CommandLineRegex` knob describes the moniker with an HTTP or HTTPS URI; the
+  ftp and UNC spellings in that list were added here, not taken from the brief.
+  Limits worth stating plainly. Both the image list and the `pubprn` string are
+  defeated by copying the script under another name, and that is not a
+  hypothetical evasion: Windows 10 and later ship a pubprn.vbs that refuses a
+  remote second argument, so a match on a current build normally means a
+  downlevel copy of the old script was carried onto the host, where renaming it
+  costs the adversary nothing. The analytic's four other log sources are all
+  correlation legs — the outbound fetch on Sysmon EventID 3 or 22, and the
+  module load on EventID 7 that would in practice be the scriptlet runtime
+  scrobj.dll, a name inferred here rather than given by MITRE — and none is
+  attempted, because Sigma models no join between events and because the fetch is
+  performed inside the script host process itself, so on its own it is an
+  ordinary cscript.exe network connection rather than a detection. This rule is
+  written in the Sysmon EventID 1 vocabulary (`Image`, `CommandLine`) that AN1464
+  names first; a process_creation index fed from Security 4688 instead needs
+  `NewProcessName` mapped onto `Image`, and 4688 needs both *Audit Process
+  Creation* and the separate *Include command line in process creation events*
+  policy before `CommandLine` exists at all — neither is on in a default install
+  or in the Microsoft and CIS baselines, and without them this rule returns zero
+  rows, which reads as quiet when it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0528, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1216/001
+  - https://attack.mitre.org/detectionstrategies/DET0528
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1216.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_script_host:
+    Image|endswith:
+      - '\cscript.exe'
+      - '\wscript.exe'
+  selection_pubprn:
+    CommandLine|contains: 'pubprn'
+  selection_remote_moniker:
+    CommandLine|contains:
+      - 'script:http'
+      - 'script:ftp'
+      - 'script:\\\\'
+  condition: all of selection_*
+falsepositives:
+  - "Adversary-emulation and control-validation platforms. The Atomic Red Team test for this sub-technique, and the equivalent canned tests in Caldera, AttackIQ and SafeBreach, run this exact cscript pubprn.vbs script:http command line, so a scheduled validation campaign produces a byte-identical match on every host it touches. In an estate that runs continuous validation this is the loudest source here by a wide margin, and it is periodic and attributable rather than rare, so scope the rule away from the validation agent's account before treating a hit as an intrusion."
+  - "Detection engineering and incident response work on an instrumented host. An analyst reproducing the published bypass to confirm this rule fires, to test a WDAC or AppLocker policy, or to capture a sample for a malware report, generates the same process creation event with no adversary present. This is the most common single cause of a first alert from a newly deployed copy of this rule."
+level: high

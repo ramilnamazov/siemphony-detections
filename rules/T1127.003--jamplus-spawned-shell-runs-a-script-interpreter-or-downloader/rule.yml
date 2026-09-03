@@ -1,0 +1,95 @@
+title: JamPlus-spawned shell runs a script interpreter or downloader
+id: b051e3ba-491a-4e97-a475-f44019fe298c
+status: experimental
+description: |
+  AN1610 describes JamPlus being handed a crafted `.jam` file so that the build
+  utility, rather than the adversary's own binary, is what executes the payload
+  — the point being that a reputable developer tool passes application control
+  where an unknown executable would not. An earlier version of this rule pinned
+  `ParentImage` to `jam.exe` and listed the interpreter or downloader directly
+  as the `Image`, which is one process generation too shallow: Jam (and
+  JamPlus, which forks Perforce Jam) does not exec an action's command
+  directly on Windows, it runs every action through the shell, building
+  `cmd.exe /Q/C <action>` and, for multi-line or over-length actions, spilling
+  to a generated temporary `.bat` file. A `.jam` action of `powershell -enc
+  ...` therefore produces `powershell.exe` with `ParentImage` `\cmd.exe`, not
+  `\jam.exe` — ten of the eleven entries in that child list could never fire,
+  and what remained, `jam.exe` spawning `cmd.exe`, is this rule's own
+  highest-volume false positive with no discriminating power left once the
+  dead entries are stripped out. This version anchors on the real shape of the
+  behaviour instead: `jam.exe` or `JamPlus.exe` (MITRE's own spelling, added
+  here — the original binary name was omitted from the parent list entirely)
+  as `ParentImage` of `cmd.exe`, and MITRE's `SuspiciousChildList` knob,
+  populated here with script-host and living-off-the-land tokens, is checked
+  against that shell's own `CommandLine` rather than a further child's image
+  — which the `process_creation` category can carry because Sysmon EID 1
+  attaches the full command line to the shell's own process-creation event.
+  This still misses a payload that arrives via the temp-`.bat` spill: for a
+  multi-line or over-length action, only `cmd.exe /Q/C
+  C:\...\jamXXXX.bat` is visible on this event, and the interpreter or
+  downloader token that would trigger a match sits inside the batch file's
+  content, which process creation does not carry. Two further limits.
+  T1127.003 is bring-your-own-binary — the operator supplies the JamPlus copy,
+  so the name is theirs to pick — and the parent list only reaches the two
+  spellings above; a rename to any other name defeats it, which is why a
+  second path is ORed in keying on `ParentCommandLine` containing `.jam`, so a
+  renamed copy invoked against a jamfile still lands somewhere, at the cost of
+  matching any command line that merely references a path with a `.jam`
+  extension. And no process-creation event, on Sysmon or on Security 4688,
+  carries the parent's original file name — the earlier description blamed
+  this on 4688 specifically, which was wrong; there is no vocabulary in which
+  a renamed parent falls back to a true name. The analytic's other legs — the
+  artefact written to a user-writable path behind MITRE's `RarePathRegex` knob
+  (Sysmon 11), and the egress that follows (Sysmon 3 and 22) — are separate
+  events inside MITRE's `TimeWindow` knob, and lib/sigma has no timeframe or
+  join to tie them to the execution here. MITRE's `AllowedBuildHosts` knob,
+  scoping alerts to machines where JamPlus is not expected, is a
+  deployment-time filter with no field on the event either. Vocabulary and
+  prerequisite: the brief maps Security 4688 onto Sigma's `process_creation`
+  category, which is Sysmon-shaped, and this rule is written in that
+  vocabulary (`Image`, `ParentImage`, `CommandLine`, `ParentCommandLine`); a
+  4688 feed needs those mapped from `NewProcessName`/`ParentProcessName`/
+  `CommandLine` first, and produces nothing at all until Audit Process
+  Creation is enabled, which no default install or baseline turns on.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0585, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1127/003
+  - https://attack.mitre.org/detectionstrategies/DET0585
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1127.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent_named:
+    ParentImage|endswith:
+      - '\jam.exe'
+      - '\JamPlus.exe'
+  selection_parent_renamed:
+    ParentCommandLine|contains: '.jam'
+  selection_shell_child:
+    Image|endswith: '\cmd.exe'
+  selection_suspicious_tokens:
+    CommandLine|contains:
+      - 'powershell'
+      - 'pwsh'
+      - 'wscript'
+      - 'cscript'
+      - 'mshta'
+      - 'rundll32'
+      - 'regsvr32'
+      - 'certutil'
+      - 'curl'
+      - 'bitsadmin'
+  condition: (selection_parent_named or selection_parent_renamed) and selection_shell_child and selection_suspicious_tokens
+falsepositives:
+  - "Genuine JamPlus builds. A .jam file's action blocks are shell commands, so an ordinary build shells out through cmd.exe for compile, link, copy and packaging steps, and dependency fetching or code signing legitimately reaches for curl.exe, certutil.exe or PowerShell from inside that same cmd.exe command line. On any developer workstation or CI agent that actually uses JamPlus this is the highest-volume match by a wide margin, which is what sets the level here; MITRE's AllowedBuildHosts knob is where those machines are excluded."
+  - "Unrelated software shipping a binary called jam.exe or JamPlus.exe. Neither name is reserved, so any bundled updater, audio tool or line-of-business utility of that name satisfies the parent leg whenever it shells out through cmd.exe with one of the listed tokens on the line for its own purposes."
+  - "Any other build or automation tool that happens to take a path containing .jam as an argument — a changelog, a config file, a project folder named for a person called Jamie or James — and separately shells out through cmd.exe with one of the listed tokens on the line, since selection_parent_renamed is a substring match on the parent's full command line rather than an argument-position or file-extension check, and it is not tied to the token that made the rest of the condition true."
+  - "Build bootstrap and toolchain glue written in older styles, where a wrapper .jam target's action runs wscript.exe or cscript.exe through cmd.exe to execute a VBScript packaging or versioning helper as a normal part of the build."
+  - "Developers running a build by hand from an interactive session while debugging a build failure, which produces the same jam-to-cmd-to-tool chain in bursts and outside any scheduled build window."
+level: medium

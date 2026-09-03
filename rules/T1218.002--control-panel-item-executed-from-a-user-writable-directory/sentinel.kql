@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "\\control.exe" or FolderPath endswith "\\rundll32.exe") and ProcessCommandLine contains ".cpl") and (ProcessCommandLine contains "\\AppData\\" or ProcessCommandLine contains "\\Temp\\" or ProcessCommandLine contains "\\Users\\Public\\" or ProcessCommandLine contains "\\Downloads\\" or ProcessCommandLine contains "\\ProgramData\\" or ProcessCommandLine contains "\\Windows\\Tasks\\" or ProcessCommandLine contains "\\PerfLogs\\"))

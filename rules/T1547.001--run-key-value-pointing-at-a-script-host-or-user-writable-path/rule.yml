@@ -1,0 +1,88 @@
+title: Run key value pointing at a script host or user-writable path
+id: c6a24e62-304f-4035-bc66-261578f63f63
+status: experimental
+description: |
+  Matches a Sysmon EventID 13 registry write whose target is one of the
+  autostart Run keys and whose written data names a scripting host, a LOLBin or
+  a path a normal user can write to. Two gates are needed because the key on its
+  own is not an indicator: on `registry_set` the value name is appended to
+  `TargetObject` and the data lands in `Details`, so the key gate is a contains
+  on `\CurrentVersion\Run\` and its RunOnce/RunOnceEx/RunServices siblings —
+  which also picks up the `Wow6432Node` copies — while the payload gate reads
+  `Details`. The payload gate carries each user-writable location twice, as a
+  literal path and as the environment variable that expands to it, because a Run
+  value is very often written as `REG_EXPAND_SZ` and Sysmon reports `Details`
+  exactly as stored: `%AppData%\svc.exe` never contains the string
+  `\AppData\Roaming\`, so a literal-path-only gate misses the most common shape
+  of this technique. Only the Registry half of T1547.001 is covered; a payload
+  dropped into the Startup folder is a file write, and AN1032 offers no
+  file-event log source to carry it. No hive prefix is anchored, because Sysmon writes HKCU as `HKU`
+  followed by the account SID, so a `HKEY_CURRENT_USER` prefix would never
+  match. MITRE names the `RegistryKeyPath` and `ImagePath` knobs; the marker
+  list in `selection_payload` is authored here, not taken from MITRE. Two
+  things AN1032 asks for are outside what this can do: the correlation of the
+  registry write with an execution 5-10 minutes later needs a timeframe, which
+  this corpus does not model, and a Run value that points at a signed
+  executable under `Program Files` is caught by neither gate — persistence
+  established by hijacking an already-registered entry is invisible here.
+  The analytic's third log source, Sysmon EventID 14 (`registry_rename`), is
+  not used: a rename carries no value data, so the payload gate has nothing to
+  read. Sysmon registry events must actually be collected for this subtree —
+  most shipped Sysmon configurations filter EventID 13 down to an allowlist of
+  keys, and a filtered key produces silence that reads like a clean result.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0365, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/001
+  - https://attack.mitre.org/detectionstrategies/DET0365
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.001
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_runkey:
+    TargetObject|contains:
+      - '\CurrentVersion\Run\'
+      - '\CurrentVersion\RunOnce\'
+      - '\CurrentVersion\RunOnceEx\'
+      - '\CurrentVersion\RunServices\'
+      - '\CurrentVersion\RunServicesOnce\'
+  selection_payload:
+    Details|contains:
+      - '\AppData\Local\'
+      - '\AppData\Roaming\'
+      - '\Users\Public\'
+      - '\ProgramData\'
+      - '\Windows\Temp\'
+      - '%AppData%'
+      - '%LocalAppData%'
+      - '%UserProfile%'
+      - '%Temp%'
+      - '%Public%'
+      - '%ProgramData%'
+      - 'powershell'
+      - 'pwsh'
+      - 'cmd.exe'
+      - 'mshta'
+      - 'rundll32'
+      - 'regsvr32'
+      - 'wscript'
+      - 'cscript'
+      - 'certutil'
+      - '.hta'
+      - '.vbs'
+      - '.ps1'
+      - '.bat'
+      - '.cmd'
+      - '.scr'
+  condition: selection_runkey and selection_payload
+falsepositives:
+  - "Per-user application installers and updaters registering their own auto-start entry from under \\AppData\\Local or \\AppData\\Roaming, or the %AppData% and %LocalAppData% forms of the same paths — chat clients, cloud-storage sync agents, browser update helpers and game launchers all install per-user by default and write exactly this shape. On a managed fleet these two path markers are the highest-volume match by a wide margin, which is what holds the level at low; a site that baselines them out can raise it for the remaining LOLBin and script-extension markers."
+  - "Vendor uninstall, repair and patch stubs registering a RunOnce value that calls rundll32.exe or a .bat/.cmd cleanup script to finish file replacement after the next reboot — this is the documented Windows mechanism for deferred work, so it fires on ordinary software maintenance."
+  - "Group Policy Preferences registry items and logon scripts that set a Run value calling powershell.exe or wscript.exe against a corporate script share; the value is rewritten on every policy refresh whether or not the data changed, so one configured host produces a steady repeating event."
+  - "OEM factory images and endpoint-management agents that stage helper executables under \\ProgramData or \\Users\\Public and start them from the machine-wide Run key, which fires once on every freshly imaged or re-enrolled host."
+level: low

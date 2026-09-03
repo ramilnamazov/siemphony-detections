@@ -1,0 +1,2 @@
+DeviceFileEvents
+| where (FolderPath contains "\\Windows\\SoftwareDistribution\\Datastore\\" or FolderPath contains "\\Windows\\SoftwareDistribution\\Download\\" or FolderPath contains "\\Windows\\Security\\Database\\" or FolderPath contains "\\System Volume Information\\" or FolderPath contains "\\$Recycle.Bin\\")

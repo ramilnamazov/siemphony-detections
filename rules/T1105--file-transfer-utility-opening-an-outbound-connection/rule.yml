@@ -1,0 +1,63 @@
+title: File transfer utility opening an outbound connection
+id: 6e146297-c0bd-4937-8b8c-dd2b481035bc
+status: experimental
+description: |
+  MITRE's analytic opens with an uncommon process making an external connection
+  and ends with a tool appearing on disk. The network-connection event is the one
+  log source in the strategy that names the process and the destination together,
+  so this rule matches the first step: an outbound connection initiated by one of
+  the transfer utilities the technique text names — finger, certutil, curl and
+  tftp — plus ftp.exe and the OpenSSH client, which are the author's addition
+  rather than MITRE's. Sysmon EventID 3 names the process that owns the socket,
+  which rules several canonical downloaders out of this log source entirely:
+  bitsadmin.exe only queues a job that the BITS service performs later from inside
+  svchost.exe, and scp.exe and sftp.exe hand the transport to ssh.exe, so ssh.exe
+  is the image listed here and the other three would never match. Catching those
+  needs a separate process_creation rule on the command line (bitsadmin with
+  /transfer or /addfile). wget.exe is kept although Windows does not ship it — on
+  Windows `wget` is a PowerShell alias for Invoke-WebRequest, which runs inside
+  powershell.exe, so a real wget.exe image means somebody brought the binary,
+  which is itself the signal. Interpreted downloaders are deliberately absent:
+  matching powershell.exe or a browser here would fire on every host continuously,
+  and the file-creation half of the chain is a timed correlation Sigma cannot
+  express, so a hit is a download attempt and not evidence that anything landed.
+  Two limitations to state plainly. The image name is the whole detection and
+  Sysmon EventID 3 carries no OriginalFileName, so copying curl.exe to another
+  filename defeats the rule outright; pair it with a process_creation companion
+  keyed on OriginalFileName, which survives a rename (curl.exe ships as
+  `curl.exe`, certutil as `CertUtil.exe`). And Sigma has no CIDR operator, so a
+  fetch from an internal artefact mirror alerts exactly like a fetch from the
+  internet — MITRE's DestinationIPCategory knob has to be implemented as a
+  backend-side address filter after translation. Sysmon EventID 3 is also
+  frequently disabled or narrowly filtered in shipped configurations, and where it
+  is, this rule returns nothing regardless of what ran.
+  UNVERIFIED — derived from MITRE ATT&CK DET0060 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1105
+  - https://attack.mitre.org/detectionstrategies/DET0060
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1105
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection:
+    Image|endswith:
+      - '\certutil.exe'
+      - '\finger.exe'
+      - '\tftp.exe'
+      - '\curl.exe'
+      - '\wget.exe'
+      - '\ftp.exe'
+      - '\ssh.exe'
+    Initiated: 'true'
+  condition: selection
+falsepositives:
+  - "Administrator and build automation that fetches artefacts with curl.exe, which now ships in Windows and is the default choice in most scripts and container images. This is the highest-volume match by a wide margin and it is not separable on this event alone; the parent process is where MITRE's ParentProcessName knob is aimed, and here it has to be applied downstream because a network-connection event carries no parent."
+  - "Monitoring and observability agents that shell out to curl.exe on every polling interval — Zabbix, Nagios and Datadog HTTP checks, container and IIS healthchecks — producing a continuous fleet-wide baseline of matching connections at a fixed cadence."
+  - "Interactive administration of servers and network appliances over the OpenSSH client, ftp or tftp, including firmware pushes and scheduled configuration backups. ssh.exe cannot be told apart from scp or sftp on this event, so every interactive SSH session matches as readily as a file transfer."
+  - "certutil.exe retrieving a certificate revocation list or an issuer certificate during ordinary chain validation, and legacy installers and software-distribution agents that still stage payloads over ftp."
+level: low

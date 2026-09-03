@@ -1,0 +1,70 @@
+title: File encrypted with a symmetric cipher on the command line
+id: 9fe7b63a-a4ac-4299-bcb4-f7a7d40cdff5
+status: experimental
+description: |
+  A match is the encryption step alone. This rule sees no protocol, no
+  destination and no transferred byte, so a hit is not by itself evidence that
+  anything left the host, and because the same subcommands also decrypt, an
+  inbound file being unpacked matches identically to data being staged for
+  exfiltration. What it does detect is the manual symmetric step AN1390 pairs
+  with an outbound transfer — `openssl enc` or the bare `openssl <cipher>`
+  shorthand, `gpg --symmetric` or `gpg -c`, or an explicit AES, RC4, 3DES or
+  ChaCha20 algorithm name — which is the half of the analytic a single
+  process-creation event can carry; Sigma has no cross-event window, so MITRE's
+  FileTransferIndicator knob has no form in the rule and the transfer leg must
+  be confirmed from network telemetry before a hit means exfiltration rather
+  than local file encryption. The cipher-name selection deliberately carries no
+  process anchor so that a renamed binary or a wrapper script still matches on
+  the algorithm string, at the cost of matching any command line that names a
+  cipher, including TLS and VPN configuration. Written against the
+  `process_creation` category for Linux, whose `CommandLine` field is a
+  normalised join of the auditd SYSCALL and EXECVE records — a raw auditd feed
+  keeps the arguments in a separate EXECVE record and needs that mapping
+  applied before this rule can match at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0503, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1048/001
+  - https://attack.mitre.org/detectionstrategies/DET0503
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.exfiltration
+  - attack.t1048.001
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_openssl:
+    Image|endswith: '/openssl'
+    CommandLine|contains: ' enc'
+  selection_gpg:
+    Image|endswith:
+      - '/gpg'
+      - '/gpg1'
+      - '/gpg2'
+    CommandLine|contains:
+      - '--symmetric'
+      - '--cipher-algo'
+      - ' -c '
+  selection_cipher_name:
+    CommandLine|contains:
+      - 'aes-128-cbc'
+      - 'aes-192-cbc'
+      - 'aes-256-cbc'
+      - 'aes-256-ctr'
+      - 'aes-256-gcm'
+      - '-aes128'
+      - '-aes192'
+      - '-aes256'
+      - 'chacha20'
+      - '-des3'
+      - '-rc4'
+      - ' rc4 '
+  condition: selection_openssl or selection_gpg or selection_cipher_name
+falsepositives:
+  - "Container entrypoints and cloud-init provisioning that unseal a bundled config at start-up with openssl enc -d -aes-256-cbc. On any containerised estate this fires on every container start and every autoscaling event and is the loudest match by a wide margin, which is what the level below reflects."
+  - "Backup and database-export scripts that pipe a dump through openssl enc -aes-256-cbc before shipping it off the host, on a schedule and on every server, where only the destination separates the event from staged exfiltration. Pin the allowed script path and account rather than dropping the cipher terms."
+  - "Configuration-management and CI pipelines that seal or unseal a secrets file at deploy time with openssl enc or gpg --symmetric, producing a match on every build agent on every deployment."
+  - "Users protecting a document with a passphrase before sending it to an external party, which is the intended purpose of gpg --symmetric, and support staff decrypting one that arrived the same way."
+  - "Command lines that name a cipher without encrypting a file at all, such as curl, openvpn or stunnel invocations pinning an AES or ChaCha20 suite, and distribution package builds or regression suites that walk every cipher in the list within a single job."
+level: low

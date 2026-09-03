@@ -1,0 +1,60 @@
+title: attrib.exe or PowerShell sets the Hidden attribute on a file
+id: 4adc6542-eae3-42b6-83c8-12339c6e138f
+status: experimental
+description: |
+  AN0091 names two Windows mechanisms: attrib.exe setting the hidden
+  attribute, and PowerShell commands doing the same. Both are single-event,
+  literal observables on Sysmon EventID 1 and are what this rule matches --
+  attrib.exe invoked with the +h flag, or powershell.exe/pwsh.exe whose
+  command line names both Attributes and Hidden, the shape of
+  Set-ItemProperty -Name Attributes -Value Hidden and the equivalent
+  (Get-Item ...).Attributes = 'Hidden' idiom. AN0091's other defender view --
+  "creating files with ADS" -- is deliberately left out: alternate data
+  streams are a distinct concealment mechanism already covered by the
+  sibling T1564.004 rule, and folding it in here would duplicate that
+  selection rather than add a new one. AN0091's second logsource, Sysmon
+  EventID 11 (file_event), is also left out: it carries only TargetFilename
+  and the writing process, with no field for a file's attribute bits, so it
+  can show a file was created but never that it was marked hidden. The other
+  two analytics in this strategy are not attempted. AN0092's Linux
+  observable -- a file or directory created with a leading '.' -- is real on
+  the wire but not anomalous on its own: modern desktops and dev
+  environments write dot-prefixed files constantly as ordinary behaviour
+  (shell history, editor swap files, application caches, dotfile managers),
+  which is exactly what MITRE's own DirectoryScope knob concedes by naming
+  .ssh and .config as expected noise -- and DirectoryScope supplies no
+  directory list to scope it with, so populating one here would be an
+  invented value attributed to a MITRE knob that carries none. AN0093's
+  macOS logsource ({product: macos, service: unifiedlog}) has no established
+  Sigma field vocabulary anywhere in this corpus. Requires Sysmon installed
+  and configured to log EventID 1 with CommandLine capture, which is Sysmon's
+  default (unlike Security 4688, no separate audit policy is needed).
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0032, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/001
+  - https://attack.mitre.org/detectionstrategies/DET0032
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1564.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_attrib:
+    Image|endswith: '\attrib.exe'
+    CommandLine|contains: '+h'
+  selection_powershell:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+    CommandLine|contains|all:
+      - 'attributes'
+      - 'hidden'
+  condition: 1 of selection*
+falsepositives:
+  - "Windows itself and many installers routinely set +h on marker files such as desktop.ini, and some backup, DLP or antivirus quarantine tooling hides its own working folders with attrib.exe as a matter of course, all indistinguishable from an adversary's use of the same flag."
+  - "Login scripts and Group Policy-deployed batch files that hide a shared utility folder or config file from end users with attrib +h as a routine, sanctioned administrative pattern -- the technique's own description names exactly this as the reason hidden files exist at all."
+  - "Package managers, IDE tooling and dotfile-management utilities implemented in PowerShell that toggle the Hidden attribute on cache or config files during normal operation, matching the powershell selection with no malicious intent."
+level: low

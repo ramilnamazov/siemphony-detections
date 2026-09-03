@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)--install-extension</field>
+    <field name="CommandLine" type="pcre2">(?i)\.vsix</field>
+    <description>IDE extension side-loaded from a local package file</description>
+    <mitre>
+      <id>T1176.002</id>
+    </mitre>
+  </rule>
+</group>

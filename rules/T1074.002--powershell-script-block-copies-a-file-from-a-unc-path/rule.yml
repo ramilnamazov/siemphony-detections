@@ -1,0 +1,51 @@
+title: PowerShell script block copies a file from a UNC path
+id: aa8adf1c-5a06-433a-93d2-2b1edad68875
+status: experimental
+description: |
+  Matches a 4104 script block that both names a copy verb (Copy-Item or
+  robocopy) and contains a UNC path literal — the part of AN0194 that
+  actually says "remote": T1074 and T1074.001, already published in this
+  corpus, both match on a local write into a shared directory and cannot
+  tell a file that originated on the same host from one pulled across the
+  network. Requiring the UNC prefix in the same script block is the cheapest
+  way to recover that distinction from a single event, at the cost of not
+  knowing whether the UNC path is the source or the destination — Sigma
+  cannot parse Copy-Item's argument order, so a push in the wrong direction
+  matches identically to a remote pull. AN0194's other two log sources are
+  deliberately not used here: the SMBClient/Security channel's EventID 31001
+  fields are not documented with enough confidence to author against per this
+  corpus's own field-verification rule, and Sysmon EventID 11 (used by the
+  sibling rules above) only records the file that was created, never where it
+  came from, so it cannot carry the remote-origin signal at all. Script Block
+  Logging is off in a default install and in the MS and CIS baselines; without
+  it 4104 produces nothing, and an empty result means blind, not clean.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0071, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1074/002
+  - https://attack.mitre.org/detectionstrategies/DET0071
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1074.002
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_event:
+    EventID: 4104
+  selection_verb:
+    ScriptBlockText|contains:
+      - 'Copy-Item'
+      - 'copy-item'
+      - 'Robocopy'
+      - 'robocopy'
+  selection_unc:
+    ScriptBlockText|contains: '\\\\'
+  condition: selection_event and selection_verb and selection_unc
+falsepositives:
+  - "Logon scripts and Group Policy or SCCM/Intune deployment scripts, which are the single most common source of a Copy-Item or robocopy call against a UNC path in any managed estate and run on a predictable schedule under a service or machine account."
+  - "Folder-redirection and roaming-profile sync scripts that robocopy a user's Desktop or Documents to a UNC file-server path at logon or logoff — ordinary and expected on every session for estates that use roaming profiles."
+  - "Backup and disaster-recovery jobs that Copy-Item a nightly export to a UNC path on a dedicated backup share, producing a burst of identical matches across the fleet at the same time every night."
+  - "Build and release scripts that robocopy compiled artefacts to or from an internal UNC build share as part of a CI pipeline running PowerShell on a build agent."
+level: low

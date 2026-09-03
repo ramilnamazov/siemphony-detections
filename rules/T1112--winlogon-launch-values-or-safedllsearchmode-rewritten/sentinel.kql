@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (((RegistryKey contains "\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Userinit" or RegistryKey contains "\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell" or RegistryKey contains "\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Notify\\") and not ((RegistryValueData =~ "C:\\Windows\\system32\\userinit.exe," or RegistryValueData =~ "explorer.exe"))) or RegistryKey endswith "\\Control\\Session Manager\\SafeDllSearchMode")

@@ -1,0 +1,71 @@
+title: Memory-write handle opened to a GUI process by another process
+id: 1ea1cc09-1c4e-4708-b246-db506a8db0a6
+status: experimental
+description: |
+  AN1593's chain — locate the PEB via `NtQueryInformationProcess`, then
+  `WriteProcessMemory` the `KernelCallbackTable`, then trigger a hijacked
+  callback through a Windows message — has no step that Sysmon EventID 10
+  records directly: `WriteProcessMemory` is not a Sysmon event, and the PEB
+  offset written is invisible to any log source in this brief. What EventID
+  10 does record is the `OpenProcess` call that has to precede the write, so
+  this rule matches that handle acquisition and narrows it two ways: a
+  `GrantedAccess` mask that includes memory-write, memory-operation and
+  query-information rights (the minimum a `WriteProcessMemory` into another
+  process's PEB needs, plus the broader full-access variants), and a
+  `TargetImage` restricted to MITRE's `MonitoredProcesses` examples
+  (`explorer.exe`, `notepad.exe`) plus other classic GUI-shell processes
+  assembled here on the same logic — they load `user32.dll` and therefore
+  have a `KernelCallbackTable` too (`mspaint.exe`, `wordpad.exe`,
+  `calc.exe`). That combination is honestly a generic
+  "something opened a writable handle to a GUI process" proxy, not a
+  KernelCallbackTable-specific detector — any other injection technique
+  targeting the same processes (classic DLL injection, hollowing) produces
+  the same event, and legitimate UI-automation and accessibility tooling
+  requests the same rights routinely, which the false positives below name.
+  AN1593's `CallbackFunctions` and `AccessMaskThresholds` knobs describe a
+  finer-grained signal — which callback slot was patched, and how the access
+  mask compares to a per-process baseline — that this single event cannot
+  carry; `TimeWindow`, correlating the open with a later suspicious message
+  dispatch, needs a cross-event join lib/sigma does not model. Sysmon emits
+  EventID 10 only where the configuration carries a `ProcessAccess` rule, and
+  widely used baseline configurations scope that rule to `lsass.exe` alone —
+  on such a host this rule returns zero rows regardless of what ran.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0577, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/013
+  - https://attack.mitre.org/detectionstrategies/DET0577
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.013
+logsource:
+  category: process_access
+  product: windows
+detection:
+  selection_rights:
+    GrantedAccess:
+      - '0x1F0FFF'
+      - '0x1F1FFF'
+      - '0x1F2FFF'
+      - '0x1F3FFF'
+      - '0x1FFFFF'
+      - '0x1438'
+      - '0x438'
+      - '0x1428'
+      - '0x428'
+  selection_target:
+    TargetImage|endswith:
+      - '\explorer.exe'
+      - '\notepad.exe'
+      - '\mspaint.exe'
+      - '\wordpad.exe'
+      - '\calc.exe'
+  condition: selection_rights and selection_target
+falsepositives:
+  - "Endpoint protection, DLP and accessibility software (screen readers, UI-automation frameworks, keystroke/clipboard monitoring agents) that routinely opens a memory-write handle to explorer.exe or notepad.exe to hook input or inject a monitoring stub, and is the dominant source of matches on any managed estate — the reason this rule is not rated higher."
+  - "Remote-support and remote-desktop tools (TeamViewer, VNC helpers, and similar) that hook explorer.exe to render overlays or capture the desktop for a remote viewer."
+  - "Debuggers and crash handlers: WerFault.exe collecting a dump of a crashed notepad.exe or mspaint.exe, or an interactive attach from WinDbg or Visual Studio, both request full access."
+  - "Anti-cheat engines, DRM wrappers and application-compatibility shims that inject into common shell and utility processes by design and present the same access masks."
+level: low

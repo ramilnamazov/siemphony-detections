@@ -1,0 +1,48 @@
+title: Offline domain credential cache file read on a Linux host
+id: d917bd89-3391-47ad-9e23-5028bbd8847a
+status: experimental
+description: |
+  Matches a process launched with the path of an offline domain-credential
+  cache on its command line — the SSSD cache database and the Quest
+  authentication cache that AN1418 names, plus the SSSD secrets database, which
+  is added here rather than taken from MITRE. The match sits on CommandLine and
+  not on Image on purpose: AN1418 mentions tdbdump, but the file is equally
+  readable with cat, cp, strings or tar, and on auditd SYSCALL records the
+  `exe=` field holds the interpreter whenever the reader is wrapped in a shell
+  script or invoked through sudo, so keying on the executable would miss most
+  of the ways this actually happens. Two structural limits worth stating: a
+  reader invoked from inside the directory with a bare filename writes no
+  absolute path and is invisible here, and so is anything that opens the file
+  through a path built at runtime — the analytic's other source, an auditd
+  watch such as `-w /var/lib/sss/db/ -p r`, is the complement that catches
+  both. The Windows arm of this technique is not attempted here because the
+  command lines it would match, `reg save HKLM\SECURITY` and its variants, are
+  already covered by the T1003.002 rule in this corpus. auditd does not record
+  execve out of the box; without an explicit `-a always,exit -F arch=b64 -S
+  execve` rule this returns nothing at all, and zero rows means blind rather
+  than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0513, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1003/005
+  - https://attack.mitre.org/detectionstrategies/DET0513
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1003.005
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection:
+    CommandLine|contains:
+      - '/var/lib/sss/db/cache'
+      - '/var/lib/sss/secrets'
+      - '/var/opt/quest/vas/authcache'
+  condition: selection
+falsepositives:
+  - "The documented SSSD cache-clearing procedure, where an administrator, a configuration-management run or a package upgrade script removes the cache database by absolute path before restarting the daemon. This is routine on any estate with intermittent domain connectivity and is the most likely hit; MITRE's filepath knob is where the approved forms of the command belong."
+  - "Support and troubleshooting work on offline authentication failures, where an administrator or a vendor engineer runs tdbdump, ldbsearch, strings or plain cat against the cache to see which principals are held. The command is the same one this rule is written for and only the operator account separates them."
+  - "Backup, disaster-recovery and endpoint forensic-collection agents that enumerate the cache file by absolute path on a schedule, producing a predictable recurring hit under a service account at a fixed time."
+  - "Monitoring and compliance checks that stat, size or checksum the cache file to detect corruption, which match the path without ever reading its contents."
+level: high

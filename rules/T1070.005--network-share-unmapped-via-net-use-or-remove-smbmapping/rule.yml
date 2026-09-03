@@ -1,0 +1,52 @@
+title: Network share unmapped via net use or Remove-SmbMapping
+id: 91342374-abdb-4dca-bce7-ee8ff9ade64a
+status: experimental
+description: |
+  Matches AN0286's command-line half: a new process whose command line tears
+  down an SMB share mapping, either the built-in `net use \\host\share
+  /delete` (and its `net1.exe` twin, which `net.exe` re-execs on 64-bit
+  Windows for the same verb) or the PowerShell `Remove-SmbMapping` cmdlet.
+  This is deliberately not written against the brief's Security 4624/4648
+  logsource: those are Logon Session Creation events, and neither carries a
+  disconnect or session-teardown record at all, despite AN0286's own
+  description naming "SMB session teardown activity" as part of what it
+  correlates — there is no field on either EventID that reflects a share
+  being removed, so a rule keyed on them would validate and never fire. The
+  PowerShell 4103/4106 logsource is also not used: Remove-SmbMapping typed
+  into an already-open interactive console produces no new process_creation
+  event at all, only a module/script-block log entry, so this selection only
+  catches the cmdlet when it arrives as an argument to a freshly spawned
+  powershell.exe (e.g. `powershell -Command "Remove-SmbMapping -ShareName
+  *"`) — a real but partial view of MITRE's own NetworkShareNamePattern and
+  ProcessCommandLineRegex knobs, not the interactive case. MITRE's TimeWindow
+  knob (correlating the CLI command with the actual SMB session teardown) is
+  a cross-event join lib/sigma cannot express, so this fires on the command
+  line alone, with no confirmation the disconnect actually succeeded.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0103, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1070/005
+  - https://attack.mitre.org/detectionstrategies/DET0103
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1070.005
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_net_delete:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+    CommandLine|contains|all:
+      - 'use '
+      - '/delete'
+  selection_psh_removesmb:
+    CommandLine|contains: 'Remove-SmbMapping'
+  condition: 1 of selection*
+falsepositives:
+  - "Logon and logoff scripts, whether local GPO scripts or login scripts on a file server, that run `net use * /delete` or target a specific drive letter at every session end to tear down mapped drives before the next user logs on — the single highest-volume source of this command line on any domain-joined fleet."
+  - "SCCM, Intune and imaging/provisioning tooling that removes stale share mappings left from a previous user profile as a routine step of machine setup or re-provisioning."
+  - "VDI and RDS session-teardown scripts, and roaming-profile management tooling, that call Remove-SmbMapping or net use /delete against persistent share mappings when a non-persistent session ends, so this fires on every logoff in that environment."
+level: low

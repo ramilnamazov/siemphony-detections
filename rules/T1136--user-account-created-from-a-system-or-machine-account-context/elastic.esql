@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (event.code == 4720 AND TO_LOWER(user.name) LIKE "*$")

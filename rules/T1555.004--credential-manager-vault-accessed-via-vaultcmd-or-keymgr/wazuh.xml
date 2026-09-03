@@ -1,0 +1,23 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\vaultcmd\.exe$</field>
+    <description>Credential Manager vault accessed via vaultcmd or keymgr (1/2)</description>
+    <mitre>
+      <id>T1555.004</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\rundll32\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)keymgr\.dll</field>
+    <description>Credential Manager vault accessed via vaultcmd or keymgr (2/2)</description>
+    <mitre>
+      <id>T1555.004</id>
+    </mitre>
+  </rule>
+</group>

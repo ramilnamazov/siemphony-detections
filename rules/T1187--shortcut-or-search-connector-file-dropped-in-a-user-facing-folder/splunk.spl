@@ -1,0 +1,1 @@
+index=* ((TargetFilename="*.scf" OR TargetFilename="*.url" OR TargetFilename="*.library-ms" OR TargetFilename="*.searchConnector-ms") AND (TargetFilename="*\\Desktop\\*" OR TargetFilename="*\\Downloads\\*" OR TargetFilename="*\\Users\\Public\\*" OR TargetFilename="*\\Start Menu\\*" OR TargetFilename="*\\Templates\\*" OR TargetFilename="*\\AppData\\Local\\Temp\\*"))

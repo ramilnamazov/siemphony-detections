@@ -1,0 +1,1 @@
+index=* ((Image="*\\VBoxManage.exe" AND (CommandLine="*startvm*" AND CommandLine="*headless*")) OR Image="*\\VBoxHeadless.exe" OR (Image="*\\vmrun.exe" AND CommandLine="*nogui*"))

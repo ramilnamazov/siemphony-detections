@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\winvnc.exe" or FolderPath endswith "\\winvnc4.exe" or FolderPath endswith "\\vncserver.exe" or FolderPath endswith "\\vncserverui.exe" or FolderPath endswith "\\vncviewer.exe" or FolderPath endswith "\\tvnserver.exe" or FolderPath endswith "\\tvnviewer.exe" or FolderPath endswith "\\uvnc_service.exe")

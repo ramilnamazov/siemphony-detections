@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((ProcessCommandLine contains "Terminal Server Client" or ProcessCommandLine contains "Default.rdp") and (ProcessCommandLine contains " delete " or ProcessCommandLine contains "del " or ProcessCommandLine contains "rd " or ProcessCommandLine contains "rmdir " or ProcessCommandLine contains "Remove-Item")) or ((FolderPath endswith "\\netsh.exe" and ProcessCommandLine contains "advfirewall") and (ProcessCommandLine contains " reset" or ProcessCommandLine contains "delete rule")))

@@ -1,0 +1,63 @@
+title: Group Policy Preferences password tooling or SYSVOL XML search
+id: 2ce0c2ec-2a9a-4579-b993-66b655a200f1
+status: experimental
+description: |
+  Matches the two command-line steps AN1075 describes, both on `CommandLine` so
+  the whole rule sits in one field. The first arm names the published decryptors
+  and the `cpassword` attribute itself — the XML attribute holding the AES blob,
+  which anything reading or grepping for a Group Policy Preferences password has
+  to name somewhere. The second arm requires a path under SYSVOL together with a
+  reference to XML, which is the enumeration step MITRE spells out in the
+  technique text as `dir /s *.xml` against the policy share — with the caveat
+  that `dir` is a cmd builtin and `Get-ChildItem` a cmdlet, so neither creates a
+  process when typed into a shell that is already open. The second arm therefore
+  sees the `cmd /c` and `powershell -c` one-liner forms, `findstr`, and compiled
+  tooling; it does not see the interactive session, and an operator working from
+  a mapped drive rather than the UNC path misses the `\sysvol` gate as well.
+  MITRE supplies the KnownToolsSignature knob; the term list here is authored. The brief's other
+  three sources were not used: Sysmon EventID 11 is file creation and cannot see
+  a policy file being read, Security 5145 fires for every domain member at every
+  policy refresh, and the PowerShell source is described only as scripts with
+  XML or AES logic, which is not a field-level observable. Vocabulary note — the
+  brief maps Sysmon EventID 1 onto `category: process_creation`, and this rule is
+  written in that vocabulary; an estate feeding Security 4688 into the same
+  category gets `CommandLine` only after enabling *Include command line in
+  process creation events* on top of *Audit Process Creation*, neither of which
+  is on by default. Two limits worth stating: the decryption key is public and
+  the work is offline, so an operator who copies Groups.xml aside with Explorer
+  or robocopy and decrypts it elsewhere leaves no matching command line; and a
+  bespoke script that parses the XML without naming cpassword or a known tool is
+  invisible to both arms.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0381, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1552/006
+  - https://attack.mitre.org/detectionstrategies/DET0381
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1552.006
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tooling:
+    CommandLine|contains:
+      - 'Get-GPPPassword'
+      - 'gpprefdecrypt'
+      - 'gpp-decrypt'
+      - 'gpp_password'
+      - 'gpp_autologin'
+      - 'cpassword'
+      - 'gather/credentials/gpp'
+  selection_sysvol:
+    CommandLine|contains: '\\sysvol'
+  selection_xml:
+    CommandLine|contains: '.xml'
+  condition: selection_tooling or (selection_sysvol and selection_xml)
+falsepositives:
+  - "Group Policy backup, reporting and migration tooling that names policy XML under the SYSVOL path on a schedule — scripted GPMC backups, change-control products and Get-GPOReport pipelines all do this from a management server, and on a domain with that automation in place it is the dominant match for the second arm by a wide margin."
+  - "Sanctioned hygiene work, because the standard remediation check for leftover Group Policy Preferences passwords is to run Get-GPPPassword or grep the policy share for cpassword. An internal audit, a purple-team exercise or a vendor assessment matches the first arm exactly, using the same tools for the same strings."
+  - "SYSVOL replication health checks and file-integrity monitoring that walk the replicated policy tree and enumerate every .xml file in it, typically as a domain controller service account at a fixed interval."
+  - "Documentation and inventory scripts that run `dir /s *.xml` or a Get-ChildItem equivalent against the policy share to build a GPO inventory or feed a configuration-management database."
+level: medium

@@ -1,0 +1,1 @@
+index=* (TargetObject="*\\Services\\W32Time\\TimeProviders\\*" AND TargetObject="*\\DllName")

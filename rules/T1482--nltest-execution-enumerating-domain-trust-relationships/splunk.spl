@@ -1,0 +1,1 @@
+index=* (Image="*\\nltest.exe" AND (CommandLine="*/domain_trusts*" OR CommandLine="*/trusted_domains*" OR CommandLine="*/all_trusts*"))

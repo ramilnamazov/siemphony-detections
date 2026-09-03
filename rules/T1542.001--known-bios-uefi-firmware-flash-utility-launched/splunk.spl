@@ -1,0 +1,1 @@
+index=* (Image="*\\fwupdate.exe" OR Image="*\\afuwin.exe" OR Image="*\\afudos.exe" OR Image="*\\h2offt.exe" OR Image="*\\h2offtwin64.exe" OR Image="*\\winflash.exe")

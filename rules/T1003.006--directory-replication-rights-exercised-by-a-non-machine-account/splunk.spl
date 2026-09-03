@@ -1,0 +1,1 @@
+index=* ((EventID="4662" AND AccessMask="0x100" AND (Properties="*1131f6aa-9c07-11d1-f79f-00c04fc2dcd2*" OR Properties="*1131f6ad-9c07-11d1-f79f-00c04fc2dcd2*" OR Properties="*89e95b76-444d-4c62-991a-0facbeda640c*")) AND NOT (SubjectUserName="*$"))

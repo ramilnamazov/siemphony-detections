@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) LIKE "*\\\\outlook.exe" AND (TO_LOWER(file.path) LIKE "*\\\\vbscript.dll" OR TO_LOWER(file.path) LIKE "*\\\\scrobj.dll"))

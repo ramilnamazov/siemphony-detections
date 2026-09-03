@@ -1,0 +1,1 @@
+index=* (Image="System" AND (TargetFilename="*.exe" OR TargetFilename="*.dll" OR TargetFilename="*.sys" OR TargetFilename="*.ps1" OR TargetFilename="*.bat" OR TargetFilename="*.cmd" OR TargetFilename="*.vbs" OR TargetFilename="*.hta" OR TargetFilename="*.scr"))

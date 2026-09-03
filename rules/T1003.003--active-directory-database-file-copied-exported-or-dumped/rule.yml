@@ -1,0 +1,51 @@
+title: Active Directory database file copied, exported or dumped
+id: 44618d2d-4365-4e90-a089-50cd102e9906
+status: experimental
+description: |
+  Matches a command line that names the Active Directory database or a tool that
+  extracts it — ntds.dit itself, the NTDS directory on a domain controller,
+  ntdsutil, whose install-from-media mode writes a full copy of the database,
+  Invoke-NinjaCopy, which the technique names, and NTDSDumpEx, a closely related
+  dumping utility added here. This is the only rule in the corpus
+  keyed on the directory database: the neighbouring credential-dumping rules match
+  handles opened against lsass.exe (T1003, T1003.001) or copies of the local SAM,
+  SYSTEM and SECURITY hives (T1003.002, T1003.004), none of which touch a domain
+  controller's NTDS. Shadow copy creation, which AN1611 also names, is deliberately
+  not matched, because backup and imaging software creates shadow copies
+  continuously and those hits would bury everything else. secretsdump.py, the
+  other tool the technique names, has no selector either: its default DRSUAPI
+  replication mode runs from a remote host against the domain controller's
+  directory service and creates no process on the controller for this logsource to
+  observe, so it is structurally out of scope here and only its local-file mode
+  would match incidentally, through the ntds.dit term. The analytic's process
+  source is Security EventID 4688, so Audit Process Creation must be enabled and,
+  because every term here sits on the arguments, the separate Include command line
+  in process creation events policy as well — with either one off this rule matches
+  nothing while looking healthy.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0586, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1003/003
+  - https://attack.mitre.org/detectionstrategies/DET0586
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1003.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'ntds.dit'
+      - 'ntdsutil'
+      - 'Windows\NTDS'
+      - 'Invoke-NinjaCopy'
+      - 'NTDSDumpEx'
+  condition: selection
+falsepositives:
+  - "Domain controller promotion and demotion. The AD DS installation role writes and references the NTDS directory by path, and administrators build install-from-media sets with ntdsutil for a new or read-only controller, which is the same command an adversary uses to dump the database."
+  - "Scheduled offline maintenance of the directory database — compaction, integrity checks and semantic analysis are all run through ntdsutil and are routine domain controller housekeeping."
+  - "Backup, replication and disaster-recovery agents whose command lines name the NTDS path when they capture or restore system state on a domain controller. These recur on a fixed schedule under a service account, which is what MITRE's ParentProcessName knob is there to suppress."
+  - "Authorised red-team engagements and detection-validation suites, which run ntdsutil install-from-media and Invoke-NinjaCopy verbatim as part of a credential-access test."
+level: high

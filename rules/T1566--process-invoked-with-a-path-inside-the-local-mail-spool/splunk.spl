@@ -1,0 +1,1 @@
+index=* ((CommandLine="*/var/mail/*" OR CommandLine="*/var/spool/mail/*" OR CommandLine="*/Maildir/*") AND NOT ((Image="*/procmail" OR Image="*/dovecot" OR Image="*/sendmail" OR Image="*/postfix")))

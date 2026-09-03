@@ -1,0 +1,64 @@
+title: Detect a document or browser process spawning a scripting host
+id: c1ec8e56-668a-4132-9e6e-05773b40b2db
+status: experimental
+description: |
+  Matches process lineage where a client application that renders untrusted content
+  — an Office application, a PDF reader, the equation editor, or a browser — is the
+  parent of an interpreter or living-off-the-land binary. That parent/child pair is
+  the observable side of successful client-side exploitation: the document or page
+  itself is not in the telemetry, only the shell it obtained. The child list is
+  MITRE's HighRiskChildren knob written out as literals. The analytic's full chain
+  (Application EventID 1000 crash, then a write to a user-writable path, then
+  outbound egress within a window) is a multi-source correlation Sigma cannot
+  express, so the lineage event alone is authored here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0287, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1203
+  - https://attack.mitre.org/detectionstrategies/DET0287
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1203
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_parent:
+    ParentImage|endswith:
+      - '\winword.exe'
+      - '\excel.exe'
+      - '\powerpnt.exe'
+      - '\outlook.exe'
+      - '\msaccess.exe'
+      - '\visio.exe'
+      - '\onenote.exe'
+      - '\eqnedt32.exe'
+      - '\acrord32.exe'
+      - '\acrobat.exe'
+      - '\foxitreader.exe'
+      - '\chrome.exe'
+      - '\msedge.exe'
+      - '\firefox.exe'
+      - '\iexplore.exe'
+  selection_child:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\msiexec.exe'
+      - '\certutil.exe'
+      - '\bitsadmin.exe'
+      - '\curl.exe'
+      - '\schtasks.exe'
+  condition: selection_parent and selection_child
+falsepositives:
+  - "Office add-ins and templates that legitimately shell out. A COM add-in repairing itself calls `msiexec.exe`, and several vendor add-ins invoke `rundll32.exe` on load. MITRE's AllowedPlugins knob is the intended suppression — allow-list the add-in's own child command line, not the child image on its own."
+  - "Sanctioned internal workbooks and documents whose VBA macros call `cmd.exe` or `powershell.exe` to refresh data or push a file. The lineage is identical to exploitation; only the document's origin distinguishes them, and that is not in this event."
+  - "Browser self-update and enterprise extension deployment, where `chrome.exe` or `msedge.exe` launches `msiexec.exe` or a signed updater. These recur on a fixed cadence under the same install path and should be baselined out by parent command line rather than by shrinking the child list."
+level: high

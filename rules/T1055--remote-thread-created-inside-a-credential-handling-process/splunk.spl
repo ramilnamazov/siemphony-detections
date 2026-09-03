@@ -1,0 +1,1 @@
+index=* (TargetImage="*\\winlogon.exe" OR TargetImage="*\\explorer.exe" OR TargetImage="*\\logonui.exe" OR TargetImage="*\\credentialuibroker.exe" OR TargetImage="*\\chrome.exe" OR TargetImage="*\\msedge.exe" OR TargetImage="*\\firefox.exe")

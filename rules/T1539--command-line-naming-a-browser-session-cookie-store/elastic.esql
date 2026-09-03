@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*\\\\network\\\\cookies*" OR TO_LOWER(process.command_line) LIKE "*\\\\user data\\\\default\\\\cookies*" OR TO_LOWER(process.command_line) LIKE "*cookies.sqlite*")

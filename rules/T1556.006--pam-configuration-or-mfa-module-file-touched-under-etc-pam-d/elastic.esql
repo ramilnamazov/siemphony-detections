@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "path" AND TO_LOWER(name) LIKE "*/etc/pam.d/*") OR (TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*/pam_google_authenticator.so" OR TO_LOWER(name) LIKE "*/pam_duo.so" OR TO_LOWER(name) LIKE "*/pam_oath.so" OR TO_LOWER(name) LIKE "*/pam_yubico.so" OR TO_LOWER(name) LIKE "*/pam_u2f.so" OR TO_LOWER(name) LIKE "*/pam_radius_auth.so")))

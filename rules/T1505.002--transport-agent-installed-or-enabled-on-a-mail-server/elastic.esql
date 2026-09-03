@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (event.code == 4104 AND (TO_LOWER(powershell.file.script_block_text) LIKE "*install-transportagent*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*enable-transportagent*" OR TO_LOWER(powershell.file.script_block_text) LIKE "*set-transportagent*"))

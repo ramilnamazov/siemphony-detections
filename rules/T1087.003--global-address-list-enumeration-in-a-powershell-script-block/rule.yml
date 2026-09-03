@@ -1,0 +1,75 @@
+title: Global address list enumeration in a PowerShell script block
+id: cf3a5de4-27ce-42a4-bacd-15fda262413f
+status: experimental
+description: |
+  Matches the scripted half of AN0641: a PowerShell script block naming an
+  Exchange address-book cmdlet or one of the published mail-harvesting
+  functions that read a global address list. MITRE's `CommandLinePattern` knob
+  asks for variations of Get-GlobalAddressList, Get-Recipient and related
+  cmdlets; the term list below is that knob populated here with the address-list
+  and distribution-group readers plus the MailSniper harvest functions, and the
+  values are authored, not supplied by MITRE.
+  Get-Mailbox is deliberately left out. It is how a large share of routine
+  mailbox administration begins, and as a `contains` term it would also catch
+  Get-MailboxStatistics, Get-MailboxDatabase and Get-MailboxFolderStatistics —
+  the same reason Connect-ExchangeOnline is excluded from this corpus's
+  T1114.002 rule. Expect one deliberate overlap with that rule: it also carries
+  Get-GlobalAddressList, as a mail-harvesting toolkit term, so a script that
+  calls the cmdlet will alert under both technique ids.
+  `ScriptBlockText` holds the script as the engine compiled it, so an
+  `-EncodedCommand` payload arrives decoded — but decoded is not deobfuscated.
+  Name splitting (`"Get-Global"+"AddressList"`), backtick insertion and wildcard
+  command resolution (`&(gcm Get-Global*)`) all survive compilation and defeat
+  every literal term here. AN0641's Sysmon EventID 1 arm is not used: Exchange
+  cmdlets are normally issued inside an already-established remote session, so
+  the cmdlet name reaches a process `CommandLine` only in the one-liner form and
+  process creation would miss the ordinary case. The brief also lists EventIDs
+  4103, 4105 and 4106; 4103 module-logging records carry the same names in
+  `Payload` rather than `ScriptBlockText`, which needs a separate rule with a
+  different field, so this one selects 4104 only.
+  MITRE's `HostRole` knob — suppress expected usage on Exchange servers and
+  known IT admin consoles — has no field in a single 4104 record and has to be
+  applied when the rule is deployed, and its `TimeWindow` knob is a burst over
+  an interval that Sigma does not model. EventID 4104 requires *Script Block
+  Logging* to be enabled by policy; it is off in a default install, and with it
+  off this rule returns zero rows, which reads as quiet when it means blind.
+  The rule can also only see hosts whose PowerShell is logged — a direct Graph
+  or EWS call, an OWA session in a browser, or an unmanaged machine writes
+  nothing here, and the Office Suite half of this technique lives in the
+  tenant's own audit log rather than in any Windows event channel.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0229, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1087/003
+  - https://attack.mitre.org/detectionstrategies/DET0229
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1087.003
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection:
+    EventID: 4104
+    ScriptBlockText|contains:
+      - 'Get-GlobalAddressList'
+      - 'Get-AddressList'
+      - 'Get-OfflineAddressBook'
+      - 'Get-Recipient'
+      - 'Get-EXORecipient'
+      - 'Get-DistributionGroupMember'
+      - 'Get-DynamicDistributionGroupMember'
+      - 'Invoke-DomainHarvestOWA'
+      - 'Invoke-UsernameHarvestOWA'
+      - 'Invoke-UsernameHarvestSMTP'
+      - 'Invoke-UsernameHarvestEWS'
+  condition: selection
+falsepositives:
+  - "Joiner, mover and leaver automation and mailbox provisioning runbooks that call Get-Recipient once per identity on a schedule under a service account. This is the densest recurring match by a wide margin, and allowlisting those service accounts is the first tuning step rather than an optional refinement."
+  - "Exchange and messaging administrators running Get-GlobalAddressList, Get-AddressList and Get-OfflineAddressBook as ordinary address-book and offline-address-book troubleshooting — the same cmdlets an adversary reaches for, run by the team whose job it is."
+  - "Distribution-list hygiene and org-chart reporting scripts that walk Get-DistributionGroupMember across every group in the tenant on a nightly timer."
+  - "Address-book synchronisation connectors for CRM, telephony and mobile device management platforms, which pull the global address list on an interval to populate their own directory copy."
+  - "Authorised phishing simulation and red-team assessment work, where MailSniper is the standard tool and Invoke-DomainHarvestOWA and Invoke-UsernameHarvestOWA are its address-discovery functions."
+  - "Substring collisions on Get-Recipient, which also matches Get-RecipientPermission, Get-RecipientFilterConfig and Get-RecipientStatisticsReport — configuration and reporting reads with no address enumeration in them."
+level: medium

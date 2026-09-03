@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((InitiatingProcessFolderPath endswith "\\userinit.exe" and not (FolderPath endswith "\\Windows\\explorer.exe")) and not ((ProcessCommandLine contains "\\netlogon\\" or ProcessCommandLine contains "\\sysvol\\")))

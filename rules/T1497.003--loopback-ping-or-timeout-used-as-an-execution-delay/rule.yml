@@ -1,0 +1,52 @@
+title: Loopback ping or timeout used as an execution delay
+id: 39035d78-d0de-4b17-a6e3-5e1eb7c72f20
+status: experimental
+description: |
+  Matches the one delay primitive AN0396 names by example that leaves a process
+  behind — a ping aimed at the loopback address — and the closely related
+  timeout.exe run with the /nobreak switch, chosen here rather than named by the
+  analytic, as the visible half of the sleep loops malware uses to outlast a
+  sandbox's analysis window. A
+  ping to 127.0.0.1, localhost or ::1 has no connectivity purpose, and that is
+  what separates a deliberate wait from the ordinary reachability check ping is
+  otherwise used for; /nobreak is the equivalent gate on timeout, since
+  suppressing the keypress exit is what turns it into a fixed delay. The
+  analytic's SleepDurationThreshold knob cannot be applied: no construct
+  available here compares the numeric argument, so a two-second wait and a
+  twenty-minute one match identically, and delays taken in-process through Sleep
+  or WaitForSingleObject — which the same analytic mentions — create no process
+  at all and are invisible to this log source. Where this category is fed by
+  Security EventID 4688 rather than Sysmon EventID 1, both Audit Process Creation
+  and the separate Include command line in process creation events policy must be
+  enabled, or CommandLine is empty and the rule matches nothing while looking
+  healthy.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0141, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1497/003
+  - https://attack.mitre.org/detectionstrategies/DET0141
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.discovery
+  - attack.t1497.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_ping_loopback:
+    Image|endswith: '\ping.exe'
+    CommandLine|contains:
+      - '127.0.0.1'
+      - 'localhost'
+      - '::1'
+  selection_timeout_nobreak:
+    Image|endswith: '\timeout.exe'
+    CommandLine|contains|windash: '/nobreak'
+  condition: 1 of selection*
+falsepositives:
+  - "Software installer, updater and uninstaller batch wrappers that wait for a service stop or a file lock to clear with a loopback ping, still the standard sleep idiom in .bat and .cmd files. On any fleet with routine software deployment this is the highest-volume match by a wide margin and should be scoped out by parent or by deployment window before the rule is alerted on."
+  - "Configuration-management and OS deployment task sequences that pause between reboot-sensitive steps with timeout /t 30 /nobreak, which fires once per step on every managed host each time the sequence runs."
+  - "Logon, logoff and scheduled maintenance scripts that pause with a loopback ping before retrying a mapped drive, printer or network share connection."
+  - "Vendor diagnostic and health-check scripts that ping localhost to confirm the local TCP/IP stack is responding before running further tests."
+level: low

@@ -1,0 +1,1 @@
+index=* ((Image="*/docker" OR Image="*/podman" OR Image="*/nerdctl") AND (CommandLine="*--restart=always*" OR CommandLine="*--restart always*" OR CommandLine="*--restart=unless-stopped*" OR CommandLine="*--restart unless-stopped*"))

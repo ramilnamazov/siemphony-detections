@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\mavinject.exe" or FolderPath endswith "\\mavinject32.exe") and (ProcessCommandLine contains "-INJECTRUNNING" or ProcessCommandLine contains "/INJECTRUNNING" or ProcessCommandLine contains "–INJECTRUNNING" or ProcessCommandLine contains "—INJECTRUNNING" or ProcessCommandLine contains "―INJECTRUNNING" or ProcessCommandLine contains "-HMODULE" or ProcessCommandLine contains "/HMODULE" or ProcessCommandLine contains "–HMODULE" or ProcessCommandLine contains "—HMODULE" or ProcessCommandLine contains "―HMODULE"))

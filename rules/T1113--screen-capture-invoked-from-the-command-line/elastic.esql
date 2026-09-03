@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*copyfromscreen*" OR TO_LOWER(process.command_line) LIKE "*copypixeloperation*" OR TO_LOWER(process.command_line) LIKE "*system.drawing.bitmap*" OR TO_LOWER(process.command_line) LIKE "*drawing.graphics]::fromimage*" OR TO_LOWER(process.command_line) LIKE "*bitblt*" OR TO_LOWER(process.command_line) LIKE "*printwindow*" OR TO_LOWER(process.command_line) LIKE "*savescreenshot*" OR TO_LOWER(process.command_line) LIKE "*psr.exe /start*" OR TO_LOWER(process.command_line) LIKE "*get-screenshot*")

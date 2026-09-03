@@ -1,0 +1,2 @@
+DeviceFileEvents
+| where (FolderPath endswith ":\\Program.exe" or FolderPath endswith ":\\Program Files.exe" or FolderPath endswith ":\\Documents.exe" or FolderPath endswith "\\Program Files\\Common.exe" or FolderPath endswith "\\Program Files (x86)\\Common.exe")

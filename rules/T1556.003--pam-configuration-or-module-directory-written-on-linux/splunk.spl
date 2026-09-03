@@ -1,0 +1,1 @@
+index=* ((type="PATH" AND name="*/etc/pam.d/*") OR (type="PATH" AND name="*/lib/security/*") OR (type="PATH" AND (name="*/lib/x86_64-linux-gnu/security/*" OR name="*/usr/lib/x86_64-linux-gnu/security/*")))

@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_access,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetImage" type="pcre2">(?i)\\lsass\.exe$</field>
+    <field name="GrantedAccess" type="pcre2">(?i)(^0x1F0FFF$|^0x1F1FFF$|^0x1F2FFF$|^0x1F3FFF$|^0x1FFFFF$|^0x143A$|^0x1438$|^0x1410$|^0x1010$)</field>
+    <description>Memory-read handle opened against the LSASS process</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+  </rule>
+</group>

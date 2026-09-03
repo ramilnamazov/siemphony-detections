@@ -1,0 +1,43 @@
+title: Command line naming a browser session cookie store
+id: 362adbe6-cd06-435e-8e41-0ad8e0e31a9f
+status: experimental
+description: |
+  AN1402's on-disk leg: a process created with a browser session-cookie
+  database named on its command line. MITRE's TargetCookiePaths knob supplies
+  the shape of what to look for — it gives the Chrome path under
+  AppData\Local\Google\Chrome\User Data\Default\Cookies — and the three
+  fragments matched here are authored from it, extended to the modern Chromium
+  layout where the store moved into a per-profile Network directory, and to
+  Firefox's cookies.sqlite. Only the copy-and-carry variant is visible this
+  way: a stealer that opens the file through the Win32 API, or that reads the
+  browser's memory, writes no command line at all, and the memory leg of the
+  analytic needs Sysmon EventID 10, which is a different log source than the
+  one this rule is written against. Security 4688 is off in a default install
+  and needs Audit Process Creation, and its CommandLine field needs the
+  separate Include command line in process creation events policy — without
+  both, this rule returns nothing because nothing is being collected.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0509, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1539
+  - https://attack.mitre.org/detectionstrategies/DET0509
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1539
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - '\Network\Cookies'
+      - '\User Data\Default\Cookies'
+      - 'cookies.sqlite'
+  condition: selection
+falsepositives:
+  - "Backup, endpoint-DLP and profile-migration agents that walk the user profile by absolute path. When one of them names the cookie database on its command line the event is byte-for-byte what a stealer produces, and only the parent process and the schedule tell them apart."
+  - "Browser support scripts that delete or reset a corrupted cookie store, and the profile-teardown steps some VDI and roaming-profile logoff scripts run at the end of every session — these recur at predictable times across the whole estate."
+  - "Forensic and incident-response tooling run by the security team itself, which reads the same file for entirely legitimate reasons and is the most likely source of the first hit this rule ever produces."
+  - "Browser automation and test harnesses that point a driver at a seeded profile directory, which puts a cookie path on the command line as part of an ordinary build."
+level: high

@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey contains "\\CurrentControlSet\\Services\\" and (RegistryKey endswith "\\ImagePath" or RegistryKey endswith "\\FailureCommand" or RegistryKey endswith "\\Parameters\\ServiceDll"))

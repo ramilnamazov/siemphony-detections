@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey contains "\\Outlook\\WebView\\" or RegistryKey contains "\\Outlook\\Today\\UserDefinedUrl" or RegistryKey contains "\\Outlook\\Security\\EnableRoamingFolderHomepages")

@@ -1,0 +1,1 @@
+index=* ((EventID="4104" AND (ScriptBlockText="*Add-MpPreference*" OR ScriptBlockText="*Set-MpPreference*")) AND (ScriptBlockText="*-ExclusionPath*" OR ScriptBlockText="*-ExclusionExtension*" OR ScriptBlockText="*-ExclusionProcess*" OR ScriptBlockText="*-ExclusionIpAddress*"))

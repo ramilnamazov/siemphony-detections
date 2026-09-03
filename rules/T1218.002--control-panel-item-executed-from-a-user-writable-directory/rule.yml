@@ -1,0 +1,69 @@
+title: Control panel item executed from a user-writable directory
+id: 89981383-b1b5-4163-87d7-1ab30b051bcb
+status: experimental
+description: |
+  Matches the first arm of AN0558: control.exe or rundll32.exe created with a
+  command line that names a .cpl file living under a directory an unprivileged
+  user can write to. A .cpl is a renamed DLL exporting `CPlApplet`, so both
+  binaries load and run it in their own process — that load is the proxy
+  execution this technique is about, and a payload delivered by phishing lands
+  in Downloads, %TEMP% or %AppData% rather than in System32.
+  The path clause is MITRE's `CPLPathRegex` knob, whose description says to tune
+  it to exclude the legitimate applets in System32; the directory list below is
+  authored here, not supplied by MITRE. The consequence is stated plainly: an
+  applet staged into System32 by an adversary who already has write access
+  there, one launched from a UNC share, and one loaded through the
+  `CPlApplet` API rather than from a command line all fall outside this rule.
+  So does a payload renamed away from the .cpl extension: shell32's
+  `Control_RunDLL` loads whatever DLL it is handed regardless of what the file
+  is called, so `rundll32.exe shell32.dll,Control_RunDLL invoice.dat` proxies
+  the same applet past the `.cpl` clause.
+  Both `contains` clauses are independent, so nothing requires the .cpl string
+  and the writable path to belong to the same token on the command line.
+  AN0558's other three log sources are not attempted. Its file_event (Sysmon
+  EventID 11) and image_load (EventID 7) arms only mean anything joined to the
+  execution through the `NewFileTimeWindow` knob, and Sigma models neither a
+  timeframe nor a join; its registry_add (EventID 12) arm for newly registered
+  Control Panel items turns on `RegistryKeyAllowlist`, a list of known-good
+  entries the brief supplies no values for.
+  This rule is written in the Sysmon EventID 1 vocabulary (`Image`,
+  `CommandLine`) that AN0558 names. An estate feeding Security 4688 instead
+  needs `NewProcessName` mapped onto `Image` first, and 4688 needs both *Audit
+  Process Creation* and the separate *Include command line in process creation
+  events* policy before `CommandLine` exists at all — neither is on in a default
+  install or in the Microsoft and CIS baselines.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0194, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/002
+  - https://attack.mitre.org/detectionstrategies/DET0194
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_proxy_binary:
+    Image|endswith:
+      - '\control.exe'
+      - '\rundll32.exe'
+  selection_cpl:
+    CommandLine|contains: '.cpl'
+  selection_writable_path:
+    CommandLine|contains:
+      - '\AppData\'
+      - '\Temp\'
+      - '\Users\Public\'
+      - '\Downloads\'
+      - '\ProgramData\'
+      - '\Windows\Tasks\'
+      - '\PerfLogs\'
+  condition: selection_proxy_binary and selection_cpl and selection_writable_path
+falsepositives:
+  - "Vendor installers and per-user application installs that stage their own control panel applet under %LOCALAPPDATA% or %ProgramData% and open it through control.exe at the end of setup. This recurs on every deployment and every update of that product, and is best cut by allowlisting the installer parent process, which is MITRE's ParentProcessName knob applied with your own values."
+  - "Software packaging and deployment agents such as Configuration Manager or Intune, which unpack a payload into %WINDIR%\\Temp or %ProgramData% and then invoke rundll32.exe shell32.dll,Control_RunDLL against the unpacked applet as part of a scripted install."
+  - "A help desk engineer copying a settings applet into %TEMP% or Downloads to run it on a machine where the System32 copy is missing, damaged, or blocked for that user."
+  - "Any command line that merely mentions a .cpl filename while also containing one of these directories without executing an applet, for example a copy, logging or repair argument passed to rundll32.exe, since the two contains clauses are evaluated independently of each other."
+level: medium

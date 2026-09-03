@@ -1,0 +1,1 @@
+index=* | where (match(type, "(?i)^PATH$") AND match(name, "^/proc/[0-9]+/(mem|maps)$"))

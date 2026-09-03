@@ -1,0 +1,2 @@
+Event
+| where (EventID == 4104 and (ScriptBlockText contains "WebViewURL" or ScriptBlockText contains "WebViewOn" or ScriptBlockText contains "Outlook\\WebView"))

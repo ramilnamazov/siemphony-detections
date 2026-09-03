@@ -1,0 +1,56 @@
+title: Service execution or recovery registry value rewritten
+id: 77e94954-f423-4b75-a9b7-5047c8325302
+status: experimental
+description: |
+  AN1195's `MonitoredServiceKeys` knob names `ImagePath`, `ServiceDll`,
+  `FailureCommand` and the `Parameters` subkey as the values a weak ACL lets
+  an attacker rewrite to redirect what a service launches; this rule matches
+  a registry write under `CurrentControlSet\Services\` to any of those value
+  names. The brief's `sigmaLogsource` for this leg is `registry_set` with no
+  `service` qualifier, which is Sysmon's EventID 13 shape (`TargetObject`
+  carries the full key-plus-value path, `Details` carries the written data),
+  and that is the vocabulary this rule is written in. The brief also lists
+  Security EventID 4657 for the same analytic, but 4657 is a structurally
+  different feed — it splits the key and value into separate `ObjectName` and
+  `ObjectValueName` fields rather than Sysmon's single `TargetObject` — so
+  turning on *Audit Registry* and a SACL on the Services key would not make
+  this rule see anything; it would need its own field mapping. The System
+  7040 leg (service start-type changed) is a different signal again — a
+  configuration change surfaced by the Service Control Manager, not the
+  registry write itself — and is likewise not combined here. This rule cannot
+  express AN1195's `BaselineServiceConfig` or `TimeWindow` knobs: comparing a
+  new value against a known-good baseline, or correlating the write with the
+  service process that starts afterward, both need state or a cross-event
+  join lib/sigma does not model, so a hit is evidence of a rewrite and not by
+  itself evidence that the new value is wrong. Sysmon is not installed by
+  default, and most shipped configurations exclude the high-volume `Services`
+  subtree from EventID 13 entirely — on such a host this rule returns zero
+  rows, which reads as quiet but means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0427, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/011
+  - https://attack.mitre.org/detectionstrategies/DET0427
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.011
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection_service_key:
+    TargetObject|contains: '\CurrentControlSet\Services\'
+  selection_value_name:
+    TargetObject|endswith:
+      - '\ImagePath'
+      - '\FailureCommand'
+      - '\Parameters\ServiceDll'
+  condition: selection_service_key and selection_value_name
+falsepositives:
+  - "Ordinary service installation through sc.exe create, New-Service, or an MSI/EXE installer's service-install custom action, which writes ImagePath for every new service on every host — this is the highest-volume source of matches here and fires on essentially any software or driver install that registers a service."
+  - "Windows Update and component servicing rewriting ServiceDll for in-box svchost-hosted services (BITS, wuauserv, and similar) as part of a cumulative update, even though the referenced DLL file itself did not move."
+  - "Endpoint-management agents such as Configuration Manager or Intune reconfiguring FailureCommand or restart-recovery actions across a fleet as part of a routine service-hardening baseline."
+  - "Plug and Play driver installation via pnputil or Device Manager, which creates or updates the ImagePath value for a newly installed kernel or filter driver service."
+level: low

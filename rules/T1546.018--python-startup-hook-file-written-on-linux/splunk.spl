@@ -1,0 +1,1 @@
+index=* (((type="PATH" AND (name="*/site-packages/*" OR name="*/dist-packages/*")) AND (type="PATH" AND name="*.pth")) OR (type="PATH" AND (name="*sitecustomize.py" OR name="*usercustomize.py")))

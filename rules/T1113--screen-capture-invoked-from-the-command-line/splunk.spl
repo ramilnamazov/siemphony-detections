@@ -1,0 +1,1 @@
+index=* (CommandLine="*CopyFromScreen*" OR CommandLine="*CopyPixelOperation*" OR CommandLine="*System.Drawing.Bitmap*" OR CommandLine="*Drawing.Graphics]::FromImage*" OR CommandLine="*BitBlt*" OR CommandLine="*PrintWindow*" OR CommandLine="*savescreenshot*" OR CommandLine="*psr.exe /start*" OR CommandLine="*Get-Screenshot*")

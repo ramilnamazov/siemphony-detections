@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*/curl" OR TO_LOWER(process.executable) LIKE "*/wget") AND (TO_LOWER(process.command_line) LIKE "*host: mail.google.com*" OR TO_LOWER(process.command_line) LIKE "*host: docs.google.com*" OR TO_LOWER(process.command_line) LIKE "*host: www.dropbox.com*" OR TO_LOWER(process.command_line) LIKE "*host: login.live.com*"))

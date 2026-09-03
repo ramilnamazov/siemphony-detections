@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (InitiatingProcessFolderPath endswith "\\WmiPrvSE.exe" or (ProcessCommandLine contains "process" and ProcessCommandLine contains "call" and ProcessCommandLine contains "create") or (ProcessCommandLine contains "/node:" and ProcessCommandLine contains "call") or (ProcessCommandLine contains "Win32_Process" and ProcessCommandLine contains "Create") or (ProcessCommandLine contains "Invoke-WmiMethod" or ProcessCommandLine contains "Invoke-CimMethod"))

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\msxsl.exe" or (FolderPath endswith "\\wmic.exe" and (ProcessCommandLine contains "format" and ProcessCommandLine contains ".xsl")))

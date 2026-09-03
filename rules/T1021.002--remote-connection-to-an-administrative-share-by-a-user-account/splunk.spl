@@ -1,0 +1,1 @@
+index=* ((EventID="5140" AND (ShareName="*\\ADMIN$" OR ShareName="*\\C$")) AND NOT (SubjectUserName="*$"))

@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey contains "\\Control\\Lsa\\Authentication Packages" or RegistryKey contains "\\Control\\Lsa\\OSConfig\\Authentication Packages")

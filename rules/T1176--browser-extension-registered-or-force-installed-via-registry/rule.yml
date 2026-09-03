@@ -1,0 +1,45 @@
+title: Browser extension registered or force-installed via registry
+id: 3b7c1e4a-9d62-4f18-a0c5-27e6b8d413f9
+status: experimental
+description: |
+  Matches registry value writes that enrol a browser extension outside the
+  browser's own UI: the enterprise policy force-list and ExtensionSettings keys,
+  the legacy per-extension `Extensions\<id>` registration used to side-load an
+  unpacked or hosted extension, and the NativeMessagingHosts registration that
+  gives an extension a local executable to talk to. MITRE's AN0251 wants the
+  install correlated with follow-on C2 traffic from the host application inside a
+  tunable TimeWindow; Sigma cannot join two events, so this is the install-side
+  precursor only and the network half is deliberately absent. TargetObject is the
+  one field in Sysmon EventID 13 that carries the enrolment intent, so the whole
+  rule sits on it and MITRE's RegistryPath knob is the tuning surface.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0092, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1176
+  - https://attack.mitre.org/detectionstrategies/DET0092
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1176
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains:
+      - '\Policies\Google\Chrome\ExtensionInstallForcelist\'
+      - '\Policies\Google\Chrome\ExtensionSettings\'
+      - '\Policies\Microsoft\Edge\ExtensionInstallForcelist\'
+      - '\Policies\Microsoft\Edge\ExtensionSettings\'
+      - '\Policies\BraveSoftware\Brave\ExtensionInstallForcelist\'
+      - '\Google\Chrome\Extensions\'
+      - '\Microsoft\Edge\Extensions\'
+      - '\Chromium\Extensions\'
+      - '\Mozilla\Firefox\Extensions\'
+      - '\NativeMessagingHosts\'
+  condition: selection
+falsepositives:
+  - "Group Policy or an MDM agent pushing an approved extension force-list, which rewrites the whole numbered list on every policy refresh and so re-fires on a schedule. The write comes from the policy client or the management agent, and MITRE names Image and RegistryPath as the knobs — baseline the approved extension IDs rather than the key prefix."
+  - "Browser installers and updaters registering bundled or recommended extensions under `\\Google\\Chrome\\Extensions\\` and `\\Microsoft\\Edge\\Extensions\\` at each version bump. MITRE's ParentImage knob covers this — the writing process is the vendor updater rather than a script."
+  - "Password managers, endpoint agents and conferencing clients that register their own browser extension and a NativeMessagingHosts entry during installation. These are indistinguishable from the malicious case on TargetObject alone, which is why the extension ID in the key path has to be allow-listed."
+level: medium

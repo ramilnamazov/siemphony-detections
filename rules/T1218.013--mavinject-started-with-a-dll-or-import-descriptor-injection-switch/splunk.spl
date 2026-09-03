@@ -1,0 +1,1 @@
+index=* ((Image="*\\mavinject.exe" OR Image="*\\mavinject32.exe") AND (CommandLine="*-INJECTRUNNING*" OR CommandLine="*/INJECTRUNNING*" OR CommandLine="*–INJECTRUNNING*" OR CommandLine="*—INJECTRUNNING*" OR CommandLine="*―INJECTRUNNING*" OR CommandLine="*-HMODULE*" OR CommandLine="*/HMODULE*" OR CommandLine="*–HMODULE*" OR CommandLine="*—HMODULE*" OR CommandLine="*―HMODULE*"))

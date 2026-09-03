@@ -1,0 +1,13 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)\\userinit\.exe$</field>
+    <field name="Image" negate="yes" type="pcre2">(?i)\\Windows\\explorer\.exe$</field>
+    <field name="CommandLine" negate="yes" type="pcre2">(?i)(\\netlogon\\|\\sysvol\\)</field>
+    <description>Logon initialisation spawns a process other than the shell</description>
+    <mitre>
+      <id>T1037.001</id>
+    </mitre>
+  </rule>
+</group>

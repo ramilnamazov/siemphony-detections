@@ -1,0 +1,59 @@
+title: Script block that encodes data and then sends it outbound
+id: 2d6b83f5-41ae-4c09-8e73-b5a1f9207cd4
+status: experimental
+description: |
+  Matches a PowerShell script block that both calls a standard encoder or
+  compressor and, in the same block, reaches the network. MITRE's AN0345 describes
+  a chain — encode, then egress within a tunable TimeWindow — which Sigma cannot
+  join across events, so the chain is collapsed into a single 4104 record where the
+  two halves appear together; a script that encodes in one block and uploads in
+  another will not match. EventID is matched explicitly because the logsource is
+  the raw PowerShell channel, whose other event IDs do not carry ScriptBlockText.
+  The B64LengthThreshold, PayloadEntropyThreshold and BytesOutToInRatio knobs are
+  all thresholds over payload or flow data that a script-block event does not
+  contain, so none of them are encoded here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0124, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1132/001
+  - https://attack.mitre.org/detectionstrategies/DET0124
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1132.001
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_encoder:
+    EventID: 4104
+    ScriptBlockText|contains:
+      - 'ToBase64String'
+      - 'FromBase64String'
+      - 'ToBase64Transform'
+      - 'FromBase64Transform'
+      - 'ToBase64CharArray'
+      - 'FromBase64CharArray'
+      - 'EncodedCommand'
+      - 'BitConverter]::ToString'
+      - 'GZipStream'
+      - 'DeflateStream'
+  selection_egress:
+    ScriptBlockText|contains:
+      - 'Net.WebClient'
+      - 'UploadString'
+      - 'UploadData'
+      - 'UploadFile'
+      - 'Invoke-WebRequest'
+      - 'Invoke-RestMethod'
+      - 'HttpWebRequest'
+      - 'Net.Http.HttpClient'
+      - 'Net.Sockets.TcpClient'
+      - 'Resolve-DnsName'
+  condition: selection_encoder and selection_egress
+falsepositives:
+  - "API automation that builds an HTTP Basic authorization header with `[Convert]::ToBase64String` and then calls Invoke-RestMethod. This is structurally the same logic the rule looks for and is the single largest source of noise; it is what MITRE's KnownAdminTools knob is for, and the allowlist has to be by script path or signing certificate, not by keyword."
+  - "Backup, telemetry and log-shipping scripts that compress with GZipStream or DeflateStream before an UploadData call. MITRE separates these from C2 with the BytesOutToInRatio and PayloadEntropyThreshold knobs, neither of which is available in a script-block event, so they cannot be filtered out here."
+  - "Deployment and configuration tooling that fetches content with Invoke-WebRequest and unpacks an embedded base64 blob — a certificate, a licence file, a settings bundle — with FromBase64String in the same block."
+  - "Nested-quoting workarounds where an administrative script launches a child PowerShell with -EncodedCommand and also performs a web call, encoding for convenience rather than evasion."
+level: medium

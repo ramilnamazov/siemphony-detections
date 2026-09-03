@@ -1,0 +1,67 @@
+title: Windows Defender exclusion configured via PowerShell preference cmdlet
+id: fceabd94-93b4-484c-a704-c3e2c0da127b
+status: experimental
+description: |
+  AN2030 offers four log sources — PowerShell script block logging, Security
+  4688 process creation, and two variants of a file-modification leg (Security
+  4663 and 4670/4656) — and only the PowerShell leg can carry a genuinely
+  distinguishing signal. `Add-MpPreference` and `Set-MpPreference` are the
+  cmdlets that write Defender's exclusion list, and their `-Exclusion*`
+  parameters are exactly MITRE's `ExclusionTargetList` knob turned into
+  arguments a script would actually pass; this rule matches the cmdlet name
+  together with one of those parameter names in the same script block. Security
+  4688's `CommandLine` would see the same string only when the cmdlet reaches a
+  new process on a single line — a `-Command` one-liner or a saved script —  but
+  an operator who pastes the cmdlet directly at an interactive PowerShell prompt
+  never spawns a new process, so 4688 misses exactly the case a defender would
+  expect script-block logging to catch, and this rule uses 4104 instead. 4104
+  is off by default — it requires the "Turn on PowerShell Script Block
+  Logging" Group Policy (or the equivalent
+  `HKLM\SOFTWARE\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging`
+  registry key) enabled on the host first; without it this rule sees nothing,
+  which reads as quiet rather than the blind spot it actually is. The two
+  file-modification legs are declined outright: 4663/4670/4656 are the object-
+  access events for the File System object type (see AUTHORING.md's note on
+  4657 vs 4663), and the change `Add-MpPreference` actually makes lands in the
+  registry, under `HKLM\SOFTWARE\Microsoft\Windows Defender\Exclusions\`, which
+  is a 4657 event this brief does not offer — so neither file-modification leg
+  can see a registry-based exclusion at all. AN2030's other described behaviour,
+  enumerating file names and critical extensions for exclusion targeting, has no
+  cmdlet-level signature distinct from ordinary file enumeration and is not
+  attempted here. This rule sees only exclusions set through these two
+  cmdlets — direct registry writes via `reg add`, `regedit`, or a `New-Item`
+  under the Exclusions key bypass it entirely, as does any third-party AV or
+  backup product's own exclusion mechanism, since MpPreference is
+  Defender-specific.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0897, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1679
+  - https://attack.mitre.org/detectionstrategies/DET0897
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1679
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_event:
+    EventID: 4104
+  selection_cmdlet:
+    ScriptBlockText|contains:
+      - 'Add-MpPreference'
+      - 'Set-MpPreference'
+  selection_exclusion:
+    ScriptBlockText|contains:
+      - '-ExclusionPath'
+      - '-ExclusionExtension'
+      - '-ExclusionProcess'
+      - '-ExclusionIpAddress'
+  condition: selection_event and selection_cmdlet and selection_exclusion
+falsepositives:
+  - "Endpoint management platforms — SCCM/MECM, Intune baselines, and GPO startup scripts — that push a standard, approved Defender exclusion set to every machine at provisioning or policy-refresh time; on a managed fleet this is the dominant source of matches by a wide margin."
+  - "Backup and line-of-business installers, such as Veeam or Acronis agents, that call Add-MpPreference during their own setup to exclude their repository or working directories from real-time scanning."
+  - "IT and security administrators deliberately excluding a newly onboarded application's install path after a false-positive detection, run interactively from an elevated console."
+  - "Detection-engineering and atomic-test validation runs that execute these cmdlets to demonstrate or self-test the analytic rather than to conceal anything."
+level: low

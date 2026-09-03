@@ -1,0 +1,12 @@
+<group name="sigma,linux,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(/socat$|/ncat$)</field>
+    <field name="CommandLine" type="pcre2">(?i)(TCP-LISTEN|TCP4-LISTEN|TCP6-LISTEN|UDP-LISTEN|OPENSSL-LISTEN|SOCKS4|SOCKS5|PROXY:|--proxy|--broker)</field>
+    <description>Port-relay tool invoked with a listener or SOCKS address</description>
+    <mitre>
+      <id>T1090</id>
+    </mitre>
+  </rule>
+</group>

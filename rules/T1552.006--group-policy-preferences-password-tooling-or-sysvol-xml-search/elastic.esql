@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.command_line) LIKE "*get-gpppassword*" OR TO_LOWER(process.command_line) LIKE "*gpprefdecrypt*" OR TO_LOWER(process.command_line) LIKE "*gpp-decrypt*" OR TO_LOWER(process.command_line) LIKE "*gpp_password*" OR TO_LOWER(process.command_line) LIKE "*gpp_autologin*" OR TO_LOWER(process.command_line) LIKE "*cpassword*" OR TO_LOWER(process.command_line) LIKE "*gather/credentials/gpp*") OR (TO_LOWER(process.command_line) LIKE "*\\\\sysvol*" AND TO_LOWER(process.command_line) LIKE "*.xml*"))

@@ -1,0 +1,75 @@
+title: Local account created from a command line
+id: 54b94366-699f-479e-81a4-3c28e96d791d
+status: experimental
+description: |
+  AN1235 describes an adversary creating a local user with built-in tooling and
+  names `net user /add` and PowerShell as the examples; this rule is the
+  process-creation half of that analytic, written so that what matches is local
+  rather than domain account creation. The net leg wants `net.exe` or `net1.exe`
+  as the image — either can be the logged one, because net.exe re-executes
+  itself as net1.exe with the same arguments, which also means a `cmd /c net
+  user ... /add` or a PowerShell wrapper still produces a matching child process
+  — together with a ` user ` subcommand and an `/add` or `-add` switch. The
+  absent `/domain` switch is the discriminator against the sibling T1136.002,
+  whose rule requires it, so a ` /do` or ` -do` substring removes the event
+  here. The second leg is the `New-LocalUser` cmdlet typed inline. The
+  subcommand and switch spellings are authored here, not taken from MITRE — the
+  analytic supplies the behaviour, not the strings.
+  Four limits are structural. Account creation through the API rather than a
+  shell — `NetUserAdd` from a compiled implant, the ADSI `WinNT://` provider's
+  `Create("User")`, or the `Win32_UserAccount` WMI class — writes no matching
+  command line, and `New-LocalUser` called from inside a .ps1, a module or a
+  here-string never reaches `CommandLine` at all. The domain exclusion is a
+  substring test for the switch as typed and as abbreviated, so a wrapper that
+  passes `/domain` through a variable falls into this rule as a false match on
+  the sibling. And MITRE's own knobs on this analytic are `ParentProcessName`,
+  `TimeWindow` and `UserContext` — was the shell spawned by cmd.exe, wscript.exe
+  or a renamed binary, did the 4720 account-creation record follow within
+  seconds to minutes, was the caller SYSTEM or an untrusted account — which are
+  a cross-event join and a per-identity baseline that Sigma models none of, so
+  the rule is left matching the single command-line event and the 4720 arm of
+  AN1235 is not attempted. Expect overlap with the published T1087.001 rule,
+  which selects the same net.exe ` user` shape as enumeration and will match
+  every event this rule does. This rule is written in the Sysmon EventID 1
+  vocabulary (`Image`, `CommandLine`) that AN1235 names; an estate feeding
+  Security 4688 instead needs `NewProcessName` mapped onto `Image` first, and
+  4688 needs both *Audit Process Creation* and the separate *Include command
+  line in process creation events* policy before `CommandLine` exists at all —
+  neither is on in a default install or in the Microsoft and CIS baselines.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0447, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1136/001
+  - https://attack.mitre.org/detectionstrategies/DET0447
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1136.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_net_binary:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+  selection_net_user_verb:
+    CommandLine|contains: ' user '
+  selection_net_add_switch:
+    CommandLine|contains:
+      - ' /add'
+      - ' -add'
+  filter_domain_scope:
+    CommandLine|contains:
+      - ' /do'
+      - ' -do'
+  selection_localuser_cmdlet:
+    CommandLine|contains: 'New-LocalUser'
+  condition: (selection_net_binary and selection_net_user_verb and selection_net_add_switch and not filter_domain_scope) or selection_localuser_cmdlet
+falsepositives:
+  - "Imaging, provisioning and build automation. MDT and Configuration Manager task sequences, Autopilot and Intune remediation scripts, and Packer, Vagrant and CI image builds create a local administrator, a lab account or a product service account with net user <name> <password> /add as a standard build step. This is the loudest match this rule has — one or more hits per machine build, estate-wide during a rollout — and it is why the level sits at medium rather than high; it is also the easiest to tune out, because the parent is a known task-sequence host process rather than an interactive shell."
+  - "Application, database and backup product installers that provision a dedicated local service account during install, repair or upgrade, either directly or from a vendor post-install script, with no operator intent behind the event."
+  - "Service desk and desktop support creating a temporary local account on a shared, kiosk, lab or standalone machine, or recreating one on a device that has lost its domain trust. The command is character-for-character the one an adversary would type and only the operator account separates them."
+  - "Local break-glass and offline-access procedures, where a documented runbook has an administrator create an emergency local account before maintenance on a host that will be off the domain network."
+  - "Migration and platform tooling that stages local accounts before a join or a rebuild, including domain-migration utilities and virtual desktop image preparation, which run in bursts against many hosts inside one maintenance window."
+level: medium

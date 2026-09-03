@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\hashcat.exe" or FolderPath endswith "\\hashcat32.exe" or FolderPath endswith "\\hashcat64.exe" or FolderPath endswith "\\hashcat-legacy.exe" or FolderPath endswith "\\john.exe" or FolderPath endswith "\\john-omp.exe" or FolderPath endswith "\\john-mmx.exe" or FolderPath endswith "\\ophcrack.exe" or FolderPath endswith "\\rcrack.exe" or FolderPath endswith "\\rcracki_mt.exe" or FolderPath endswith "\\l0phtcrack.exe")

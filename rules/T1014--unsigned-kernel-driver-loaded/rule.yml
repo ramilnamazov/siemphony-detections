@@ -1,0 +1,40 @@
+title: Unsigned kernel driver loaded
+id: eab17826-1beb-4126-9184-c5d171c28220
+status: experimental
+description: |
+  AN1061's own `DriverSignatureStatus` knob — "signed vs unsigned drivers;
+  many environments restrict unsigned drivers, but some legacy systems allow
+  them" — maps onto a single real field on Sysmon EventID 6: `Signed`, a
+  boolean set from the result of the load-time signature check. An adversary
+  loading a custom rootkit driver is loading one that was never submitted for
+  attestation signing, so `Signed: false` is the direct, single-field
+  expression of the knob, deliberately narrower than the service-creation and
+  file-drop legs of the same analytic (System 7045, Sysmon 11) which this rule
+  does not attempt, since neither carries a signature verdict at all. This is
+  the complement of the corpus's T1068 driver rule, which explicitly does not
+  filter on signature because a bring-your-own-vulnerable-driver load is
+  validly signed by definition — the two rules cover opposite ends of the same
+  `DriverLoad` event and neither substitutes for the other. Sysmon is not
+  installed by default, and on a fleet without it this rule returns nothing,
+  which reads as quiet rather than as the blind spot it actually is.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0377, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1014
+  - https://attack.mitre.org/detectionstrategies/DET0377
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1014
+logsource:
+  category: driver_load
+  product: windows
+detection:
+  selection:
+    Signed: false
+  condition: selection
+falsepositives:
+  - "Driver development and test-signing workstations, where engineers routinely load self-signed or entirely unsigned drivers with test signing mode enabled — the dominant source on any fleet with an engineering population."
+  - "Legitimately signed drivers that Sysmon still reports as unsigned because the load-time WinVerifyTrust catalog check could not complete — most commonly a host with no internet access for the certificate-revocation check at boot, which is a known Sysmon signing-verdict caveat rather than anything about the driver itself."
+  - "Older or specialised hardware drivers (industrial equipment, legacy printers and scanners) from vendors that never adopted modern kernel-mode signing requirements, still loaded on hosts kept on an older Windows servicing branch that permits them."
+level: medium

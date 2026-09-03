@@ -1,0 +1,1 @@
+index=* ((NewProcessName="*\\wevtutil.exe" AND (CommandLine="*epl*" OR CommandLine="*qe*")) OR ((NewProcessName="*\\powershell.exe" OR NewProcessName="*\\pwsh.exe") AND (CommandLine="*Get-WinEvent*" OR CommandLine="*Get-EventLog*")))

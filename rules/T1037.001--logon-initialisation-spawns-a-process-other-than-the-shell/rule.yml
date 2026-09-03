@@ -1,0 +1,65 @@
+title: Logon initialisation spawns a process other than the shell
+id: 8df64ad3-948c-45d0-9443-b86f4ae096a5
+status: experimental
+description: |
+  T1037.001 is the `HKCU\Environment\UserInitMprLogonScript` value, and the
+  process that runs whatever that value points at is `userinit.exe` — so this
+  rule gates on `userinit.exe` as the parent and treats any child that is not
+  the shell as the hit, rather than listing script interpreters, because the
+  value can name an executable directly. The same gate also covers AN0199's
+  other configuration path, a script named by the user object's `scriptPath`
+  attribute. Two exclusions shape it: the shell, pinned to
+  `\Windows\explorer.exe` rather than to any file named explorer.exe so that a
+  payload dropped under that name elsewhere is still a hit, and a command line
+  naming one of the domain script shares, because `scriptPath` resolves against
+  NETLOGON and the ordinary domain logon script would otherwise match at every
+  logon. MITRE's `script_path_keywords` knob names NETLOGON and SYSVOL as paths
+  to tune on; it is used inversely here, populated with those two share names as
+  a suppression rather than a selection, and the cost of that choice is that a
+  script an adversary stages on either share is outside this rule's reach. The
+  exclusion is the two share names rather than "any UNC prefix" on purpose: the
+  command line is written by whoever set the registry value, so a blanket
+  contains-`\\` filter would let any value carrying a UNC-shaped string —
+  `\\127.0.0.1\C$\Users\Public\p.bat` for a purely local file — silence the
+  whole rule.
+  The brief maps Security EventID 4688 onto Sigma's `process_creation`
+  category, which is Sysmon-shaped — this rule is written in that vocabulary
+  (`Image`, `ParentImage`, `CommandLine`), and a raw 4688 feed, whose native
+  names are `NewProcessName` and `ParentProcessName`, needs the usual field
+  mapping applied before it can match. 4688 also needs *Audit Process
+  Creation*, and the share exclusion additionally needs the separate *Include
+  command line in process creation events* policy; without it `CommandLine` is
+  absent, nothing is suppressed and the rule gets noisier rather than quieter.
+  AN0199's Group Policy half — `gpscript.exe` and System 1502/1503 — is not
+  used: those scripts run from the local Group Policy cache at every logon, and
+  configuring them is Group Policy modification rather than the per-user
+  registry value this technique defines.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0072, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1037/001
+  - https://attack.mitre.org/detectionstrategies/DET0072
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1037.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_logon_init:
+    ParentImage|endswith: '\userinit.exe'
+  filter_shell:
+    Image|endswith: '\Windows\explorer.exe'
+  filter_domain_share:
+    CommandLine|contains:
+      - '\\netlogon\\'
+      - '\\sysvol\\'
+  condition: selection_logon_init and not filter_shell and not filter_domain_share
+falsepositives:
+  - "Endpoint-management, drive-mapping and printer-deployment products that hook logon by writing UserInitMprLogonScript or a local logon script themselves, which is the same mechanism this technique uses and fires at every logon on every host carrying the agent. This is the highest-volume match by a wide margin and is why the rule is low rather than medium."
+  - "Estates that still run a per-user logon script served from an ordinary file share or copied to a local path such as C:\\ProgramData rather than from NETLOGON or SYSVOL, where the share exclusion does not apply and userinit.exe launches the script at each affected user's logon."
+  - "Kiosk and task-station builds that replace the shell, so the configured application starts under userinit.exe instead of explorer.exe and falls outside the shell exclusion on every logon."
+  - "Software installers and repair tasks that queue work to run at next logon through the same per-user logon script value, producing a single match on the following logon."
+level: low

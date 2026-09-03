@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "w32tm /tz" or ProcessCommandLine contains "w32tm -tz" or ProcessCommandLine contains "w32tm /query /status" or ProcessCommandLine contains "net time \\" or ProcessCommandLine contains "tzutil /g" or ProcessCommandLine contains "tzutil -g" or ProcessCommandLine contains "Get-TimeZone" or ProcessCommandLine contains "[System.TimeZoneInfo]" or ProcessCommandLine contains "Get-Date -Format")

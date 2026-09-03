@@ -1,0 +1,1 @@
+index=* (CommandLine="*driverquery*" OR (CommandLine="*query*" AND CommandLine="*CurrentControlSet\\Services*") OR CommandLine="*CurrentControlSet\\HardwareProfiles*")

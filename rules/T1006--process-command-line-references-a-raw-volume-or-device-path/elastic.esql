@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.command_line) LIKE "*physicaldrive*" OR TO_LOWER(process.command_line) LIKE "*harddiskvolume*" OR TO_LOWER(process.command_line) LIKE "*globalroot*") OR (TO_LOWER(process.executable) LIKE "*\\\\esentutl.exe" AND TO_LOWER(process.command_line) LIKE "*/vss*"))

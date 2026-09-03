@@ -1,0 +1,46 @@
+title: Memory-read handle opened against the LSASS process
+id: 3e50b6f6-5dbc-4689-bf57-4bbff2bdd162
+status: experimental
+description: |
+  MITRE's analytic describes a process opening a handle to lsass.exe with full
+  access and then dumping, writing or persisting the harvested material, and
+  Process Access is the one log source in the strategy that carries both the
+  target and the access rights on a single event. The selection pins TargetImage
+  to lsass.exe and matches the 0x1F0FFF mask MITRE names in its AccessMask knob
+  alongside the other full-access variants and the minimal read masks a dumper
+  needs — query plus VM_READ, with or without duplicate-handle rights — because
+  a tool that asks only for what MiniDumpWriteDump requires never presents the
+  full mask. The dump-file creation and registry steps that follow are a timed
+  correlation Sigma cannot express, so this rule is the handle acquisition only.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0363, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1003/001
+  - https://attack.mitre.org/detectionstrategies/DET0363
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1003.001
+logsource:
+  category: process_access
+  product: windows
+detection:
+  selection:
+    TargetImage|endswith: '\lsass.exe'
+    GrantedAccess:
+      - '0x1F0FFF'
+      - '0x1F1FFF'
+      - '0x1F2FFF'
+      - '0x1F3FFF'
+      - '0x1FFFFF'
+      - '0x143A'
+      - '0x1438'
+      - '0x1410'
+      - '0x1010'
+  condition: selection
+falsepositives:
+  - "Endpoint protection, EDR and vulnerability-scanning agents, which read LSASS memory as part of credential-theft prevention and integrity checking. MITRE's allowlist knob is aimed at these; on this log source the only field that can carry the allowlist is SourceImage, so build the exclusion there once you know which agents your estate runs."
+  - "Windows components that legitimately query LSASS with the narrower masks in this list — the Local Session Manager, WMI provider host and performance-counter collectors routinely present 0x1010 or 0x1410. Scoping the rule down to 0x1F0FFF alone, as MITRE's AccessMask knob suggests, removes most of this at the cost of missing minimal-rights dumpers."
+  - "Crash reporting, memory forensics and support tooling run deliberately by an administrator during an incident or a hang investigation, which requests full access by design."
+  - "Backup and privileged-access-management products that snapshot process memory or inject credential providers on managed hosts."
+level: high

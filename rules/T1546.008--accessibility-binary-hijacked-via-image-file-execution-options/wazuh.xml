@@ -1,0 +1,12 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)\\Image File Execution Options\\</field>
+    <field name="TargetObject" type="pcre2">(?i)(\\sethc\.exe|\\utilman\.exe|\\osk\.exe|\\magnify\.exe|\\narrator\.exe|\\displayswitch\.exe|\\atbroker\.exe|\\hh\.exe)</field>
+    <description>Accessibility binary hijacked via Image File Execution Options</description>
+    <mitre>
+      <id>T1546.008</id>
+    </mitre>
+  </rule>
+</group>

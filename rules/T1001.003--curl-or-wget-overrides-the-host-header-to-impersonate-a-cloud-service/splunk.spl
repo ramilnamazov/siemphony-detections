@@ -1,0 +1,1 @@
+index=* ((Image="*/curl" OR Image="*/wget") AND (CommandLine="*Host: mail.google.com*" OR CommandLine="*Host: docs.google.com*" OR CommandLine="*Host: www.dropbox.com*" OR CommandLine="*Host: login.live.com*"))

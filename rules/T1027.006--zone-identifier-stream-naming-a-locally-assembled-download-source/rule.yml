@@ -1,0 +1,74 @@
+title: Zone identifier stream naming a locally assembled download source
+id: 40bb1b65-b5ea-43df-bfee-28782cf1fa24
+status: experimental
+description: |
+  AN0872 points at Sysmon EventID 15 and the Zone.Identifier stream a browser or
+  mail client stamps onto a file it delivered, and specifically at the HostUrl
+  and ReferrerUrl values recorded inside it. A file fetched over the network
+  carries the server it came from; a file that HTML smuggling assembled inside
+  the page from a JavaScript Blob or a Data URL never crossed the network as a
+  file, so the browser has no source to record and writes about:internet,
+  about:blank, or the blob: or data: URL itself. This rule pairs that origin
+  marker with MITRE's DroppedFileExtensionWatchlist knob, populated here with the
+  executable, script, shortcut, installer and container types a smuggled payload
+  arrives as, because the marker alone also appears on every client-side export a
+  web application generates. The drop-then-execute half of the analytic — the
+  dropped file running a few minutes after the HTML was opened — is a correlation
+  Sigma cannot express and is not attempted, and a payload written to a path
+  Sysmon is not watching produces no event at all. Two configuration
+  prerequisites: EventID 15 is not emitted by a bare Sysmon install and most
+  shipped configurations restrict stream hashing to a short extension list, and
+  the Contents field carrying the URL values exists only on Sysmon 13.10 and
+  later, so on an older agent this rule parses cleanly and can never fire.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0313, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/006
+  - https://attack.mitre.org/detectionstrategies/DET0313
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1027.006
+logsource:
+  category: create_stream_hash
+  product: windows
+detection:
+  selection_zone_stream:
+    TargetFilename|endswith:
+      - '.exe:Zone.Identifier'
+      - '.dll:Zone.Identifier'
+      - '.msi:Zone.Identifier'
+      - '.scr:Zone.Identifier'
+      - '.pif:Zone.Identifier'
+      - '.hta:Zone.Identifier'
+      - '.js:Zone.Identifier'
+      - '.jse:Zone.Identifier'
+      - '.vbs:Zone.Identifier'
+      - '.vbe:Zone.Identifier'
+      - '.wsf:Zone.Identifier'
+      - '.ps1:Zone.Identifier'
+      - '.bat:Zone.Identifier'
+      - '.cmd:Zone.Identifier'
+      - '.lnk:Zone.Identifier'
+      - '.iso:Zone.Identifier'
+      - '.img:Zone.Identifier'
+      - '.vhd:Zone.Identifier'
+      - '.vhdx:Zone.Identifier'
+      - '.zip:Zone.Identifier'
+      - '.rar:Zone.Identifier'
+      - '.7z:Zone.Identifier'
+  selection_local_origin:
+    Contents|contains:
+      - 'HostUrl=about:internet'
+      - 'HostUrl=about:blank'
+      - 'HostUrl=blob:'
+      - 'HostUrl=data:'
+      - 'ReferrerUrl=blob:'
+      - 'ReferrerUrl=data:'
+  condition: selection_zone_stream and selection_local_origin
+falsepositives:
+  - "Web applications that build a download in the browser instead of serving it, where a reporting console, an admin portal or a password manager packages files into a .zip client-side with a JavaScript Blob and the HTML5 download attribute. That is the same mechanism the technique abuses and produces the same origin marker, so it is the loudest benign match here and the reason the level is not higher."
+  - "Browser extensions and download managers that hand finished bytes to the page rather than letting the browser fetch the URL, so a saved installer or archive is written with no originating host recorded."
+  - "Mail, chat and collaboration clients saving an attachment to disk, which apply the internet zone without any HTTP source of their own; an .iso or .zip attachment saved out of a webmail session matches on the extension list for exactly that reason."
+  - "Phishing simulation platforms, security awareness training and detection validation suites that deliver a genuine HTML smuggling sample on purpose, producing a real match for every user who opens the exercise."
+level: medium

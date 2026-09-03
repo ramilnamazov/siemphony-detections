@@ -1,0 +1,11 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)\\SOFTWARE\\Microsoft\\Cryptography\\Providers\\Trust\\FinalPolicy\\</field>
+    <description>Registry write under the trust-provider FinalPolicy key</description>
+    <mitre>
+      <id>T1553</id>
+    </mitre>
+  </rule>
+</group>

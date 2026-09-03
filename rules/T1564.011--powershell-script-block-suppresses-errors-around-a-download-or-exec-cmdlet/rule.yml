@@ -1,0 +1,64 @@
+title: PowerShell script block suppresses errors around a download or exec cmdlet
+id: 1230755c-8a57-4cb4-ab5a-45fc3b10d70c
+status: experimental
+description: |
+  AN0182 describes PowerShell invoked with parameters that suppress errors or
+  interrupts so a command keeps running through failures that would otherwise
+  stop it. `-ErrorAction SilentlyContinue` alone is far too common to gate on —
+  it is defensive-programming boilerplate in a huge share of legitimate
+  scripts — so this rule requires it to appear in the same script block as one
+  of MITRE's `MonitoredCmdlets` examples (`Invoke-Expression`,
+  `Invoke-WebRequest`) plus the other primitives that make up the same
+  download-and-run pattern (`Invoke-RestMethod`, `Net.WebClient`,
+  `DownloadString`, `Start-BitsTransfer`). The idea is that an adversary
+  chaining a retrieval or execution step behind silenced errors is trying to
+  keep a cradle running past a blocked request or a killed connection, which
+  is a narrower claim than "a script suppressed an error somewhere." This
+  rule does not attempt AN0182's `ErrorActionThreshold` knob — a frequency
+  count across a time window is not expressible against a single event in
+  lib/sigma — so it fires on the first block that matches rather than a
+  repeated pattern. PowerShell Script Block Logging is off by default and is
+  not enabled by the Microsoft or CIS baselines, so without the *Turn on
+  PowerShell Script Block Logging* policy this rule returns zero rows because
+  the host is blind, not because nothing happened. The brief's other Windows
+  leg (Sysmon EventID 1 `process_creation`) is not combined here: it carries
+  `CommandLine` but not the full script text, so it cannot see an
+  `-ErrorAction` flag set inside a script rather than on the command line, and
+  AN0181/AN0183's Linux `nohup`/macOS `disown` legs are a different logsource
+  entirely and are not covered by this rule.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0067, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/011
+  - https://attack.mitre.org/detectionstrategies/DET0067
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1564.011
+logsource:
+  product: windows
+  service: powershell
+detection:
+  selection_eventid:
+    EventID: 4104
+  selection_suppress:
+    ScriptBlockText|contains:
+      - '-ErrorAction SilentlyContinue'
+      - '-ErrorAction Ignore'
+      - '-EA SilentlyContinue'
+      - '-EA Ignore'
+  selection_cmdlet:
+    ScriptBlockText|contains:
+      - 'Invoke-Expression'
+      - 'Invoke-WebRequest'
+      - 'Invoke-RestMethod'
+      - 'Net.WebClient'
+      - 'DownloadString'
+      - 'Start-BitsTransfer'
+  condition: selection_eventid and selection_suppress and selection_cmdlet
+falsepositives:
+  - "Deployment and installer scripts that probe for an optional module, proxy or update endpoint with Invoke-WebRequest -ErrorAction SilentlyContinue and fall back silently when it is unreachable, which is a standard pattern in provisioning tooling and CI/CD runbooks."
+  - "Configuration-management agents (DSC, Chef, Puppet, Ansible's PowerShell modules) that wrap idempotent download-and-apply steps in SilentlyContinue so a re-run does not fail on a resource that already exists or a mirror that is temporarily down."
+  - "Administrator-authored monitoring or health-check scripts that call Invoke-RestMethod against an internal API with suppressed errors so a single unreachable endpoint does not abort a larger scheduled task."
+  - "Documentation, help text and code samples logged verbatim by 4104: a runbook or module comment that discusses this exact combination of flag and cmdlet, without executing either, produces an identical script block."
+level: low

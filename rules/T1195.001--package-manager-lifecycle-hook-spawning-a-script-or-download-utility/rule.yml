@@ -1,0 +1,98 @@
+title: Package manager lifecycle hook spawning a script or download utility
+id: 16eda05f-5679-4d25-a2df-ca9192abe6cb
+status: experimental
+description: |
+  Flags a package manager or build tool creating a child process that is a script
+  interpreter or a download utility — the "first run of newly written components
+  triggers scripts (preinstall/postinstall), shell/PowerShell spawning" step of
+  MITRE's chain. Two shapes of manager and two shapes of child are matched,
+  because on Windows the canonical case runs through ComSpec rather than
+  directly. The manager arms are the real executables (node.exe, python.exe,
+  pip.exe, nuget.exe, dotnet.exe, choco.exe, cargo.exe) and, separately,
+  cmd.exe whose own command line names a package-manager shim: npm.cmd, npx.cmd,
+  yarn.cmd, pnpm.cmd, mvn.cmd, gradle.bat, npm-cli.js, node_modules or setup.py.
+  Those shim names are matched in ParentCommandLine and never in ParentImage — a
+  `.cmd` or `.bat` is not a process image, so `ParentImage|endswith: '\npm.cmd'`
+  would render in every backend and match nothing. The child arms are an
+  interpreter or downloader spawned directly, or cmd.exe spawned with one of
+  those named on its command line, which is the lineage npm and yarn lifecycle
+  hooks actually take (node.exe runs npm-cli.js, npm-cli.js runs the hook through
+  `cmd /d /s /c`, and the payload is the grandchild). pip breaks the same way,
+  with pip.exe spawning python.exe to run setup.py. The full analytic is a
+  correlation — manager writes files, the new component runs, then egress to a
+  non-approved registry within a 90-minute window — and Sigma can express neither
+  a sequence nor a time window, so the egress half is absent. Without it there is
+  nothing in the event saying the package was untrusted: this observable is a
+  build tool spawning an interpreter, which is supply-chain-shaped only by
+  context, and an analyst should expect to triage it as execution rather than as
+  evidence of initial access. Prerequisite: Sysmon EventID 1 is not present in a
+  default install, and the cmd.exe arms need command-line capture on both the
+  process and its parent.
+  UNVERIFIED — derived from MITRE ATT&CK DET0009 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1195/001
+  - https://attack.mitre.org/detectionstrategies/DET0009
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.t1195.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_manager_exe:
+    ParentImage|endswith:
+      - '\node.exe'
+      - '\python.exe'
+      - '\pip.exe'
+      - '\pip3.exe'
+      - '\nuget.exe'
+      - '\dotnet.exe'
+      - '\choco.exe'
+      - '\cargo.exe'
+  selection_manager_shim:
+    ParentImage|endswith: '\cmd.exe'
+    ParentCommandLine|contains:
+      - 'npm.cmd'
+      - 'npx.cmd'
+      - 'yarn.cmd'
+      - 'pnpm.cmd'
+      - 'mvn.cmd'
+      - 'gradle.bat'
+      - 'npm-cli.js'
+      - 'node_modules'
+      - 'setup.py'
+  selection_child_direct:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\curl.exe'
+      - '\certutil.exe'
+      - '\bitsadmin.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+  selection_child_shell:
+    Image|endswith: '\cmd.exe'
+    CommandLine|contains:
+      - 'powershell'
+      - 'pwsh'
+      - 'wscript'
+      - 'cscript'
+      - 'mshta'
+      - 'curl'
+      - 'certutil'
+      - 'bitsadmin'
+      - 'rundll32'
+      - 'regsvr32'
+  condition: 1 of selection_manager_* and 1 of selection_child_*
+falsepositives:
+  - "Chocolatey doing its job. Every package Chocolatey installs or upgrades runs its chocolateyInstall.ps1 through powershell.exe, so choco.exe spawning powershell.exe fires on every `choco install` and on every scheduled `choco upgrade all` across the whole estate — on a fleet that uses Chocolatey this is the rule's steady-state output and the reason it is rated low. The parent-child pair alone cannot separate it from abuse, so suppression has to key on the package and script path carried in the child CommandLine, package by package."
+  - "Legitimate native-module builds. node-gyp, dotnet and gradle install steps routinely shell out to PowerShell to locate toolchains or unpack archives, so on the engineering endpoints and CI agents named by MITRE's DevHosts knob this fires on ordinary dependency restores. Baseline the parent and child pair per build pipeline before alerting."
+  - "Vendor install scripts that fetch a prebuilt binary. Packages such as browser drivers and image toolchains call curl.exe or PowerShell in their postinstall hook to download from a CDN; if that CDN is already in the ApprovedRegistries allowlist the behaviour is expected and only the destination distinguishes it from the malicious case."
+  - "Windows-targeted CI jobs where the build definition itself sets a package manager as the parent of a PowerShell provisioning step, producing the same parent-child pair on every run of the pipeline."
+  - "Ordinary npm and yarn scripts that shell out. Any `npm run` target whose script line calls PowerShell, curl or a helper batch file matches the shim and shell arms exactly as a malicious postinstall hook does, which on a developer workstation is many events per build."
+level: low

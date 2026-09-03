@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\ping.exe" AND (TO_LOWER(process.command_line) LIKE "*127.0.0.1*" OR TO_LOWER(process.command_line) LIKE "*localhost*" OR TO_LOWER(process.command_line) LIKE "*::1*")) OR (TO_LOWER(process.executable) LIKE "*\\\\timeout.exe" AND (TO_LOWER(process.command_line) LIKE "*-nobreak*" OR TO_LOWER(process.command_line) LIKE "*/nobreak*" OR TO_LOWER(process.command_line) LIKE "*–nobreak*" OR TO_LOWER(process.command_line) LIKE "*—nobreak*" OR TO_LOWER(process.command_line) LIKE "*―nobreak*")))

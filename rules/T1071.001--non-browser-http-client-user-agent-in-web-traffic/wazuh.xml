@@ -1,0 +1,11 @@
+<group name="sigma,zeek,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for zeek so this only evaluates relevant events. -->
+    <field name="user_agent" type="pcre2">(?i)(python-requests|python-urllib|Go-http-client|curl/|Wget/|libwww-perl|Java/|WindowsPowerShell|PowerShell/|WinHttp\.WinHttpRequest|Microsoft BITS|Mozilla/4\.0 \(compatible; MSIE)</field>
+    <description>Non-browser HTTP client user agent in web traffic</description>
+    <mitre>
+      <id>T1071.001</id>
+    </mitre>
+  </rule>
+</group>

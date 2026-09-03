@@ -1,0 +1,62 @@
+title: Command line builds a new logon token for impersonation
+id: 7e706190-f71b-4a08-b481-2e8a0d769dc3
+status: experimental
+description: |
+  AN1375 is a five-step API/event chain — suspicious command, LogonUser*/
+  SetThreadToken API evidence, a 4624 New Logon with no interactive desktop,
+  a child process running under the new LogonId, and optional follow-on
+  privileged activity — and lib/sigma has no join, so this rule targets only
+  step (1), the one link in that chain with a command line: MITRE's own
+  example of "runas /netonly" or a "PowerShell P/Invoke of LogonUser". The
+  first selection matches runas.exe invoked with /netonly, which creates a
+  new logon session for an alternate credential without validating it against
+  the domain — the classic CLI proxy for LogonUser-style token creation. The
+  second matches a process command line that names both a token-creation API
+  (LogonUser or LsaLogonUser) and an impersonation API (SetThreadToken or
+  ImpersonateLoggedOnUser) together, the P/Invoke or Add-Type pattern
+  offensive PowerShell tooling uses to call both from a single script passed
+  inline. Neither selection sees the technique when the actual API calls are
+  made in-process by injected or compiled code, or when the PowerShell is
+  wrapped in -EncodedCommand, since the base64 blob hides the literal API
+  names from CommandLine — that path leaves no command-line evidence at all.
+  The brief's second logsource, Security 4672 (Special Privileges Assigned to
+  New Logon), is not used: it fires for every logon carrying an
+  administrative-equivalent privilege set — built-in admins, most service
+  accounts, scheduled tasks, IIS app pools — and it has no process field to
+  filter against MITRE's own AllowedImpersonators knob (winlogon.exe,
+  lsass.exe, IIS worker, trusted service accounts), since 4672 is a logon
+  event, not a process-creation event; without that filter it is far too
+  coarse to carry this technique on its own. Prerequisite: 4688-backed
+  process creation needs *Audit Process Creation* and the separate *Include
+  command line in process creation events* policy, neither on by default.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0498, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1134/003
+  - https://attack.mitre.org/detectionstrategies/DET0498
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1134.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_runas_netonly:
+    Image|endswith: '\runas.exe'
+    CommandLine|contains: '/netonly'
+  selection_psh_logonuser:
+    CommandLine|contains:
+      - 'LogonUser'
+      - 'LsaLogonUser'
+  selection_psh_impersonate:
+    CommandLine|contains:
+      - 'SetThreadToken'
+      - 'ImpersonateLoggedOnUser'
+  condition: selection_runas_netonly or (selection_psh_logonuser and selection_psh_impersonate)
+falsepositives:
+  - "Administrators and help-desk staff running `runas /netonly /user:domain\\admin` by hand to launch a management console with alternate-domain credentials from a workstation that is not joined to, or not currently authenticated to, that domain — a routine, documented workflow."
+  - "Jump-box, PAM and credential-vault client tooling that shells out to runas /netonly to pre-load a vaulted alternate credential before launching a remote-administration console, without disabling UAC."
+  - "Authorized red-team, purple-team or security-tooling PowerShell modules (e.g. credential-validation or sandboxed-execution test harnesses) that P/Invoke LogonUser together with SetThreadToken or ImpersonateLoggedOnUser as part of their own legitimate function rather than as an attack."
+level: medium

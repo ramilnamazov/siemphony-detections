@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*gpresult*" OR TO_LOWER(process.command_line) LIKE "*get-gpo*" OR TO_LOWER(process.command_line) LIKE "*get-gpresultantsetofpolicy*" OR TO_LOWER(process.command_line) LIKE "*get-domaingpo*" OR TO_LOWER(process.command_line) LIKE "*get-netgpo*")

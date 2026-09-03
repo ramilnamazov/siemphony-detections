@@ -1,0 +1,66 @@
+title: Remote interactive NTLM logon or explicit-credential remote access
+id: d5a88589-6665-4ba6-acbd-ddcf87560375
+status: experimental
+description: |
+  AN0750 names "logon via RDP or WMI" and gives two Security event IDs for it,
+  so this rule has an arm for each. The first matches a successful remote
+  interactive logon (4624, LogonType 10 — the RDP session) whose logon process
+  is NtLmSsp: inside a domain that means the client connected by IP address or
+  from a host that could not obtain a ticket, which is the shape of an adversary
+  reusing valid credentials. The second matches 4648, a logon with explicitly
+  supplied credentials, narrowed to the source-side binaries that drive remote
+  services — the RDP client, WMI, WinRM and PowerShell remoting — which is the
+  WMI half of the analytic and the part of "Remote Services" that is not RDP.
+  Three caveats. LogonType 10 is RDP alone, so the first arm is really
+  T1021.001 evidence appearing under the parent. The NtLmSsp test has not been
+  checked against a real corpus of NLA sessions: with Network Level
+  Authentication the credential is validated first as a network logon and the
+  session record is brokered through CredSSP/Negotiate, so the NTLM evidence may
+  sit on the preceding LogonType 3 event rather than on the type 10 one, and
+  this arm would then see only the legacy half of the population. Kerberos-backed
+  RDP with the same stolen credentials is invisible either way. The post-access
+  half of the analytic — uncommon command execution or onward connections inside
+  a correlation window — is a sequence Sigma cannot express, so only the logon
+  precursor is authored here.
+  4624 and 4648 both come from the Logon/Logoff audit category, on in a default
+  domain-member configuration, but confirm success auditing is enabled before
+  reading a quiet result as an absence of activity. EventID and LogonType are
+  written unquoted so they render as numeric comparisons, which is correct for
+  Sentinel's SecurityEvent table; an ECS/Elastic pipeline indexes
+  winlog.event_data.LogonType as a keyword string, so that rendering needs the
+  values quoted by hand before it will match anything.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0269, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1021
+  - https://attack.mitre.org/detectionstrategies/DET0269
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1021
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_rdp_ntlm:
+    EventID: 4624
+    LogonType: 10
+    LogonProcessName: 'NtLmSsp'
+  selection_explicit_credentials:
+    EventID: 4648
+    ProcessName|endswith:
+      - '\mstsc.exe'
+      - '\wmic.exe'
+      - '\winrs.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\psexec.exe'
+      - '\psexec64.exe'
+  condition: 1 of selection_*
+falsepositives:
+  - "RDP with a local, non-domain account on a domain-joined server — break-glass, vendor and MSP accounts, or a service owner's local account. These can never obtain a Kerberos ticket, so they are NTLM at LogonType 10 every single time, and this is the largest benign generator of the first arm. TargetDomainName equal to the target's own computer name is the field-level discriminator."
+  - "Administrators connecting to servers by IP address or by an alias that has no matching SPN. Kerberos cannot be used, so an entirely routine jumpbox session looks identical. MITRE's RemoteHostList knob exists for this — allowlist the IpAddress values of sanctioned jumpboxes and deployment hosts before this rule is usable."
+  - "Estates with non-domain-joined or workgroup servers, DMZ hosts and appliances, where NTLM is the only option and every legitimate RDP session matches. Scope the rule to domain members, or apply MITRE's LogonUser knob to keep only service and privileged accounts."
+  - "Routine explicit-credential admin work on the second arm: mstsc.exe with saved or typed credentials, wmic and Invoke-Command run with -Credential from an admin workstation, and scheduled inventory or backup jobs that authenticate as a separate account. On a jumpbox this arm is close to continuous."
+  - "Remote-support and screen-sharing products that establish a LogonType 10 session with locally stored credentials during a helpdesk call."
+level: low

@@ -1,0 +1,12 @@
+<group name="sigma,windows,image_load,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ImageLoaded" type="pcre2">(?i)(\\AppData\\Local\\Temp\\|\\AppData\\Roaming\\|\\Windows\\Temp\\|\\Users\\Public\\|\\ProgramData\\|\\\\)</field>
+    <field name="SignatureStatus" negate="yes" type="pcre2">(?i)^Valid$</field>
+    <description>DLL loaded from a temp, roaming or UNC path without a valid signature</description>
+    <mitre>
+      <id>T1129</id>
+    </mitre>
+  </rule>
+</group>

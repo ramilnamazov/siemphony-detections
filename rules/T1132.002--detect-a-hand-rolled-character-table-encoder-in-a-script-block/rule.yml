@@ -1,0 +1,52 @@
+title: Detect a hand-rolled character-table encoder in a script block
+id: c2dbc459-235f-4f9f-a464-6bb60fc3fa88
+status: experimental
+description: |
+  Matches PowerShell script-block logging where the recorded script both declares
+  a literal character alphabet — a hand-rolled translation table, since .NET
+  already ships Base64 and hex — and performs a per-character index or bit
+  transform, which is the encode loop AN0927 describes. ScriptBlockText was
+  chosen over the analytic's process_creation and network_connection sources
+  because it is the only field in AN0927 that shows the encoder itself rather
+  than its side effects. The analytic's real observable is a correlation:
+  the encode routine, then egress with an asymmetric bytes_out:bytes_in ratio or
+  fixed-size beacons inside MITRE's TimeWindow. Sigma expresses no ratio, no
+  standard deviation and no join window, so this rule is the single-event
+  precursor only, and the EntropyThreshold and TokenLengthThreshold knobs are
+  left entirely to the analyst.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0326, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1132/002
+  - https://attack.mitre.org/detectionstrategies/DET0326
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1132.002
+logsource:
+  product: windows
+  service: powershell
+detection:
+  script_block:
+    EventID: 4104
+  custom_alphabet:
+    ScriptBlockText|contains:
+      - 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+      - 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      - 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'
+      - '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      - '0123456789abcdefghijklmnopqrstuvwxyz'
+  transform_loop:
+    ScriptBlockText|contains:
+      - '-bxor'
+      - '-band'
+      - '-shr'
+      - '-shl'
+      - '.IndexOf('
+      - 'ToCharArray()'
+  condition: script_block and custom_alphabet and transform_loop
+falsepositives:
+  - "In-house scripts that hand-roll base32 or base36 for licence keys, short-URL slugs or record-ID obfuscation. They declare exactly this kind of alphabet and index into it, and MITRE's KnownLegitEncoders knob exists for precisely these — suppress by script Path or ScriptBlockId rather than by weakening the alphabet list."
+  - "Password and passphrase generators, and provisioning tooling that builds random tokens. They carry a full alphabet literal and call ToCharArray(), so all three selections are satisfied; without MITRE's EntropyThreshold and TokenLengthThreshold there is nothing inside a single 4104 event that separates a 16-character password from a 4 KB encoded payload."
+  - "Checksum, CRC and simple integrity routines inside signed third-party modules, whose script blocks are logged verbatim when the module is dot- sourced. These use `-bxor` and `-shr` against a lookup table and will match if the table happens to be alphabetic."
+level: medium

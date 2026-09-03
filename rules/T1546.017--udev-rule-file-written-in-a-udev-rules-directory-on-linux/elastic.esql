@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "path" AND (TO_LOWER(name) LIKE "*/etc/udev/rules.d/*" OR TO_LOWER(name) LIKE "*/run/udev/rules.d/*" OR TO_LOWER(name) LIKE "*/usr/local/lib/udev/rules.d/*")) OR (TO_LOWER(type) == "path" AND TO_LOWER(name) LIKE "*/usr/lib/udev/rules.d/*") OR (TO_LOWER(type) == "path" AND TO_LOWER(name) LIKE "/lib/udev/rules.d/*"))

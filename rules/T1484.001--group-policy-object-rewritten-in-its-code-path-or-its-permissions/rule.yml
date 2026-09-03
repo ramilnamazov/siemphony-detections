@@ -1,0 +1,57 @@
+title: Group Policy object rewritten in its code path or its permissions
+id: 8370ca90-880c-49e1-b782-16600ce02658
+status: experimental
+description: |
+  AN0854 covers both halves of a malicious GPO change — the directory object
+  edit that repoints or extends a policy, and the delegation edit that hands
+  someone the right to make it — and Security EventID 5136 is the one source in
+  the brief that records either directly. The rule gates on a directory object
+  modification whose ObjectClass is groupPolicyContainer, then requires the
+  changed attribute to be one of four that determine what a policy does or who
+  may change it: gPCFileSysPath, the SYSVOL path clients read policy from;
+  gPCMachineExtensionNames and gPCUserExtensionNames, the client-side extension
+  lists that decide which processors run — the pair a scheduled-task or registry
+  payload has to touch; and nTSecurityDescriptor, the GPO's own ACL. That
+  attribute list is authored into MITRE's `ObjectDN` and `UserContext` knobs,
+  not taken from MITRE. The SYSVOL file leg is deliberately not attempted: on a
+  domain controller those writes arrive over SMB from a management console, so
+  Sysmon EventID 11 records the System process rather than the editing tool, and
+  MITRE's `TimeWindow` correlation between the object change and the file write
+  is a cross-event join Sigma cannot express. Note also that the brief maps
+  Security 4663 onto the Sysmon-shaped `file_event` category, whose
+  TargetFilename field 4663 does not have, so that feed would need a field
+  mapping before any file-based variant of this rule could match. Prerequisite:
+  5136 needs the *Audit Directory Service Changes* subcategory enabled on domain
+  controllers and an auditing SACL covering the Policies container — neither is
+  on in a default install or in the Microsoft and CIS baselines, so an empty
+  result means blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0305, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1484/001
+  - https://attack.mitre.org/detectionstrategies/DET0305
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.privilege-escalation
+  - attack.t1484.001
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_object:
+    EventID: 5136
+    ObjectClass: 'groupPolicyContainer'
+  selection_attribute:
+    AttributeLDAPDisplayName:
+      - 'gPCFileSysPath'
+      - 'gPCMachineExtensionNames'
+      - 'gPCUserExtensionNames'
+      - 'nTSecurityDescriptor'
+  condition: selection_object and selection_attribute
+falsepositives:
+  - "Routine Group Policy administration. Adding or removing any setting that is backed by a client-side extension rewrites gPCMachineExtensionNames or gPCUserExtensionNames, so every ordinary policy edit made through the Group Policy Management Console matches. Absolute volume is low because GPO edits are infrequent, but the proportion matching is close to all of them, which is why this is medium and not high."
+  - "Delegation of policy editing to a helpdesk, application or server-build team, which rewrites nTSecurityDescriptor on each affected GPO, as does any periodic ACL remediation or tiering project."
+  - "Configuration and compliance products that own GPOs under a service account — security-baseline tooling, patch and update managers, and co-management agents that create, update or version policies on a schedule."
+  - "GPO backup, restore, migration and import operations, and domain migration tooling, all of which rewrite gPCFileSysPath and the extension lists on the policies they touch."
+level: medium

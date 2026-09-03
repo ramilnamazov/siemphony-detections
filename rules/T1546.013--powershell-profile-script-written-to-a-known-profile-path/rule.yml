@@ -1,0 +1,44 @@
+title: PowerShell profile script written to a known profile path
+id: f1cff0e9-c670-4857-b1cb-02b559290d5b
+status: experimental
+description: |
+  Matches Sysmon file creation of a PowerShell profile script — profile.ps1 or a
+  per-host Microsoft.PowerShell_profile.ps1/ISE/VSCode variant — landing in a
+  WindowsPowerShell\ or PowerShell\ folder, the concrete half of AN1245 that a
+  single event can carry; the analytic's other half, correlating the write with
+  a later PowerShell launch that omits -NoProfile, spans two events and Sigma
+  has no join for it. The match is anchored on the last two path segments
+  rather than the full path because Documents is frequently OneDrive- or
+  UNC-redirected, and a full-path match would silently miss every redirected
+  profile. Both the per-user and the all-users ($PSHOME) locations are
+  included, since either gives an adversary unattended code execution on every
+  new PowerShell session.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0451, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/013
+  - https://attack.mitre.org/detectionstrategies/DET0451
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.013
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection:
+    TargetFilename|endswith:
+      - '\WindowsPowerShell\profile.ps1'
+      - '\WindowsPowerShell\Microsoft.PowerShell_profile.ps1'
+      - '\WindowsPowerShell\Microsoft.PowerShellISE_profile.ps1'
+      - '\WindowsPowerShell\Microsoft.VSCode_profile.ps1'
+      - '\PowerShell\profile.ps1'
+      - '\PowerShell\Microsoft.PowerShell_profile.ps1'
+      - '\PowerShell\Microsoft.VSCode_profile.ps1'
+  condition: selection
+falsepositives:
+  - "A user customizing their own console appearance, aliases or module imports by editing profile.ps1 in a text editor or VS Code — the single most common event this path ever sees on a developer workstation."
+  - "Endpoint management tooling (an MDM policy or GPO logon script) that centrally deploys a standard corporate profile.ps1 to the all-users PowerShell\\ path during provisioning."
+  - "PowerShell module installers such as Oh My Posh or PSReadLine setup scripts that append an Import-Module line to the user's profile on first run."
+level: low

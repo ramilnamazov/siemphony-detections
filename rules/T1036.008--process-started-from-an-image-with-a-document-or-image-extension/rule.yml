@@ -1,0 +1,60 @@
+title: Process started from an image with a document or image extension
+id: 4e660768-0c35-4349-afb6-ad04b36be85c
+status: experimental
+description: |
+  AN0630 asks for files carrying a harmless extension that are nonetheless
+  executed as binaries. Windows loads a portable executable by its header and
+  not by its name, so a payload saved as invoice.pdf or logo.jpg runs perfectly
+  well when something calls CreateProcess on it — and when it does, Sysmon
+  EventID 1 records that full path in Image. This rule is exactly that single
+  observation: a process whose own image file ends in an extension that is
+  never used for executable content. The extension list is authored here from
+  MITRE's benign_extensions knob, populated with the document and image types
+  the technique description names. What it cannot see is worth stating plainly.
+  The magic-byte comparison the analytic centres on (MITRE's
+  MagicByteMismatchThreshold knob) has no carrier at all — neither Sysmon
+  EventID 1 nor EventID 11 records file headers — so this rule infers the
+  masquerade from the extension alone and would equally miss a payload named
+  with no extension. It also misses the two most common execution paths for a
+  masqueraded file: renaming it back to .exe before running it, and handing it
+  to a loader such as rundll32.exe, where Image is the loader and the
+  masqueraded name appears only inside CommandLine, mixed in with every benign
+  command line that mentions a document. Prerequisite: Sysmon is not present in
+  a default install, and its ProcessCreate section must not be filtered to a
+  binary allowlist, or this rule returns zero rows — which reads as quiet when
+  it means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0226, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1036/008
+  - https://attack.mitre.org/detectionstrategies/DET0226
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1036.008
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith:
+      - '.jpg'
+      - '.jpeg'
+      - '.png'
+      - '.gif'
+      - '.bmp'
+      - '.txt'
+      - '.log'
+      - '.pdf'
+      - '.rtf'
+      - '.doc'
+      - '.docx'
+      - '.xls'
+      - '.xlsx'
+      - '.csv'
+  condition: selection
+falsepositives:
+  - "Malware analysis and detonation hosts, which are the loudest source by a wide margin on any estate that has them. Sandbox virtual machines, analyst workstations and EDR detonation features run samples under the names they arrived with, so those endpoints match this rule as their normal daily function and should be excluded by host rather than tuned by extension."
+  - "Purple-team and security-training infrastructure. Atomic-test harnesses and adversary-emulation ranges copy a benign binary to a name such as calc.jpg and launch it precisely to prove this control works, producing scheduled bursts of matches from a known set of hosts."
+  - "Phishing-simulation and user-awareness platforms, which drop and execute a harmless payload named like an attachment on the endpoints of whoever clicked, generating matches spread across ordinary user machines during a campaign window."
+level: high

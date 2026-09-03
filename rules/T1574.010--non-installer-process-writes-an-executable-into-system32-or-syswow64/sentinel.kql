@@ -1,0 +1,2 @@
+DeviceFileEvents
+| where (((FolderPath endswith ".exe" or FolderPath endswith ".dll") and (FolderPath contains "\\System32\\" or FolderPath contains "\\SysWOW64\\")) and not (((InitiatingProcessFolderPath startswith "C:\\Windows\\System32\\msiexec.exe" or InitiatingProcessFolderPath startswith "C:\\Windows\\servicing\\TrustedInstaller.exe" or InitiatingProcessFolderPath startswith "C:\\Windows\\System32\\wusa.exe") or InitiatingProcessFolderPath endswith "\\TiWorker.exe")))

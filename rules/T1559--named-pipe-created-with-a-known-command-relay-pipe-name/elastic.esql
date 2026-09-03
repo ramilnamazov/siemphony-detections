@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(file.name) LIKE "\\\\postex_*" OR TO_LOWER(file.name) LIKE "\\\\status_*" OR TO_LOWER(file.name) LIKE "\\\\psexesvc*") OR (TO_LOWER(file.name) LIKE "\\\\msagent_*" OR TO_LOWER(file.name) LIKE "\\\\msse-*"))

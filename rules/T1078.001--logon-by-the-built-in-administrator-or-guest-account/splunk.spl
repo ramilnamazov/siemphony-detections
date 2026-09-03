@@ -1,0 +1,1 @@
+index=* (((EventID="4624" AND (LogonType="2" OR LogonType="3" OR LogonType="10")) OR EventID="4648") AND (TargetUserName="Administrator" OR TargetUserName="Guest"))

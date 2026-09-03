@@ -1,0 +1,71 @@
+title: Partition-table wipe utility invoked on Linux
+id: 5e251b45-f428-4164-bff9-f247bdb0feb7
+status: experimental
+description: |
+  Implements the tool-invocation leg of AN0828 on auditd: execution of one of
+  three non-interactive utilities capable of destroying a partition table in a
+  single command — sgdisk, sfdisk, wipefs. The device-path leg that used to sit
+  alongside it has been removed. T1561.001 is already authored in this corpus
+  on the identical logsource with a device selector (`name|startswith` on
+  `/dev/sd`, `/dev/nvme`, `/dev/vd`, `/dev/xvd`, `/dev/hd`, `/dev/mmcblk`,
+  `/dev/md`, `/dev/dm-`, `/dev/mapper/` and `/dev/disk/`) that is a strict
+  superset of the fifteen whole-disk nodes this rule used to enumerate, so
+  every device-leg match here also raised that sibling rule and nothing on the
+  event told the two techniques apart — a write to /dev/sda is equally
+  consistent with a content wipe (.001) and a structure wipe (.002), and the
+  offset that would distinguish them is not a field auditd exposes to Sigma.
+  Keeping the device leg added alert volume, not discriminating power, so it
+  is dropped and this rule now stands only on the coverage genuinely specific
+  to Disk Structure Wipe: sgdisk, sfdisk and wipefs, whose purpose is the
+  partition table rather than disk content, and which are disjoint from
+  T1561.001's dd/shred/wipe/nwipe/scrub/blkdiscard/badblocks tool list.
+  `dd`, `fdisk`, `gdisk`, `parted` and `cfdisk` stay excluded, as before: `dd`
+  is too generic to select on its own name, and the interactive tools cannot
+  be separated from provisioning work without arguments this feed does not
+  supply on the same record as the binary.
+  This leg has no argument gate, which is a real limitation and not just an
+  unused knob: MITRE's log source for AN0828 names arguments as part of the
+  observable ("writing to sector 0 or partition table"), but a raw auditd
+  stream splits one execution into a SYSCALL record carrying `exe` and a
+  separate EXECVE record carrying the arguments, so this selection — matching
+  on `exe` alone — fires identically on a destructive call and on a read-only
+  one. `sfdisk -l` and `sfdisk -d` dump the layout, `sgdisk -p` and
+  `sgdisk --print` print the table, and bare `wipefs /dev/sda` only lists
+  signatures — only `wipefs -a` erases them — and none of that is
+  distinguished here. MITRE's `OffsetThreshold` knob is unreachable for the
+  same reason a write predicate is: this leg observes process launch, never
+  the bytes a syscall touched. The Windows arm AN0827 is not attempted, because
+  Security 4673 carries only `SubjectUserName`, `ProcessName`, `PrivilegeList`
+  and `Service`, and Sysmon `driver_load` carries only `ImageLoaded`, `Hashes`
+  and `Signature` — neither has a field that could hold a `\.\PhysicalDrive`
+  path. Prerequisite: auditd records no execve at all until an exec rule such
+  as `-a always,exit -F arch=b64 -S execve -k exec` is loaded, with its b32
+  twin — without it this rule returns zero rows, and zero rows here reads as
+  quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0297, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1561/002
+  - https://attack.mitre.org/detectionstrategies/DET0297
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.impact
+  - attack.t1561.002
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: 'SYSCALL'
+    exe|endswith:
+      - '/sgdisk'
+      - '/sfdisk'
+      - '/wipefs'
+  condition: selection
+falsepositives:
+  - "Cloud and virtual-machine first boot. cloud-init's growpart module shells out to sfdisk for an MBR-labelled disk or sgdisk for a GPT-labelled one to expand the root partition on the first boot of every instance built from an image, so on any estate that provisions VMs this is the highest-volume match by a wide margin and it is what sets the level."
+  - "Software-defined storage preparing disks. ceph-volume and Rook run wipefs -a and sgdisk --zap-all against every candidate device before creating an OSD, and Kubernetes local-storage and LVM provisioners do the same, so a storage node emits this rule on every disk add, OSD rebuild or node reimage."
+  - "Operating-system installation and imaging. Anaconda with a kickstart, debian-installer preseed, Ignition and Foreman all call sgdisk or sfdisk to lay out the partition table during an unattended build, producing a burst of matches for every host provisioned."
+  - "Configuration management running disk tasks on a schedule. Ansible community.general.parted, the filesystem module, and hand-written wipefs or sfdisk tasks re-assert the layout of attached data disks on every run, whether or not anything has changed."
+  - "Inventory, fact-gathering and monitoring scripts that only read the partition table: sfdisk -l or sfdisk -d, sgdisk -p or sgdisk --print, and a bare wipefs invocation (no -a) all list rather than modify, but the argument that would tell a listing apart from a wipe lives on a separate auditd record this rule does not read, so CMDB collectors and Ansible fact-gathering polling on a schedule match identically to a destructive call."
+level: low

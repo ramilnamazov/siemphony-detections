@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(registry.path) LIKE "*\\\\cryptography\\\\oid\\\\encodingtype 0\\\\cryptsipdllgetsigneddatamsg\\\\*" OR TO_LOWER(registry.path) LIKE "*\\\\cryptography\\\\oid\\\\encodingtype 0\\\\cryptsipdllverifyindirectdata\\\\*")

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((event.code == 5136 AND TO_LOWER(ObjectClass) == "trusteddomain") AND (TO_LOWER(AttributeLDAPDisplayName) == "trustpartner" OR TO_LOWER(AttributeLDAPDisplayName) == "trustdirection" OR TO_LOWER(AttributeLDAPDisplayName) == "trusttype" OR TO_LOWER(AttributeLDAPDisplayName) == "trustattributes" OR TO_LOWER(AttributeLDAPDisplayName) == "msds-trustforesttrustinfo"))

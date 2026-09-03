@@ -1,0 +1,53 @@
+title: Mavinject started with a DLL or import-descriptor injection switch
+id: 7a5c27c0-f39a-4d3a-949f-e8aeaa8f18b2
+status: experimental
+description: |
+  Matches process creation of the App-V injector carrying `/INJECTRUNNING` or
+  `/HMODULE`, the two switches that make it write a DLL or an import-table entry
+  into a process it did not start — step 1 of MITRE's chain and the only step
+  that is a single event. Both names are matched because an `endswith` on
+  `\mavinject.exe` alone is defeated by the 32-bit `mavinject32.exe` that ships
+  with App-V and with Office Click-to-Run, and `windash` is applied because the
+  argument parser accepts a hyphen wherever the documented form writes a slash.
+  The rule is written in the Sysmon EventID 1 process-creation vocabulary
+  (`Image`, `CommandLine`); the Security EventID 4688 feed the analytic names
+  calls the same path `NewProcessName` and needs a field mapping first, plus
+  *Audit Process Creation* and *Include command line in process creation events*,
+  neither of which is on in a default install. The rest of the chain — the
+  high-access handle, the module load inside the target and any follow-on egress
+  — is a time-windowed correlation Sigma cannot express. Two limitations set the
+  level. On any estate where App-V is published the client injects its subsystem
+  DLLs through this exact command line on ordinary application launches, so the
+  normal case there is a continuous benign match and the rule is only a
+  high-confidence signal once those launches are allowlisted, or on an estate
+  confirmed not to run App-V at all. And the match is on the image name, so
+  copying the Microsoft-signed binary to any other filename defeats both
+  selectors while leaving the technique's value intact — the switches are the
+  rename-resistant half and would need a CommandLine-only companion rule.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0433, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/013
+  - https://attack.mitre.org/detectionstrategies/DET0433
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.013
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_image:
+    Image|endswith:
+      - '\mavinject.exe'
+      - '\mavinject32.exe'
+  selection_switch:
+    CommandLine|contains|windash:
+      - '/INJECTRUNNING'
+      - '/HMODULE'
+  condition: selection_image and selection_switch
+falsepositives:
+  - "Hosts running Microsoft Application Virtualization, where the App-V client injects its own subsystem DLLs into a virtualized application through exactly this command line. On an estate that has App-V published this fires on ordinary application launches, and MITRE's TargetProcessAllowList knob is where the legitimate injection targets are recorded so the unusual ones stand out."
+  - "Application packaging, virtualization-management and software-distribution tooling that drives App-V sequencing or validation during a publish window, invoking the injector under a service account on every package refresh. In a virtualization-heavy estate — App-V sequencing suites, Citrix-style profile and layering agents — this recurs on every publish cycle across many hosts. MITRE names the ParentProcessFilter knob for this; the values are whichever deployment agent your estate runs."
+  - "Control-validation runs. The public atomic test for this technique executes the injector with /INJECTRUNNING verbatim, so a scheduled purple-team cycle produces a clean match every time it runs."
+level: medium

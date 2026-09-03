@@ -1,0 +1,23 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)(\\CcmExec\.exe$|\\Microsoft\.Management\.Services\.IntuneWindowsAgent\.exe$|\\AgentExecutor\.exe$)</field>
+    <field name="Image" type="pcre2">(?i)(\\powershell\.exe$|\\pwsh\.exe$|\\cmd\.exe$|\\wscript\.exe$|\\cscript\.exe$|\\mshta\.exe$|\\rundll32\.exe$|\\regsvr32\.exe$)</field>
+    <description>Software deployment agent spawning a script interpreter (1/2)</description>
+    <mitre>
+      <id>T1072</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ParentImage" type="pcre2">(?i)\\cmtrace\.exe$</field>
+    <description>Software deployment agent spawning a script interpreter (2/2)</description>
+    <mitre>
+      <id>T1072</id>
+    </mitre>
+  </rule>
+</group>

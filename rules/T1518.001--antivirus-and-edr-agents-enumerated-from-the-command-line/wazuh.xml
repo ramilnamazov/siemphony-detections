@@ -1,0 +1,42 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 4 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(securitycenter2|AntiVirusProduct|AntiSpywareProduct|FirewallProduct)</field>
+    <description>Antivirus and EDR agents enumerated from the command line (1/4)</description>
+    <mitre>
+      <id>T1518.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(Get-MpComputerStatus|Get-MpPreference|Get-MpThreat)</field>
+    <description>Antivirus and EDR agents enumerated from the command line (2/4)</description>
+    <mitre>
+      <id>T1518.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\netsh\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)firewall show</field>
+    <description>Antivirus and EDR agents enumerated from the command line (3/4)</description>
+    <mitre>
+      <id>T1518.001</id>
+    </mitre>
+  </rule>
+
+  <rule id="100003" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\tasklist\.exe$|\\sc\.exe$|\\reg\.exe$|\\findstr\.exe$|\\wmic\.exe$|\\powershell\.exe$|\\pwsh\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i)(windefend|msmpeng|crowdstrike|csfalcon|sentinelone|sentinelagent|carbonblack|cbdefense|cylance|cybereason|sophos|symantec|mcafee|kaspersky|trendmicro|tanium)</field>
+    <description>Antivirus and EDR agents enumerated from the command line (4/4)</description>
+    <mitre>
+      <id>T1518.001</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,1 @@
+index=* (Image="*\\outlook.exe" AND (ImageLoaded="*\\vbscript.dll" OR ImageLoaded="*\\scrobj.dll"))

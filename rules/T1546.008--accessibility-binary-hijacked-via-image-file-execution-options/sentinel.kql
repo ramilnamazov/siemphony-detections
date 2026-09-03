@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey contains "\\Image File Execution Options\\" and (RegistryKey contains "\\sethc.exe" or RegistryKey contains "\\utilman.exe" or RegistryKey contains "\\osk.exe" or RegistryKey contains "\\magnify.exe" or RegistryKey contains "\\narrator.exe" or RegistryKey contains "\\displayswitch.exe" or RegistryKey contains "\\atbroker.exe" or RegistryKey contains "\\hh.exe"))

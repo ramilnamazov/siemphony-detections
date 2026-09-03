@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(file.path) LIKE "*\\\\system.management.automation.dll" OR TO_LOWER(file.path) LIKE "*\\\\system.management.automation.ni.dll") AND NOT ((TO_LOWER(process.executable) LIKE "*\\\\powershell.exe" OR TO_LOWER(process.executable) LIKE "*\\\\powershell_ise.exe" OR TO_LOWER(process.executable) LIKE "*\\\\pwsh.exe" OR TO_LOWER(process.executable) LIKE "*\\\\wsmprovhost.exe" OR TO_LOWER(process.executable) LIKE "*\\\\sdiagnhost.exe" OR TO_LOWER(process.executable) LIKE "*\\\\servermanager.exe")))

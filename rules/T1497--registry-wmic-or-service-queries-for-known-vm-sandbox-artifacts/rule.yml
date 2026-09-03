@@ -1,0 +1,71 @@
+title: Registry, WMIC or service queries for known VM/sandbox artifacts
+id: f11d1f65-1be1-478b-85fd-2f75ca90073e
+status: experimental
+description: |
+  AN0127 names two log sources, Sysmon EventID 1 (process creation) and
+  EventID 7 (module load); this rule is built on the process-creation half
+  only, so DLL-based sandbox-evasion checks that never spawn a process — the
+  module-load half of the analytic — are outside what it can see. Three
+  independent legs cover the discovery commands AN0127 describes: `reg.exe`
+  reading the BIOS/ACPI registry keys a hypervisor leaves stubbed or renamed,
+  `wmic.exe` reading hardware-identity fields (manufacturer, model, BIOS
+  serial, board product, SMBIOS UUID) that virtualization platforms fill with
+  recognisable vendor strings, and `sc.exe` querying the guest-integration
+  service names VirtualBox and VMware register on a guest. Each leg pairs the
+  binary with the argument text that makes it a hardware-identity read rather
+  than routine service or registry administration; MITRE's
+  `KnownVMArtifactList` knob only describes this category in the abstract
+  ("registry paths, DLLs, services or device names indicative of sandbox/VM
+  environments") — it names no specific value. All three value lists,
+  including the VirtualBox/VMware service names in the third leg, are this
+  rule's own choice of which artifacts to watch for, not MITRE's. The
+  `TimeWindow` knob, for
+  correlating a burst of discovery with a later payload drop, is unused: that
+  needs a cross-event join lib/sigma does not model, so this rule flags each
+  matching command in isolation and cannot distinguish one query from a script
+  that runs all three in sequence.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0046, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1497
+  - https://attack.mitre.org/detectionstrategies/DET0046
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.discovery
+  - attack.t1497
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_reg_bios:
+    Image|endswith: '\reg.exe'
+    CommandLine|contains:
+      - 'HARDWARE\DESCRIPTION\System\BIOS'
+      - 'HARDWARE\ACPI\DSDT'
+      - 'SystemBiosVersion'
+  selection_wmic_hw:
+    Image|endswith: '\wmic.exe'
+    CommandLine|contains:
+      - 'computersystem get manufacturer'
+      - 'computersystem get model'
+      - 'bios get serialnumber'
+      - 'baseboard get product'
+      - 'csproduct get uuid'
+  selection_sc_vmdriver:
+    Image|endswith: '\sc.exe'
+    CommandLine|contains:
+      - 'VBoxService'
+      - 'VBoxGuest'
+      - 'VBoxSF'
+      - 'VBoxMouse'
+      - 'vmci'
+      - 'vm3dmp'
+      - 'vmmouse'
+      - 'VMTools'
+  condition: 1 of selection*
+falsepositives:
+  - "IT asset-inventory and software-deployment tooling — SCCM, Lansweeper, PDQ Inventory, Intune hardware-attestation scripts — that routinely runs wmic and reg queries against BIOS, manufacturer and board fields as part of scheduled hardware inventory; this is the highest-volume match on a managed estate and is why the rule is not rated above low."
+  - "Legitimate use of VirtualBox or VMware on the endpoint itself: a developer, QA engineer or administrator running sc query against VBoxService, vmci or vm3dmp to troubleshoot Guest Additions or VMware Tools on a machine that is a VM guest or a VM host by design."
+  - "Driver and firmware update utilities that read SystemBiosVersion or the BIOS registry key to decide which update package applies, run from vendor tools like Dell Command | Update or HP Support Assistant."
+level: low

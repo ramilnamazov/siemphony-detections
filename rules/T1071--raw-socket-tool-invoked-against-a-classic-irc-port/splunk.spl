@@ -1,0 +1,1 @@
+index=* ((Image="*/nc" OR Image="*/nc.openbsd" OR Image="*/nc.traditional" OR Image="*/ncat" OR Image="*/socat" OR Image="*/telnet") AND (CommandLine="*6667*" OR CommandLine="*6668*" OR CommandLine="*6669*" OR CommandLine="*6697*"))

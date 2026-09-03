@@ -1,0 +1,62 @@
+title: Steganography tool embedding data into a carrier file on Linux
+id: accc01e6-6331-4c8c-8b97-42ccdef5d440
+status: experimental
+description: |
+  Matches execution of a dedicated steganography utility on a Linux host with an
+  argument that puts it in embedding mode rather than extraction mode. MITRE's
+  ToolNameMatch knob names steghide and outguess; stegsnow and stegify are added
+  here as the author's expansion of that two-item list. All four are native
+  compiled binaries, which matters on this log source: AN0652 is auditd
+  SYSCALL::execve, where exe= holds the binary the kernel actually executed, so
+  for a shebang script or a shell wrapper it holds the interpreter. That rules
+  out the script-wrapped tools — stegosuite and openstego are /usr/bin wrappers
+  that exec java -jar, zsteg is a Ruby gem executable — whose names can never
+  appear in this field, and they are deliberately out of scope here rather than
+  written in as selectors that would validate clean and never fire. The second
+  selection separates hiding data from reading it: steghide takes the embed
+  subcommand, stegify takes encode, outguess takes -d for the data file and
+  stegsnow -m for the message, while extract, decode and -r are all reading
+  operations that this rule now leaves alone. Be clear about what this is. It
+  detects a named toolset, not steganography — copying steghide to another
+  filename defeats it outright, and LSB embedding is fifteen lines of Python
+  against PIL, which produces a python3 execve indistinguishable from any other.
+  The only observable that generalises is the analytic's other half, a media
+  file written and then carried outbound shortly after, which is the file_event
+  plus network_connection correlation Sigma cannot express in one rule. Note too
+  that with the network leg absent what remains is purely local embedding of
+  data into a file, which is indistinguishable from T1027.003 under
+  defense-evasion; the command-and-control reading of a hit depends entirely on
+  evidence this rule does not carry. Prerequisite: auditd ships no execve rule
+  by default, so a host without an -S execve audit rule or an equivalent process
+  telemetry agent produces nothing here at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0235, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1001/002
+  - https://attack.mitre.org/detectionstrategies/DET0235
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1001.002
+  - attack.t1027.003
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tool:
+    Image|endswith:
+      - '/steghide'
+      - '/outguess'
+      - '/stegsnow'
+      - '/stegify'
+  selection_embed:
+    CommandLine|contains:
+      - ' embed'
+      - ' encode'
+      - ' -d '
+      - ' -m '
+  condition: selection_tool and selection_embed
+falsepositives:
+  - "Hosts where steganography tooling is legitimately installed and used: security research, CTF practice and training boxes, forensics workstations where an analyst embeds a known payload to build a comparison sample, and distribution or CI jobs that run these tools' own test suites after compilation. On such a host the rule fires constantly; on a normal fleet its base rate is zero, so scope it by host role first and only then shorten MITRE's ToolNameMatch list."
+  - "Media and rights-management pipelines that embed ownership watermarks as a scheduled batch step, which fires once per asset processed and is the one benign source that appears on ordinary servers rather than on a specialist host."
+level: medium

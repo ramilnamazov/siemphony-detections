@@ -1,0 +1,72 @@
+title: Remote thread created inside a credential-handling process
+id: 3e25d626-50df-4591-91ee-92eb554d0bd8
+status: experimental
+description: |
+  AN0389 asks for a memory modification correlated with a hook-installation
+  routine inside a credential-sensitive process. Of the three log sources the
+  analytic supplies, Sysmon EventID 8 is the only one where the memory
+  modification and the process it lands in arrive on a single event, so the rule
+  sits there and matches on TargetImage alone. MITRE names explorer.exe and
+  winlogon.exe under its TargetProcess knob; logonui.exe, credentialuibroker.exe
+  and the three browsers are added here rather than taken from MITRE — the two
+  logon-UI processes because they render the credential prompt itself, and the
+  browsers because the banking-trojan lineage MITRE cites for this technique
+  hooks the network and credential-store APIs inside chrome.exe and firefox.exe.
+  lsass.exe was deliberately removed from the target list: it renders no
+  credential UI and exports no credential-entry function to hook, and a
+  memory-read handle opened against it is already published in this corpus under
+  T1003.001. Read any hit as process injection first. A remote thread created in
+  another process is the canonical observable for T1055, and nothing on this
+  event says the injected code installs a hook, so T1055 — and, for the
+  browsers, ordinary accessibility or content-inspection injection — has to be
+  ruled out before this is read as credential hooking. The rule is deliberately
+  not narrowed by StartFunction or StartModule: the textbook injection resolves
+  to LoadLibraryA or LoadLibraryW in kernel32, but a hook installed from
+  position-independent code leaves StartFunction empty, and requiring the name
+  would drop exactly the quieter half — the cost is that every remote thread
+  into these seven processes alerts, benign or not, which is why the level is
+  low. Two of MITRE's three hooking mechanisms are out of reach entirely: IAT
+  and inline patching performed with WriteProcessMemory from a thread that
+  already exists produces no EventID 8, and SetWindowsHookEx installs a hook
+  with no remote thread either. Those two are visible only through EDR API
+  telemetry, or through an image_load rule on an unexpected DLL appearing across
+  many processes at once, and neither is among this strategy's log sources — so
+  a clean result here is not evidence against T1056.004 in any of its forms.
+  explorer.exe is the noisiest member of the target list and is present because
+  MITRE names it; on an estate where the shell is routinely extended by
+  third-party software, dropping it and keeping the logon and credential-prompt
+  processes removes most of the volume at the cost of missing hooks placed in
+  the shell. EventID 8 must be enabled in the Sysmon configuration and is
+  sometimes dropped for volume on busy hosts, which reads as quiet rather than
+  clean.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0139, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1056/004
+  - https://attack.mitre.org/detectionstrategies/DET0139
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.credential-access
+  - attack.t1056.004
+  - attack.t1055
+logsource:
+  category: create_remote_thread
+  product: windows
+detection:
+  selection:
+    TargetImage|endswith:
+      - '\winlogon.exe'
+      - '\explorer.exe'
+      - '\logonui.exe'
+      - '\credentialuibroker.exe'
+      - '\chrome.exe'
+      - '\msedge.exe'
+      - '\firefox.exe'
+  condition: selection
+falsepositives:
+  - "Endpoint protection, EDR and application-performance agents that inject a monitoring DLL into explorer.exe, the logon processes and the browsers at every user logon. This is the dominant source and it fires on every host, but it comes from a small and stable set of SourceImage values per estate, which is where the exclusion belongs — MITRE's TargetProcess knob narrows the target list, but SourceImage is the field that actually separates these."
+  - "Windows' own components creating remote threads during session setup, fast user switching, shell restarts and error reporting — svchost.exe, csrss.exe, taskhostw.exe and WerFault.exe appear as SourceImage against explorer.exe and winlogon.exe on a healthy host, so an exclusion list built only from vendor agent paths still leaves this volume behind."
+  - "Session-brokering, VDI and remote-display products — profile managers, printer redirectors and single sign-on agents — that thread into winlogon.exe or explorer.exe to hook the shell or the logon path. Legitimate, and structurally identical to credential hooking."
+  - "Browser-injecting software that is not malware: accessibility tools and screen readers, password-manager helpers, enterprise DLP and browser-isolation agents, and attaching a debugger, all of which create a remote thread in chrome.exe, msedge.exe or firefox.exe."
+level: low

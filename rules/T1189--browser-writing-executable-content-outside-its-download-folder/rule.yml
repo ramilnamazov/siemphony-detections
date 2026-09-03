@@ -1,0 +1,71 @@
+title: Browser writing executable content outside its download folder
+id: 8d7edd5f-1ba4-45c8-ba4f-da2dc08de910
+status: experimental
+description: |
+  Matches the unexpected file drop leg of MITRE's AN0498 — a browser process
+  itself creating an executable, script or shortcut file somewhere other than
+  the user's download directory and the browser's own program and profile
+  directories. That framing is deliberate: a rule on the browser spawning a
+  child process would be indistinguishable from the client-exploitation rule
+  already authored for T1203, and a write into the download folder is the
+  user-initiated download that belongs to T1204. What remains is content the
+  page placed on disk without a save dialog. The analytic's other legs — the
+  suspicious fetch, the correlation window, the entropy of the payload — are a
+  multi-source join with numeric thresholds that Sigma has no construct for.
+  Requires Sysmon file creation logging with a configuration that does not
+  exclude these extensions or the browsers; the widely used community configs
+  narrow EventID 11 sharply, and a narrowed config makes this rule silent
+  rather than clean.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0176, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1189
+  - https://attack.mitre.org/detectionstrategies/DET0176
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.initial-access
+  - attack.t1189
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_browser:
+    Image|endswith:
+      - '\chrome.exe'
+      - '\msedge.exe'
+      - '\firefox.exe'
+      - '\iexplore.exe'
+      - '\brave.exe'
+      - '\opera.exe'
+  selection_payload:
+    TargetFilename|endswith:
+      - '.exe'
+      - '.dll'
+      - '.scr'
+      - '.hta'
+      - '.js'
+      - '.jse'
+      - '.vbs'
+      - '.vbe'
+      - '.wsf'
+      - '.ps1'
+      - '.lnk'
+      - '.jar'
+  filter_expected_paths:
+    TargetFilename|contains:
+      - '\Downloads\'
+      - '\Google\Chrome\Application\'
+      - '\Google\Chrome\User Data\'
+      - '\Google\Update\'
+      - '\Microsoft\Edge\Application\'
+      - '\Microsoft\Edge\User Data\'
+      - '\Microsoft\EdgeUpdate\'
+      - '\Mozilla Firefox\'
+      - '\Mozilla\Firefox\Profiles\'
+  condition: selection_browser and selection_payload and not filter_expected_paths
+falsepositives:
+  - "A user whose download directory is not the default one. Redirecting downloads to the desktop, to Documents or to a synced folder puts every ordinary download outside the filter and makes this rule fire on normal browsing. This is the first thing to check when tuning, and the filter path list is where the estate's real download locations belong."
+  - "Save-as and drag-out. Choosing a location in the save dialog, or dragging an attachment out of a webmail page, writes the file wherever the user pointed and is recorded against the browser process exactly as a silent drop would be."
+  - "Portable browser installs and per-user or non-standard install paths, which place the browser's own executables and libraries outside the program directories listed in the filter, so self-update rewrites them into an unfiltered path."
+  - "Extension and plugin installation, which writes script files into profile subdirectories that vary by browser build and may not be covered by the profile paths filtered here. MITRE's ExtensionInstallPolicy knob for the macOS analytic is the same idea — a strict install policy is what makes these predictable enough to exclude."
+level: medium

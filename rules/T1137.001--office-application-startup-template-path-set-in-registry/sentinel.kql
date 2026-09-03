@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey endswith "\\Word\\Options\\GlobalDotName" or RegistryKey endswith "\\Excel\\Options\\AltStartup")

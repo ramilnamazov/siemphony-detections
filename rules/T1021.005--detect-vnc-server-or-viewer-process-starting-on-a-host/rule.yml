@@ -1,0 +1,40 @@
+title: Detect VNC server or viewer process starting on a host
+id: 6959d9b5-4a5f-43e8-af26-bdafc2882ddd
+status: experimental
+description: |
+  Flags process creation of known VNC server and viewer executables, the first
+  observable in MITRE's chain of "VNC service starting unexpectedly, followed by
+  user session creation and interactive desktop activity". The binary list is
+  MITRE's VNCBinaryList tuning knob made concrete, matched on `Image` alone so
+  the rule stays a single-field match that every backend can render. Viewer
+  binaries are included because a host initiating an outbound VNC session is the
+  lateral-movement source, not just the target.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0178, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1021/005
+  - https://attack.mitre.org/detectionstrategies/DET0178
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1021.005
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith:
+      - '\winvnc.exe'
+      - '\winvnc4.exe'
+      - '\vncserver.exe'
+      - '\vncserverui.exe'
+      - '\vncviewer.exe'
+      - '\tvnserver.exe'
+      - '\tvnviewer.exe'
+      - '\uvnc_service.exe'
+  condition: selection
+falsepositives:
+  - "Sanctioned remote-support tooling — helpdesk staff launching UltraVNC or TightVNC against user workstations produces exactly this event. Narrow MITRE's VNCBinaryList to the products your estate does not license, or exclude the helpdesk operators named by the UserContext knob."
+  - "VNC service auto-start at boot on hosts where a KVM-over-IP, lab-imaging or remote-console agent bundles a VNC server; the process appears under SYSTEM on every reboot with no accompanying interactive logon."
+  - "Installers and updaters for VNC packages, which run the server binary once to register the service during a software deployment window."
+level: medium

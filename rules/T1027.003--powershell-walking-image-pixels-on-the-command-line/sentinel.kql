@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((FolderPath endswith "\\powershell.exe" or FolderPath endswith "\\pwsh.exe") and (ProcessCommandLine contains ".png" or ProcessCommandLine contains ".jpg" or ProcessCommandLine contains ".jpeg" or ProcessCommandLine contains ".bmp" or ProcessCommandLine contains ".gif" or ProcessCommandLine contains ".ico" or ProcessCommandLine contains ".wav")) and (ProcessCommandLine contains "GetPixel" or ProcessCommandLine contains "LockBits" or ProcessCommandLine contains "Invoke-PSImage"))

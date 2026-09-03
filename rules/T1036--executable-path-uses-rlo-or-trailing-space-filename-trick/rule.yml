@@ -1,0 +1,64 @@
+title: Executable path uses RLO or trailing-space filename trick
+id: cfa60147-efdc-4721-90fc-e84d29d88fc9
+status: experimental
+description: |
+  AN0356's Linux leg names two masquerading mechanisms — dropping a renamed
+  binary in an uncommon directory such as /tmp or /dev/shm, and "special
+  characters in names (e.g., trailing space, Unicode RLO)" — joined to a
+  cronjob or execution that follows shortly after. This rule takes only the
+  second mechanism. The Unicode right-to-left override (U+202E) and a space
+  inserted immediately before the final extension are both classic filename
+  masquerades: RLO reverses the characters that follow it so a name built as
+  `cod.exe<RLO>gnp.` displays as `.png.exe`-reversed-to-`.exe.png`, and a
+  trailing space is the same trick worked by whitespace rather than a control
+  character. Both are properties of the executed `Image` path itself, so a
+  single auditd execve record carries the whole observable — no join or
+  window is needed for this half of the analytic, unlike the directory-drop
+  half. That half is deliberately not attempted: execution from /tmp or
+  /dev/shm alone, with `ExecutionDelayWindow` removed because lib/sigma has no
+  timeframe construct, is indistinguishable from the very large volume of
+  legitimate temp-directory execution already producing false positives
+  elsewhere in this corpus, and MITRE's own framing treats the short delay
+  after file drop as what makes it suspicious, not the directory alone. This
+  is `FilenameAnomalies`, MITRE's knob for "regex for Unicode/RLO/space abuse
+  in filenames", populated here with those two specific constructions rather
+  than a general anomaly score no field in this brief can compute.
+  AN0355 (Windows) is not attempted: its single-event half —
+  `OriginalFilenameMismatch` on a renamed LOLBIN — is the exact observable
+  T1036.003 already publishes against Sysmon EventID 1, and re-authoring it
+  here under a different technique ID would double-count the same signal
+  rather than add coverage; its other half needs 7045 correlated to a prior
+  file write within a `TimeWindow`, which is unsupported, and 7045 alone
+  carries no PE-metadata field to test a mismatch against. AN0357 (macOS) is
+  not attempted either: all three of its log sources — unifiedlog,
+  EndpointSecurity, osquery — have no standardised Sigma field vocabulary, the
+  same blocker recorded against these sources for T1027.005 and T1027.008;
+  inventing field names for `InfoPlistDiscrepancy` would produce a rule that
+  parses and renders in four backends while matching nothing. Prerequisite:
+  auditd records no execve at all until a rule such as
+  `-a always,exit -F arch=b64 -S execve -k exec` is loaded, which no
+  mainstream distribution ships by default — until then this rule returns
+  zero rows, and zero rows here means blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0127, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1036
+  - https://attack.mitre.org/detectionstrategies/DET0127
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1036
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_rlo:
+    Image|contains: "‮"
+  selection_trailing_space:
+    Image|re: ' \.[A-Za-z0-9]{1,6}$'
+  condition: selection_rlo or selection_trailing_space
+falsepositives:
+  - "Right-to-left locale content handled correctly. A browser or mail client saving an attachment whose original name mixes Arabic, Hebrew or Persian script with a Latin extension can legitimately embed a U+202E formatting mark so the mixed-script name renders in the intended order, and a script that later opens or processes that file executes a path containing the same character with no masquerade intended."
+  - "Unicode conformance and internationalisation test suites. QA harnesses for file managers, indexers and backup tools intentionally generate fixture files with RLO or trailing-space names to verify correct handling, then execute the harness binary against those fixtures on the same host."
+  - "Archives authored on Windows or macOS and extracted on Linux. Zip entries can carry a trailing space in their name from the originating platform; a build or install script that chmods and runs an extracted helper under that preserved name reproduces this pattern as inherited metadata rather than an intentional trick."
+level: medium

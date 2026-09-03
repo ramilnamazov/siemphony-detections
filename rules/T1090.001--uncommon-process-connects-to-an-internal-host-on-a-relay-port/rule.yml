@@ -1,0 +1,75 @@
+title: Uncommon process connects to an internal host on a relay port
+id: 312c7f4a-cb03-4270-96ac-cc49163957d7
+status: experimental
+description: |
+  Matches MITRE's AN0204 where it is expressible in one event: a scripting or
+  COM-loading host opening a socket to an RFC1918 address on a port associated
+  with proxying or with implant listeners. MITRE lists cmd.exe among the
+  anomalous processes, but Sysmon EventID 3 names the process that owns the
+  socket and cmd.exe never opens one itself, so it is dropped here along with
+  svchost.exe, which owns most of a host's ordinary traffic and would swamp the
+  rule. MITRE's DestinationPort knob names 1080, 8080 and 4444; 8080 is left out
+  because internal application and proxy traffic on it is ordinary, and 1081,
+  4445, 5555 and 9050 are the author's additions. The analytic's baseline
+  element — peer hosts absent from normal communication patterns — has no
+  single-event form, so private address space stands in for it, and note that
+  Sysmon network-connection logging is heavily filtered in many production
+  configurations, where an empty result reflects the feed rather than the
+  absence of relays.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0075, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1090/001
+  - https://attack.mitre.org/detectionstrategies/DET0075
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1090.001
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection_process:
+    Image|endswith:
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\mshta.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_internal:
+    DestinationIp|startswith:
+      - '10.'
+      - '192.168.'
+      - '172.16.'
+      - '172.17.'
+      - '172.18.'
+      - '172.19.'
+      - '172.20.'
+      - '172.21.'
+      - '172.22.'
+      - '172.23.'
+      - '172.24.'
+      - '172.25.'
+      - '172.26.'
+      - '172.27.'
+      - '172.28.'
+      - '172.29.'
+      - '172.30.'
+      - '172.31.'
+  selection_port:
+    DestinationPort:
+      - 1080
+      - 1081
+      - 4444
+      - 4445
+      - 5555
+      - 9050
+  condition: selection_process and selection_internal and selection_port
+falsepositives:
+  - "An internal service bound to one of these high ports, reached by scripted clients. A build agent, test harness or management API listening on 5555 makes every PowerShell client on the subnet match, and a single such service is enough to become the rule's dominant volume in that environment."
+  - "Authorised penetration tests and control-validation runs. Metasploit's default handler port is 4444 and its SOCKS module listens on 1080, so a scheduled red-team exercise, or a purple-team test of this very technique, produces matching events from powershell.exe and rundll32.exe."
+  - "Sanctioned internal SOCKS proxies. A developer tunnel, a jump-host SOCKS listener on 1080, or an internal onion-routed service on 9050 queried by a script host looks identical to the behaviour being detected, because it is the same behaviour with different intent. MITRE's InternalConnectionPattern knob is where a known relay pair gets excluded."
+  - "Software distribution and remote-support agents that drive PowerShell to fetch content from a peer or cache host rather than from a server, which is common in branch-office and peer-to-peer distribution designs."
+level: medium

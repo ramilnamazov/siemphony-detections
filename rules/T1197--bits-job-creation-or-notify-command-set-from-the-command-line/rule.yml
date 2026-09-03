@@ -1,0 +1,72 @@
+title: BITS job creation or notify command set from the command line
+id: dc55b732-9417-4838-ac13-9f5a2d83331a
+status: experimental
+description: |
+  Matches the first step of AN0274's chain — a BITS job being created or
+  reconfigured — at process creation, either through bitsadmin.exe carrying one
+  of the switches MITRE lists under its `SuspiciousCliSwitches` knob
+  (/transfer, /addfile, /SetNotifyCmdLine, /resume, /setcustomheaders,
+  /setminretrydelay, used here exactly as MITRE gives them) or through the BITS
+  PowerShell cmdlets, whose names are authored here. Both legs are written with
+  `|windash` where the switch is dash-like, so the slash and dash spellings and
+  the Unicode dashes all match. The analytic's other log sources are
+  deliberately not used, and the reason matters more than the rule: BITS
+  transfers are performed by the BITS service inside `svchost.exe -k netsvcs`,
+  not by the process that queued the job, so a Sysmon EventID 3 or EventID 22
+  rule keyed on bitsadmin.exe would translate cleanly into every backend and
+  never match a single event. AN0274 says this itself when it describes the
+  notify command being launched from svchost. Two further gaps are structural.
+  A job created through the COM interface directly, which is how tooling more
+  capable than bitsadmin does it, produces no command line at all and is
+  invisible here; and the correlation MITRE actually asks for — job creation,
+  then a transfer, then the notify command firing hours later — needs a
+  timeframe, so the `TimeWindow`, `JobLifetimeThreshold` and
+  `ExpectedUpdateHosts` knobs all have to be applied downstream rather than in
+  this rule. The rule is written in the Sysmon EventID 1 process_creation
+  vocabulary (`Image`, `CommandLine`); the log source AN0274 names is Security
+  4688, where the same values arrive as `NewProcessName` and need mapping onto
+  `Image` first, and where the command line is only present if both the *Audit
+  Process Creation* policy and the separate *Include command line in process
+  creation events* policy are enabled — neither is on in a default install or
+  in the MS and CIS baselines, and without them this rule returns zero rows,
+  which reads as quiet when it means blind.
+  UNVERIFIED — derived from MITRE ATT&CK DET0098 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1197
+  - https://attack.mitre.org/detectionstrategies/DET0098
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.execution
+  - attack.t1197
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_bitsadmin:
+    Image|endswith: '\bitsadmin.exe'
+    CommandLine|contains|windash:
+      - '/transfer'
+      - '/addfile'
+      - '/setnotifycmdline'
+      - '/resume'
+      - '/setcustomheaders'
+      - '/setminretrydelay'
+  selection_ps_host:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_ps_bits:
+    CommandLine|contains:
+      - 'Start-BitsTransfer'
+      - 'Add-BitsFile'
+      - 'Set-BitsTransfer'
+      - 'Complete-BitsTransfer'
+  condition: selection_bitsadmin or (selection_ps_host and selection_ps_bits)
+falsepositives:
+  - "Software distribution, patching and imaging that still shells out to bitsadmin /transfer to stage a package. Configuration-management task sequences, vendor updaters and OS deployment scripts all do this, and on any estate running one of them it is the rule's top talker by a clear margin; MITRE's ExpectedUpdateHosts knob is aimed at exactly this, but the destination is not on the process-creation event, so the allowlist has to key on the parent process or the service account instead."
+  - "Administrators and helpdesk runbooks using Start-BitsTransfer, which is the supported PowerShell way to download a file on a server and appears in a great many internal scripts, module bootstrappers and vendor installation guides."
+  - "Backup, log-shipping and content-replication jobs that use /resume or /setminretrydelay to nurse a large transfer over a slow or intermittent link, producing repeated matches from the same account on a fixed schedule."
+level: medium

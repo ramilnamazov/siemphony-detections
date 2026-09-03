@@ -1,0 +1,12 @@
+<group name="sigma,windows,registry_set,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="12">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetObject" type="pcre2">(?i)\\Image File Execution Options\\</field>
+    <field name="TargetObject" type="pcre2">(?i)\\Debugger$</field>
+    <description>Debugger value written under an Image File Execution Options key</description>
+    <mitre>
+      <id>T1546.012</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\net.exe" or FolderPath endswith "\\net1.exe" or FolderPath endswith "\\findstr.exe" or FolderPath endswith "\\cmd.exe" or FolderPath endswith "\\python.exe") and not ((FolderPath startswith "C:\\Windows\\System32\\" or FolderPath startswith "C:\\Windows\\SysWOW64\\" or FolderPath startswith "C:\\Program Files\\" or FolderPath startswith "C:\\Program Files (x86)\\")))

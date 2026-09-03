@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey contains "\\Control\\Class\\{4D36E96B-E325-11CE-BFC1-08002BE10318}\\UpperFilters" or RegistryKey contains "\\Control\\Class\\{4D36E96B-E325-11CE-BFC1-08002BE10318}\\LowerFilters")

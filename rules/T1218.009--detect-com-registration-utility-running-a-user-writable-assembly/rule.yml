@@ -1,0 +1,47 @@
+title: Detect COM registration utility running a user-writable assembly
+id: a57469e6-4a78-4179-9b84-7f46a42ee664
+status: experimental
+description: |
+  Matches process creation of the .NET COM registration utilities where the
+  command line points at an assembly under a user-writable directory or a UNC
+  share — MITRE's AssemblyPathRegex knob from AN1028 made concrete. AN1028
+  describes a four-stage chain (assembly dropped, regsvcs/regasm executed,
+  HKCR CLSID/ProgID writes during registration, then a child process or egress)
+  correlated inside a 5–10 minute window; Sigma expresses no join and no
+  timeframe, so this rule is stage two alone, narrowed by path so that it is not
+  merely "a signed Microsoft binary ran". The last path entry is a literal
+  double backslash, which matches a UNC source anywhere in the command line.
+  The SuspiciousFlags knob (/u, /codebase, /regfile) is deliberately not ORed in:
+  uninstallers use /u routinely, and a flag match would swamp the path match.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0361, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/009
+  - https://attack.mitre.org/detectionstrategies/DET0361
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.009
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  registration_utility:
+    Image|endswith:
+      - '\regsvcs.exe'
+      - '\regasm.exe'
+  untrusted_assembly_path:
+    CommandLine|contains:
+      - '\AppData\Local\Temp\'
+      - '\AppData\Roaming\'
+      - '\Downloads\'
+      - '\Users\Public\'
+      - '\Windows\Temp\'
+      - '\ProgramData\'
+      - '\\\\'
+  condition: registration_utility and untrusted_assembly_path
+falsepositives:
+  - "Software installers and MSI custom actions that stage a .NET assembly in %TEMP% or %ProgramData% and register it there. This is the exact shape the rule looks for; MITRE's ParentProcessAllowList knob is the discriminator, so add ParentImage exclusions for msiexec.exe and your packaging tooling rather than removing the path entries."
+  - "Developer build and test loops. Visual Studio post-build steps and CI agents invoke regasm against assemblies in a working directory that frequently sits under %TEMP% or a mapped UNC build share, matching both selections dozens of times a day on engineering hosts."
+  - "Deployment from a file server. Line-of-business applications installed straight off `\\server\\share` produce the UNC match, which is why MITRE pairs AssemblyPathRegex with KnownGoodAssemblies — pin the approved publisher or hash before this rule is usable in an estate that deploys over SMB."
+level: high

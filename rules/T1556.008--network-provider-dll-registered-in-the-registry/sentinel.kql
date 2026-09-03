@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where ((RegistryKey endswith "\\NetworkProvider\\ProviderPath" and not ((RegistryValueData contains "\\System32\\" or RegistryValueData contains "\\SysWOW64\\"))) or (RegistryKey endswith "\\NetworkProvider\\Order\\ProviderOrder" or RegistryKey endswith "\\NetworkProvider\\HwOrder\\ProviderOrder"))

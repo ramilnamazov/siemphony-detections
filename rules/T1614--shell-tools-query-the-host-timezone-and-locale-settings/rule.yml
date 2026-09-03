@@ -1,0 +1,52 @@
+title: Shell tools query the host timezone and locale settings
+id: 89516881-07b1-4c66-b162-2a7a8afbfcf5
+status: experimental
+description: |
+  Matches AN0120's Linux leg directly: an execution of timedatectl, localectl
+  or locale, or any command line naming /etc/timezone, /etc/localtime or the
+  zoneinfo database, which is how a host's geographic position is inferred
+  from the shell. MITRE names locale, timedatectl and cat /etc/timezone as
+  examples and gives UserContext as the tuning knob; localectl and the
+  zoneinfo path are authored here rather than taken from MITRE. AN0119's
+  Windows leg was deliberately not authored — its observable is an in-process
+  GetLocaleInfoW or GetTimeZoneInformation API call, which a process-creation
+  feed structurally cannot see, and language-only discovery on Windows is
+  already covered at T1614.001. The rule is written in the Sigma linux
+  process_creation vocabulary (Image, CommandLine) that the brief supplies; a
+  raw auditd SYSCALL feed carries the same facts as exe= and a0..aN and needs
+  a field mapping before this logic applies, and auditd records no execve at
+  all until an explicit execve audit rule is loaded. Two structural blind
+  spots to be plain about: a binary that reads /etc/localtime with open() or
+  calls localtime() inside its own process creates no event here, and the
+  IP-geolocation lookup the technique also describes needs a network log
+  source that this brief does not offer.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0043, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1614
+  - https://attack.mitre.org/detectionstrategies/DET0043
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.discovery
+  - attack.t1614
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tools:
+    Image|endswith:
+      - '/timedatectl'
+      - '/localectl'
+      - '/locale'
+  selection_tzfiles:
+    CommandLine|contains:
+      - '/etc/timezone'
+      - '/etc/localtime'
+      - '/usr/share/zoneinfo'
+  condition: 1 of selection*
+falsepositives:
+  - "Configuration management convergence runs — the Ansible, Puppet, Chef, Salt and cloud-init timezone modules all shell out to timedatectl or relink /etc/localtime to a path under /usr/share/zoneinfo on every run, which on a managed fleet is the highest-volume match by a wide margin and repeats on the agent's schedule rather than on human activity."
+  - "Container image builds and entrypoint scripts that set or confirm the timezone by linking a zoneinfo file into /etc/localtime, plus tzdata package upgrades whose maintainer scripts read the same files across every host in a patch wave."
+  - "Installer and packaging scripts that run locale to decide which language pack, charset or number format to configure before writing their own config, common in dpkg and rpm post-install hooks."
+  - "An administrator troubleshooting a clock-skew or NTP ticket, where timedatectl with no arguments is the first command typed and prints exactly the timezone an adversary would be after."
+level: low

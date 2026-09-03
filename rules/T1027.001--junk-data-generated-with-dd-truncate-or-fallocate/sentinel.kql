@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "/dd" and (ProcessCommandLine contains "if=/dev/urandom" or ProcessCommandLine contains "if=/dev/zero" or ProcessCommandLine contains "if=/dev/random")) or (FolderPath endswith "/truncate" and (ProcessCommandLine contains "-s +" or ProcessCommandLine contains "--size=+")) or (FolderPath endswith "/fallocate" and ProcessCommandLine contains "-l"))

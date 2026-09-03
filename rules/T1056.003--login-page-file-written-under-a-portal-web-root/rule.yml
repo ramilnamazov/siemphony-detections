@@ -1,0 +1,64 @@
+title: Login page file written under a portal web root
+id: 2a555dba-a047-4687-bf82-6478bc5e5cc0
+status: experimental
+description: |
+  AN1321 describes tampering with an IIS, OWA or SharePoint login page, and
+  Sysmon File Creation — which also fires when an existing file is overwritten —
+  is the one log source in this brief that carries both halves of it: the path
+  on `TargetFilename` and the writing process on `Image`, which is what MITRE's
+  ProcessName knob needs. Path alone is not enough here (a write anywhere under
+  a web root is already covered as defacement in T1491.001), so the selection
+  requires a portal or Exchange/SharePoint path *and* a filename that is the
+  authentication page itself. The Linux leg AN1320 was not taken: its auditd
+  source splits the path onto a PATH record and the writing process onto a
+  separate SYSCALL record, so the "correlate the edit with a web shell" half of
+  the analytic cannot be built in one selection. Prerequisite: Sysmon must be
+  installed *and* its FileCreate rules must include the web root — several
+  widely used baseline configurations exclude high-churn web directories, so no
+  matches here can mean the directory is not being watched rather than that
+  nothing was written.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0480, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1056/003
+  - https://attack.mitre.org/detectionstrategies/DET0480
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.credential-access
+  - attack.t1056.003
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_webroot:
+    TargetFilename|contains:
+      - '\inetpub\wwwroot\'
+      - '\ClientAccess\Owa\'
+      - '\FrontEnd\HttpProxy\owa\'
+      - '\Web Server Extensions\'
+  selection_loginpage:
+    TargetFilename|endswith:
+      - 'login.aspx'
+      - 'logon.aspx'
+      - 'signin.aspx'
+      - 'default.aspx'
+      - 'auth.aspx'
+      - 'login.asp'
+      - 'login.php'
+      - 'login.js'
+      - 'logon.js'
+      - 'login.html'
+      - 'login.htm'
+  filter_servicing:
+    Image|endswith:
+      - '\msdeploy.exe'
+      - '\TrustedInstaller.exe'
+      - '\TiWorker.exe'
+  condition: selection_webroot and selection_loginpage and not filter_servicing
+falsepositives:
+  - "Ordinary application publishing. A CI release, an xcopy deploy or a CMS save rewrites login.aspx and default.aspx on every publish, and only Web Deploy itself is filtered out here — a build agent, PowerShell script or robocopy job doing the same publish still matches, which makes this the highest-volume source by a wide margin in any estate that deploys web content regularly."
+  - "Exchange and SharePoint cumulative updates and security hotfixes, which replace the OWA and layouts authentication pages under the paths selected here on every servicing event, producing a burst across every server in the patch window."
+  - "An administrator hand-editing default.aspx or a login page for branding, a maintenance banner or an SSO configuration change, typically with notepad.exe — which is also the editor MITRE's ProcessName knob names as suspicious, so the writing process does not separate the two cases on its own."
+  - "Backup, restore and DR replication agents rewriting the whole web root during a recovery test or a site migration."
+level: medium

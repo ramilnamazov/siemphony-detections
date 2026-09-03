@@ -1,0 +1,46 @@
+title: Custom shim database registered under AppCompatFlags
+id: edbd0c76-27f5-4746-a45c-debcea5a4041
+status: experimental
+description: |
+  Detects registration of a custom application-compatibility shim database, the
+  registry half of AN0051. Both terms are `contains` with a trailing backslash
+  on purpose: `InstalledSDB` and `Custom` are subkeys, not value names, so the
+  written path is `...\AppCompatFlags\InstalledSDB\{GUID}\DatabasePath` or
+  `...\AppCompatFlags\Custom\<target.exe>\{GUID}.sdb`, and an `endswith` on the
+  key name would have matched nothing ever. Anchoring on the parent key rather
+  than on a hive prefix also picks up the WOW6432Node view and keeps the match
+  independent of how the hive is rendered. The rest of the analytic — sdbinst.exe
+  running inside a correlation window, and the shim then injecting a DLL into the
+  target process — is a cross-source sequence Sigma cannot state, so only the
+  persistence artefact itself is authored here; a shim registered by writing the
+  keys directly, without sdbinst.exe, still matches. This telemetry is off by
+  default in both feeds: Security 4657 needs the *Audit Registry* subcategory
+  enabled **and** a SACL placed on the AppCompatFlags key, and a Sysmon-fed
+  registry_set feed needs this subtree in the RegistryEvent include list, which
+  the common shipped configurations do not carry. Without one of those, this rule
+  returns zero rows because nothing is being recorded, not because nothing happened.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0017, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1546/011
+  - https://attack.mitre.org/detectionstrategies/DET0017
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.privilege-escalation
+  - attack.persistence
+  - attack.t1546.011
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains:
+      - '\AppCompatFlags\InstalledSDB\'
+      - '\AppCompatFlags\Custom\'
+  condition: selection
+falsepositives:
+  - "Legacy line-of-business applications whose installers ship a custom .sdb and register it during setup, repair or upgrade. This is the supported use of the feature and it is the dominant benign volume in estates that still run pre-Windows-10 software. MITRE names a CustomShimPathAllowlist knob for exactly this; the approved database paths that go in it come from the estate's own deployment records, not from any list MITRE supplies."
+  - "Application Compatibility Toolkit deployments, where an administrator authors a shim package and pushes it to a group of hosts. One authoring action produces the same event on every targeted machine within a deployment window, so the burst looks like fleet-wide persistence."
+  - "Host rebuilds, image deployment and profile-migration tooling that replays the AppCompatFlags subtree onto a fresh machine, rewriting every registered database at once. MITRE's UserContext knob narrows alerting to admin or SYSTEM-context installs and does not help here, because the restore also runs as SYSTEM."
+  - "Registry-monitoring or configuration-drift agents that rewrite a value with unchanged data during a baseline enforcement pass, which still emits a set event."
+level: high

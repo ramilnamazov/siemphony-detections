@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(type) == "syscall" AND (TO_LOWER(exe) LIKE "*/hping" OR TO_LOWER(exe) LIKE "*/hping2" OR TO_LOWER(exe) LIKE "*/hping3" OR TO_LOWER(exe) LIKE "*/nping" OR TO_LOWER(exe) LIKE "*/ptunnel" OR TO_LOWER(exe) LIKE "*/ptunnel-ng" OR TO_LOWER(exe) LIKE "*/pingtunnel" OR TO_LOWER(exe) LIKE "*/icmptunnel"))

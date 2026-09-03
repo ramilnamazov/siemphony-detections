@@ -1,0 +1,56 @@
+title: Registry write to an LSA package list or LSA extension key
+id: c8cb20b9-e191-40d5-8ce2-79b76b2ac644
+status: experimental
+description: |
+  Detects a registry value being set on one of the lists that decide which DLLs
+  LSASS loads. Adding a name to any of them is the persistence write MITRE
+  describes in AN0629, but only one arm is T1547.008: Authentication Packages,
+  which is also the key MITRE's RegistryKeyScope knob names. The neighbours are
+  kept because the write is indistinguishable in this telemetry and an analyst
+  wants them in the same queue — Notification Packages is the password filter
+  key (T1556.002), Security Packages and OSConfig\Security Packages are the
+  Security Support Provider keys (T1547.005), and Control\LsaExtensionConfig is
+  the LSA extension subtree, which is a sibling of Control\Lsa rather than a
+  child of it and must be matched as its own path. The whole rule is a single
+  `TargetObject` OR so every backend renders it, and the hive prefix is left out
+  of the match because Sysmon and the Security channel spell it differently; on
+  Defender data the rendered KQL lands on DeviceRegistryEvents.RegistryKey,
+  which carries the same string.
+  Two blind spots. The rule sees only the registry write, so the variant that
+  overwrites the DLL already named in Authentication Packages on disk — the
+  Hijack Execution Flow route the technique description calls out — writes no
+  registry value and produces nothing here; Security 3033 (an LSA code-integrity
+  load failure) and the brief's file_event, file_change and driver_load sources
+  are the companion telemetry for that leg. And the analytic's correlation, this
+  write followed by an unsigned DLL loading into lsass.exe at the next boot
+  inside TimeWindow, is not expressible in Sigma.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0225, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/008
+  - https://attack.mitre.org/detectionstrategies/DET0225
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.008
+  - attack.t1547.005
+  - attack.t1556.002
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains:
+      - '\Control\Lsa\Authentication Packages'
+      - '\Control\Lsa\Notification Packages'
+      - '\Control\Lsa\Security Packages'
+      - '\Control\Lsa\OSConfig\Security Packages'
+      - '\Control\LsaExtensionConfig\'
+  condition: selection
+falsepositives:
+  - "Password filter and multi-factor authentication products being installed or upgraded. Their installers legitimately append a DLL name to Notification Packages, and a smartcard or federation agent does the same to Security Packages. MITRE's FileHashAllowList and ImagePathPattern knobs are aimed at this case — the value written names the DLL, so allowlist the specific package name your estate deploys rather than muting the key."
+  - "Entra ID join and Windows Hello for Business enrolment, which register the cloud authentication provider in Security Packages. It is one write per device, but a hybrid-join or WHfB rollout turns that into a fleet-wide burst over the days the enrolment wave runs."
+  - "Domain controller promotion and demotion, plus Credential Guard and RDP security feature changes, which rewrite the package lists as part of a supported Windows role or feature change."
+  - "Windows components registering LSA extensions under Control\\LsaExtensionConfig — that arm matches the whole subtree, so any in-box provider written during setup, servicing or a feature update lands in the queue."
+level: medium

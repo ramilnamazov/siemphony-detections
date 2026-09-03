@@ -1,0 +1,52 @@
+title: LSA Security Packages registry value modified
+id: ae3c2210-7ca2-48df-8e1c-94e607837dc1
+status: experimental
+description: |
+  Matches a write to either of the two registry values AN1495 names as the SSP
+  configuration — HKLM\SYSTEM\CurrentControlSet\Control\Lsa\Security Packages
+  and the OSConfig copy of the same value — which is where a DLL name has to
+  land for LSA to load it into lsass.exe at the next boot. The two paths are
+  listed separately because the OSConfig key sits between Lsa and the value
+  name, so a single contains on the shorter path does not cover it. What the
+  rule cannot do is tell an insertion from a rewrite: registry_set carries the
+  new multi-string in Details but never the previous contents, so any write to
+  the value matches, including one that stores the list unchanged. The rest of
+  the analytic is out of reach as well — the Sysmon EventID 7 leg (an unsigned
+  or anomalous DLL loading into lsass.exe) is a separate event that MITRE's
+  TimeWindow knob correlates across a reboot, which lib/sigma cannot express,
+  and the AddSecurityPackage API route loads a package into a running LSA with
+  no registry write at all, so it produces nothing here. Vocabulary matters
+  for deployment: the brief maps Security EventID 4657 onto the Sysmon-shaped
+  registry_set category, and this rule is written in the Sysmon EventID 13
+  vocabulary, with the key and value name joined in a single TargetObject. A
+  4657 feed splits those into ObjectName and ObjectValueName, so it needs a
+  field mapping before this rule can match at all — enabling Audit Registry and
+  a SACL on the key alone will not make it fire. On the Sysmon side, confirm
+  the running configuration actually includes the Lsa key: volume-trimmed
+  configs commonly watch only a short list of autostart locations, and one that
+  omits this key leaves the rule silent rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0542, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/005
+  - https://attack.mitre.org/detectionstrategies/DET0542
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.005
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains:
+      - '\Control\Lsa\Security Packages'
+      - '\Control\Lsa\OSConfig\Security Packages'
+  condition: selection
+falsepositives:
+  - "Windows servicing and feature changes that rewrite the whole REG_MULTI_SZ value instead of editing it — in-place upgrades, cumulative updates and turning on Credential Guard or Windows Hello for Business — which emit a matching write even when the resulting package list is identical to the old one. This is the most common benign hit and it arrives in waves across the estate on patch day."
+  - "Installation or upgrade of third-party authentication software that legitimately registers its own security package: smart-card middleware, enterprise SSO and MFA agents, and credential-provider products, one write per product per install from the vendor's installer process."
+  - "Golden-image build and re-imaging: MDT or SCCM task sequences, Packer runs and configuration-management policies that apply an LSA baseline, producing a burst of identical writes from every machine built that day."
+  - "Backup, restore and hive-migration tooling, or baseline remediation that reapplies a saved SYSTEM hive value, rewriting the list with its own previous contents."
+level: high

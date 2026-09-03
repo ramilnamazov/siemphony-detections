@@ -1,0 +1,1 @@
+index=* ((Image="*/dd" AND (CommandLine="*if=/dev/urandom*" OR CommandLine="*if=/dev/zero*" OR CommandLine="*if=/dev/random*")) OR (Image="*/truncate" AND (CommandLine="*-s +*" OR CommandLine="*--size=+*")) OR (Image="*/fallocate" AND CommandLine="*-l*"))

@@ -1,0 +1,56 @@
+title: Remote Desktop listener moved to a non-standard port
+id: a8511692-961e-45bf-837c-640fa3b2a36e
+status: experimental
+description: |
+  Matches the configuration half of this technique — an adversary changing the
+  port a standard protocol listens on — using the process-creation log source
+  AN0633 lists alongside its connection source. The command line must carry both
+  `RDP-Tcp` and `PortNumber`, the WinStations key and value under
+  HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server that hold the Remote
+  Desktop listening port, which is the change MITRE cites from the Conti
+  playbook. Gating on the two strings rather than on an image catches the edit
+  whichever tool performs it — reg.exe, PowerShell Set-ItemProperty, wmic — and
+  needs no registry auditing enabled.
+  The other half of AN0633 is not attempted, and the reason matters. Detecting
+  "a protocol on a port not normally associated with it" needs two things Sigma
+  cannot supply: protocol identification, which Security 5156/5157 does not do —
+  the Filtering Platform records a five-tuple and an image, so HTTPS smuggled
+  over 587 and ordinary mail submission on 587 are the same event there — and a
+  per-organisation port baseline, which is exactly what MITRE's PortThresholds
+  knob describes and what lib/sigma has no aggregation or baselining to express.
+  A hardcoded list of "suspicious" ports would fire on the legitimate service
+  that owns each one, so none is written.
+  Limits of what is here: a port change made through the registry API by a
+  compiled implant, or applied by importing a .reg file (the command line then
+  names the file, not the key), produces no matching command line; a read of the
+  same value matches identically to a write, since a process-creation event
+  carries no notion of either; and only RDP is covered, not SSH, WinRM or a
+  service moved by editing its own config file. Written in the Sysmon EventID 1
+  vocabulary (Image, CommandLine); where this category is fed by Security
+  EventID 4688 instead, that channel needs *Audit Process Creation* plus the
+  separate *Include command line in process creation events* policy before
+  CommandLine is populated at all.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0227, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1571
+  - https://attack.mitre.org/detectionstrategies/DET0227
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.command-and-control
+  - attack.t1571
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains|all:
+      - 'RDP-Tcp'
+      - 'PortNumber'
+  condition: selection
+falsepositives:
+  - "Inventory, compliance and monitoring scripts that read the value back to report which port Remote Desktop is listening on — `reg query` or `Get-ItemProperty` against the same key. They match both substrings without changing anything, and where such a job runs estate-wide it is the top talker by a wide margin, which is what holds this rule at medium."
+  - "Hardening baselines and build automation that deliberately move Remote Desktop off 3389, including MSP onboarding scripts and imaging task sequences. These are the same command with the same key and value as the abuse case, separated only by who scheduled them, and they fire once on every newly built host."
+  - "Installers and upgrades for remote-support and remote-access products that reconfigure or restore the Remote Desktop listener port as part of setup."
+  - "An administrator resolving a port conflict on a host running another service on 3389, or reverting a previous change during a support call."
+level: medium

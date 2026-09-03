@@ -1,0 +1,41 @@
+title: curl or wget overrides the Host header to impersonate a cloud service
+id: e6a2c450-237d-4a69-89ec-23bcae7c2a90
+status: experimental
+description: |
+  AN1295 asks for a binary spawning an encrypted session that simulates
+  trusted cloud service traffic. curl and wget are the two LOLBins on Linux
+  that can force an explicit Host header independent of the connection
+  target, which is exactly the header-manipulation impersonation the parent
+  technique describes for Gmail, Google Drive and similar services — a
+  legitimate call to the real API sets no Host override at all, since the URL
+  already resolves to the right host. The domain list below is populated here,
+  not sourced from MITRE, as a small sample of high-trust cloud endpoints an
+  adversary would plausibly spoof to blend C2 traffic past domain allowlisting.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0470, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1001/003
+  - https://attack.mitre.org/detectionstrategies/DET0470
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1001.003
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tool:
+    Image|endswith:
+      - '/curl'
+      - '/wget'
+  selection_header:
+    CommandLine|contains:
+      - 'Host: mail.google.com'
+      - 'Host: docs.google.com'
+      - 'Host: www.dropbox.com'
+      - 'Host: login.live.com'
+  condition: selection_tool and selection_header
+falsepositives:
+  - "Load-balancer or CDN health-check scripts that intentionally override the Host header to validate a virtual-hosted backend for one of these same cloud domains."
+  - "API integration test suites that curl an internal mock or sandbox endpoint by IP while setting the Host header to the real service domain, to exercise vhost-based routing before it goes live."
+level: medium

@@ -1,0 +1,1 @@
+index=* ((type="SYSCALL" AND syscall="ptrace") OR (type="SYSCALL" AND syscall="process_vm_writev"))

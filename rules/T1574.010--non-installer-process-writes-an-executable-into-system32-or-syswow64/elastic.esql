@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (((TO_LOWER(file.path) LIKE "*.exe" OR TO_LOWER(file.path) LIKE "*.dll") AND (TO_LOWER(file.path) LIKE "*\\\\system32\\\\*" OR TO_LOWER(file.path) LIKE "*\\\\syswow64\\\\*")) AND NOT (((TO_LOWER(process.executable) LIKE "c:\\\\windows\\\\system32\\\\msiexec.exe*" OR TO_LOWER(process.executable) LIKE "c:\\\\windows\\\\servicing\\\\trustedinstaller.exe*" OR TO_LOWER(process.executable) LIKE "c:\\\\windows\\\\system32\\\\wusa.exe*") OR TO_LOWER(process.executable) LIKE "*\\\\tiworker.exe")))

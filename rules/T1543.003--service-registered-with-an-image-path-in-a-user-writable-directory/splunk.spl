@@ -1,0 +1,1 @@
+index=* (EventID="4697" AND (ServiceFileName="*\\Users\\*" OR ServiceFileName="*\\Temp\\*" OR ServiceFileName="*\\ProgramData\\*" OR ServiceFileName="*\\$Recycle.Bin\\*"))

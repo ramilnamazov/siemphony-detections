@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey contains "\\Active Setup\\Installed Components\\" and RegistryKey endswith "\\StubPath")

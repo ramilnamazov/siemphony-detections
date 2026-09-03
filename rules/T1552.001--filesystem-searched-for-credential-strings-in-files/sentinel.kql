@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((ProcessCommandLine contains "findstr" or ProcessCommandLine contains "Select-String") and (ProcessCommandLine contains "password" or ProcessCommandLine contains "passwd" or ProcessCommandLine contains "pwd=" or ProcessCommandLine contains "credential" or ProcessCommandLine contains "secret" or ProcessCommandLine contains "apikey" or ProcessCommandLine contains "api_key" or ProcessCommandLine contains "accesskey" or ProcessCommandLine contains "connectionstring"))

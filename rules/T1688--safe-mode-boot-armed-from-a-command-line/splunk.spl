@@ -1,0 +1,1 @@
+index=* (((Image="*\\bcdedit.exe" OR Image="*\\bootcfg.exe") AND CommandLine="*safeboot*") OR CommandLine="*CurrentControlSet\\Control\\SafeBoot*")

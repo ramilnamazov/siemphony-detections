@@ -1,0 +1,39 @@
+title: Linux host rewrites /etc/hosts or /etc/resolv.conf
+id: f6badd94-fb66-4853-ac6d-930a44190d5c
+status: experimental
+description: |
+  AN0824 groups two different mechanisms under one analytic — file tampering
+  with the files that steer name resolution, and ARP-layer traffic anomalies.
+  Only the first has a real observable in the strategy's log sources: no
+  logSource here carries raw ARP frames or NIC-level traffic, so an ARP-cache
+  poisoning attempt is invisible to this rule and needs packet-level telemetry
+  no analytic in this brief supplies. What is observable is the host-side
+  enabler MITRE calls out in the technique description — an adversary steering
+  a victim to attacker infrastructure by rewriting where DNS resolution
+  points. The rule matches the auditd PATH record naming either file, kept
+  separate from the SYSCALL record's own fields since the two arrive as
+  distinct record types for the same event.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0296, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1557
+  - https://attack.mitre.org/detectionstrategies/DET0296
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.collection
+  - attack.t1557
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: 'PATH'
+    name:
+      - '/etc/hosts'
+      - '/etc/resolv.conf'
+  condition: selection
+falsepositives:
+  - "systemd-resolved or a DHCP client (dhclient, NetworkManager) regenerating /etc/resolv.conf on every lease renewal or VPN connect/disconnect — this is the highest-volume match by a wide margin on any laptop or cloud instance."
+  - "Configuration-management agents (Ansible, Puppet, Chef) reapplying /etc/hosts from a golden template on every convergence run, independent of whether the file actually changed."
+level: low

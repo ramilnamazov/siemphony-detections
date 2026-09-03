@@ -1,0 +1,1 @@
+index=* (Image="*\\vaultcmd.exe" OR (Image="*\\rundll32.exe" AND CommandLine="*keymgr.dll*"))

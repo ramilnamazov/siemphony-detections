@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(file.path) LIKE "*.lnk" AND TO_LOWER(file.path) LIKE "*\\\\microsoft\\\\windows\\\\start menu\\\\programs\\\\startup\\\\*")

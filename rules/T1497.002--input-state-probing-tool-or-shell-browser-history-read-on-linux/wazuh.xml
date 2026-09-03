@@ -1,0 +1,24 @@
+<group name="sigma,linux,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^SYSCALL$</field>
+    <field name="exe" type="pcre2">(?i)(/xdotool$|/xinput$|/xev$)</field>
+    <description>Input-state probing tool or shell/browser history read on Linux (1/2)</description>
+    <mitre>
+      <id>T1497.002</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^PATH$</field>
+    <field name="name" type="pcre2">(?i)(\.bash_history|\.mozilla)</field>
+    <description>Input-state probing tool or shell/browser history read on Linux (2/2)</description>
+    <mitre>
+      <id>T1497.002</id>
+    </mitre>
+  </rule>
+</group>

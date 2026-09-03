@@ -1,0 +1,2 @@
+DeviceRegistryEvents
+| where (RegistryKey endswith "\\Control Panel\\Desktop\\SCRNSAVE.EXE" and (RegistryValueData contains "\\Users\\" or RegistryValueData contains "\\AppData\\" or RegistryValueData contains "\\ProgramData\\" or RegistryValueData contains "\\Windows\\Temp\\" or RegistryValueData contains "\\PerfLogs\\" or RegistryValueData contains "\\$Recycle.Bin\\"))

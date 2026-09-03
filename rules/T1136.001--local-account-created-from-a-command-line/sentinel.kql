@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (((((FolderPath endswith "\\net.exe" or FolderPath endswith "\\net1.exe") and ProcessCommandLine contains " user ") and (ProcessCommandLine contains " /add" or ProcessCommandLine contains " -add")) and not ((ProcessCommandLine contains " /do" or ProcessCommandLine contains " -do"))) or ProcessCommandLine contains "New-LocalUser")

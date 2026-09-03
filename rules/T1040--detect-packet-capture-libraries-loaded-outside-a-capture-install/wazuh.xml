@@ -1,0 +1,13 @@
+<group name="sigma,windows,image_load,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="ImageLoaded" type="pcre2">(?i)(\\wpcap\.dll$|\\packet\.dll$)</field>
+    <field name="Image" negate="yes" type="pcre2">(?i)(^C:\\Program Files\\Wireshark\\|^C:\\Program Files \(x86\)\\Wireshark\\|^C:\\Program Files\\Npcap\\|^C:\\Program Files \(x86\)\\Npcap\\|^C:\\Program Files\\Nmap\\|^C:\\Program Files \(x86\)\\Nmap\\|^C:\\Windows\\System32\\Npcap\\)</field>
+    <description>Detect packet capture libraries loaded outside a capture install</description>
+    <mitre>
+      <id>T1205.002</id>
+      <id>T1040</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,79 @@
+title: Browser profile artefact named on a non-browser command line
+id: c315ea78-5959-40b0-ad60-bdfaa041f19f
+status: experimental
+description: |
+  AN0037's process-creation leg: a shell, copy or extraction utility created
+  with a browser profile location on its command line — the Chromium-family
+  `User Data` trees for Chrome, Edge, Brave, Chromium and Opera, the Firefox
+  `Profiles` directory, and the Firefox history and autofill databases
+  places.sqlite and formhistory.sqlite. That path set is MITRE's
+  `TargetPathRegex` knob, populated here with the default per-browser layouts;
+  a site that redirects profiles onto a network share must add its own path.
+  The image gate is not optional decoration. Chrome, Edge and every one of
+  their renderer, GPU and utility child processes carry `--user-data-dir=…`
+  pointing at the profile on their own command lines, so a path-only rule of
+  the shape used for T1539 and T1555.003 would match thousands of times an hour
+  per host and match the browser itself almost every time. Anchoring on a
+  non-browser tool is what makes the path meaningful, and it is also this
+  rule's main limit: an implant that opens the History or Web Data SQLite file
+  through its own code writes no command line at all and is invisible here.
+  Overlap with the published T1539 and T1555.003 rules is real and worth
+  knowing before you triage. Those two key on Cookies, Login Data, logins.json
+  and key4.db; the Firefox entries here (places.sqlite, formhistory.sqlite) are
+  disjoint from them, but the Chromium entries are directory prefixes, so a
+  command line naming `…\Google\Chrome\User Data\Default\Login Data` satisfies
+  this rule as well as the credential-access one. Treat a lone T1217 hit as
+  discovery and a simultaneous T1539 or T1555.003 hit as the stronger claim.
+  Not attempted here: AN0037's PowerShell leg, since 4103/4104 is a separate
+  logsource needing its own rule and its own Script Block Logging prerequisite,
+  and its Sysmon EventID 11 leg, which sees the export file being written
+  rather than the browser data being read. The Linux and macOS arms AN0038 and
+  AN0039 are separate logsources as well. Prerequisite: the brief maps this to
+  Sysmon EventID 1, so the fields are Sysmon's and the rule is blind unless
+  Sysmon is installed and its configuration does not exclude these images; on a
+  Security 4688 feed the field names must be remapped to NewProcessName, and
+  CommandLine there needs the separate Include command line in process creation
+  events policy.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0013, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1217
+  - https://attack.mitre.org/detectionstrategies/DET0013
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1217
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_browser_artefact:
+    CommandLine|contains:
+      - '\Google\Chrome\User Data'
+      - '\Microsoft\Edge\User Data'
+      - '\BraveSoftware\Brave-Browser\User Data'
+      - '\Chromium\User Data'
+      - '\Mozilla\Firefox\Profiles'
+      - '\Opera Software\Opera Stable'
+      - 'places.sqlite'
+      - 'formhistory.sqlite'
+  selection_non_browser_tool:
+    Image|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\findstr.exe'
+      - '\xcopy.exe'
+      - '\robocopy.exe'
+      - '\tar.exe'
+      - '\esentutl.exe'
+      - '\certutil.exe'
+      - '\sqlite3.exe'
+      - '\7z.exe'
+  condition: all of selection_*
+falsepositives:
+  - "Helpdesk and profile-migration work: the cmd or PowerShell one-liners used to copy a User Data folder to a replacement machine, export a user's bookmarks, or move a corrupt Firefox profile aside so the browser will rebuild it."
+  - "Backup, endpoint-DLP and profile-sync agents that shell out to robocopy or xcopy across the user profile on a fixed schedule. Wherever profile backup is enabled this recurs on every host at the same time each day and should be excluded by parent process before the rule's volume means anything."
+  - "Browser rollout and configuration scripts run at logon or by the software-deployment agent, which seed a policy file, preferences or an extension list into the User Data tree on managed machines."
+  - "Browser test automation — Selenium, Playwright and Puppeteer harnesses on developer and build hosts — where a cmd.exe or PowerShell wrapper creates or seeds a profile directory before each run."
+level: medium

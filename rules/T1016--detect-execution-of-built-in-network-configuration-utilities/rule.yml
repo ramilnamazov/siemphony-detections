@@ -1,0 +1,47 @@
+title: Detect execution of built-in network configuration utilities
+id: 6663c02e-dcdd-4a44-9e72-b91b02e9e6d4
+status: experimental
+description: |
+  MITRE's Windows analytic for this strategy is the execution of the built-in
+  addressing and routing tools, so this rule matches the handful whose only
+  purpose is reporting network configuration — ipconfig, arp, route, nbtstat
+  and getmac — on a single process-creation event. It is deliberately one
+  field: the extra conditions MITRE's knobs point at (ParentProcess chains,
+  UserContext, clustering several enumeration commands inside a TimeWindow)
+  are either correlations Sigma cannot express or environment-specific
+  allowlists, so they are left to tuning instead of being baked in. Two limits
+  to know before deploying: the match is on the image path, so a copy of
+  ipconfig.exe renamed to something innocuous is missed, and netsh- and
+  PowerShell-based enumeration such as Get-NetIPConfiguration is not covered
+  here at all even though the strategy also lists the PowerShell 4103/4104
+  source. The logic is written in the Sysmon EventID 1 vocabulary the brief
+  names for this category; if the same category is fed from Security 4688
+  instead, that channel needs Audit Process Creation enabled and its own field
+  mapping first.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0195, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1016
+  - https://attack.mitre.org/detectionstrategies/DET0195
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1016
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith:
+      - '\ipconfig.exe'
+      - '\arp.exe'
+      - '\route.exe'
+      - '\nbtstat.exe'
+      - '\getmac.exe'
+  condition: selection
+falsepositives:
+  - "Logon scripts, imaging tasks and inventory agents that record a host's addressing by calling ipconfig /all or getmac at every boot or logon. On a managed estate this is the highest-volume match by a wide margin and is the reason the rule is scored low rather than medium."
+  - "Helpdesk and desktop-support troubleshooting, where ipconfig /release, ipconfig /renew, arp -a and route print are the first commands typed at any connectivity complaint."
+  - "VPN, NAC and endpoint agents that shell out to route.exe to add or remove split-tunnel routes and to ipconfig /flushdns after a tunnel comes up, once per connection per host."
+  - "Legacy print, file-share and antivirus maintenance scripts that still call nbtstat to resolve NetBIOS names before touching a share."
+level: low

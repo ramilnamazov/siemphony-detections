@@ -1,0 +1,73 @@
+title: Shell one-liner delays before piping a download into an interpreter
+id: 15a2c103-c116-4c83-ad58-1e07ad5bac27
+status: experimental
+description: |
+  Of this technique's three platform analytics, only the Linux leg (AN1049)
+  has a Sigma logsource with a real field vocabulary to write against: its
+  first entry maps to {category: process_creation, product: linux}, the same
+  raw-auditd-compatible shape used elsewhere in this corpus (Image,
+  CommandLine from a single SYSCALL/EXECVE pair). AN1049 asks for sleep, ping
+  or a low-level delay syscall inside a short-lived chain with no user
+  interaction, "frequently seen in malicious cron jobs or payload stagers" —
+  this rule targets that stager phrasing specifically: a shell (sh, bash,
+  dash, ash) execve'd with an inline -c script whose text both delays (sleep
+  or ping) and fetches-then-executes (curl or wget piped into sh/bash), the
+  `sleep N && curl ... | bash` pattern. It deliberately matches the
+  interpreter's own CommandLine rather than joining a parent sleep/ping event
+  to a child curl event, because ParentImage and ParentCommandLine are not
+  populated by a raw auditd SYSCALL record at all — only Auditbeat-style
+  enrichment, sysmon-for-linux or an EDR normalisation layer resolves and
+  joins the parent for you, the same gap recorded against T1204.005 in this
+  corpus. "Short-lived" and "repeated" (MITRE's TimeWindow and
+  TimeBetweenSyscalls knobs) are process-duration and aggregation properties a
+  single process_creation event cannot carry, so they are not attempted.
+  AN1049's second logsource, {product: linux, service: auditd} keyed on a
+  PROCTITLE record, is not used either: no rule in this corpus has yet
+  established a field mapping for raw PROCTITLE, and inventing one here would
+  risk the exact silent-failure trap this pipeline exists to avoid. AN1048
+  (Windows) is not attempted: its logsources are Sysmon EID 1 and EID 7, and
+  neither records an API call — EID 7 is a DLL module load, not a Sleep or
+  NtDelayExecution invocation, so "kernel32!Sleep, NTDLL APIs" as stated in
+  the analytic has no matching field on either source. AN1050 (macOS) is not
+  attempted: its only logsource is {product: macos, service: unifiedlog},
+  which has no standardised Sigma field vocabulary in this pipeline, the same
+  ground on which T1037.002, T1059.002 and T1548.004 declined. Prerequisite:
+  auditd ships no execve audit rule by default, so a host without an `-a
+  always,exit -F arch=b64 -S execve` rule (or equivalent process telemetry
+  agent) produces nothing here at all.
+  UNVERIFIED — derived from MITRE ATT&CK DET0372 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1678
+  - https://attack.mitre.org/detectionstrategies/DET0372
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1678
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_shell:
+    Image|endswith:
+      - '/sh'
+      - '/bash'
+      - '/dash'
+      - '/ash'
+  selection_delay:
+    CommandLine|contains:
+      - 'sleep '
+      - 'ping '
+  selection_fetch_pipe:
+    CommandLine|contains:
+      - 'curl'
+      - 'wget'
+      - '|sh'
+      - '| sh'
+      - '|bash'
+      - '| bash'
+  condition: selection_shell and selection_delay and selection_fetch_pipe
+falsepositives:
+  - "Deployment or CI scripts that inline a short sleep before curling a health-check or artifact URL as a single -c one-liner, e.g. sh -c \"sleep 5 && curl -sf http://localhost:8080/health\", for retry backoff."
+  - "Shell-based software bootstrap scripts — the common curl-pipe-to-shell install pattern used by tools such as rustup, nvm or Homebrew-on-Linux — that include an inline sleep for rate-limiting immediately before or after the pipe."
+level: low

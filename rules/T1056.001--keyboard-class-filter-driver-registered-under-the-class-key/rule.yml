@@ -1,0 +1,41 @@
+title: Keyboard class filter driver registered under the class key
+id: e0be112a-7e06-4413-98e3-6db79c45c84c
+status: experimental
+description: |
+  A kernel-mode keylogger reads keystrokes by inserting itself into the keyboard
+  device stack, which means writing its service name into the UpperFilters or
+  LowerFilters value of the keyboard class key {4D36E96B-E325-11CE-BFC1-08002BE10318}.
+  This rule is the registry-and-driver half of MITRE's analytic; the API half it
+  opens with (SetWindowsHookEx, GetKeyState, polling loops) is not observable in
+  any log source the strategy lists, because none of them record API calls and a
+  global hook installation produces no process-access event either. The match is
+  on the class key path alone, so it fires on any write to the filter list and
+  cannot tell which driver was added — Sysmon renders a REG_MULTI_SZ value as
+  "Binary Data" in Details, so the new entry is not in the event. Sysmon registry
+  events are also not collected unless the running configuration includes this
+  path; the widely used community configurations filter most of HKLM out.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0089, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1056/001
+  - https://attack.mitre.org/detectionstrategies/DET0089
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.credential-access
+  - attack.t1056.001
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains:
+      - '\Control\Class\{4D36E96B-E325-11CE-BFC1-08002BE10318}\UpperFilters'
+      - '\Control\Class\{4D36E96B-E325-11CE-BFC1-08002BE10318}\LowerFilters'
+  condition: selection
+falsepositives:
+  - "OEM keyboard, hotkey and touchpad packages, which write the filter list while installing or updating their driver. This is the largest source of benign hits, and it clusters in imaging and driver-update windows rather than appearing continuously, so the change window is what separates it from adversary activity rather than anything in the event."
+  - "Virtualisation guest additions, VDI and remote-access agents, which install a keyboard filter so that input can be redirected into the session. These appear once per build on the affected fleet."
+  - "Security and accessibility products that legitimately own the keyboard stack — anti-keylogger and credential-guard style agents, kiosk lockdown software, on-screen keyboards, smartcard and biometric middleware. A keystroke-encrypting security agent is structurally the same registration as a keylogger."
+  - "Because Sysmon reports a multi-string value as binary data, a write that merely reorders or removes existing entries is indistinguishable from one that adds a driver, and the rule alerts on both. Pair this with the service-creation event for the named driver before treating a hit as confirmed."
+level: high

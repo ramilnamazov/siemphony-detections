@@ -1,0 +1,119 @@
+title: Startup RC or init script edited by a file-writing tool
+id: aaa7ee56-b105-4e44-a364-cc3c5cb25ad5
+status: experimental
+description: |
+  AN0658 pairs modification of /etc/rc.local or an /etc/init.d script with the
+  suspicious execution that follows at the next boot. Only the modification half
+  is a single event: the boot half needs MITRE's `time_window` knob to link a
+  write to a reboot minutes or days later, and lib/sigma has no timeframe and no
+  cross-event join. So this rule matches the edit itself — a process whose
+  command line names one of the RC script locations, launched either as a
+  file-writing or editing utility (tee, sed, cp, install, chmod, an editor) or
+  with a shell redirect aimed at one of those paths. The two forms are ORed
+  because they are the same act reached two ways: `vi /etc/rc.local` and
+  `sh -c 'echo /tmp/x >> /etc/rc.local'` both plant the persistence, but in the
+  second the executable is a shell and only the redirect distinguishes it. The
+  redirect arm matches the operator immediately followed by an RC path
+  (`> /etc/init.d/` and `>/etc/init.d/`, which also cover the `>>` append form)
+  rather than the operator anywhere on the line — an unanchored `>>` would fire
+  on `/etc/init.d/foo start >> /var/log/foo.log` and on
+  `cat /etc/rc.local >> /tmp/out`, neither of which writes the script. Shells
+  are deliberately absent from the tool list: systemd's rc-local.service runs the
+  script at every boot as `/bin/sh /etc/rc.local`, which would otherwise match
+  once per boot on every host and match nothing an adversary did. The editor
+  entries carry the Debian alternatives targets (vim.basic, vim.tiny, vim.nox)
+  alongside `/vi` and `/vim`, because the exec record names the resolved binary
+  and `vi` on a Debian-family host resolves to one of those. MITRE's
+  `script_path` knob is what the path list implements, populated here with the
+  Debian, RHEL, BSD-style and ESXi locations rather than taken from MITRE;
+  dropping `/etc/init.d/` from it removes this rule's loudest false positive and
+  would justify a higher level. Its `user_context` and `file_permission` knobs
+  are not applied — root is the expected context for every legitimate match here
+  as well as every malicious one.
+  Vocabulary and limits. The brief maps `auditd:SYSCALL::execve` onto the Sigma
+  `process_creation` category, which is Sysmon-for-Linux-shaped (`Image`,
+  `CommandLine`); raw auditd splits the same execution across a SYSCALL record
+  carrying `exe` and an EXECVE record carrying `a0`, `a1`, … , so that feed needs
+  a field mapping before this rule can match on it. Nothing that writes the file
+  without exec'ing a helper is visible: a Python or Perl implant that opens
+  /etc/rc.local directly, or an interactive shell where the redirect is performed
+  by the already-running shell and creates no new process, leaves no matching
+  event. The brief's second source, `linux:syslog` boot logs, is not used — it
+  has no standardised Sigma field vocabulary and boot messages name no script
+  path. AN0659 (macOS) offers only `macos:unifiedlog`, which likewise has no
+  standardised field names, so /etc/rc.common and the StartupItems trees are out
+  of reach here even though the path list includes rc.common. ESXi's
+  /etc/rc.local.d/local.sh is listed for completeness, but ESXi ships neither
+  auditd nor Sysmon for Linux, so that entry only fires on a Linux host that uses
+  the path. Prerequisite: neither feed exists by default. Sysmon for Linux is a
+  separate agent no distribution installs, and stock auditd records no execve
+  until a rule such as `-a always,exit -F arch=b64 -S execve -k exec` is loaded —
+  until then this rule returns zero rows, and zero rows here means blind, not
+  quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0237, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1037/004
+  - https://attack.mitre.org/detectionstrategies/DET0237
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1037.004
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_rc_path:
+    CommandLine|contains:
+      - '/etc/rc.local'
+      - '/etc/rc.common'
+      - '/etc/rc.d/rc.local'
+      - '/etc/rc.local.d/'
+      - '/etc/init.d/'
+      - '/etc/rc.d/init.d/'
+  selection_write_tool:
+    Image|endswith:
+      - '/tee'
+      - '/sed'
+      - '/cp'
+      - '/mv'
+      - '/ln'
+      - '/install'
+      - '/chmod'
+      - '/chown'
+      - '/dd'
+      - '/patch'
+      - '/truncate'
+      - '/ed'
+      - '/vi'
+      - '/vim'
+      - '/vim.basic'
+      - '/vim.tiny'
+      - '/vim.nox'
+      - '/nvim'
+      - '/nano'
+      - '/pico'
+      - '/emacs'
+      - '/gedit'
+  selection_redirect_to_rc:
+    CommandLine|contains:
+      - '> /etc/rc.local'
+      - '>/etc/rc.local'
+      - '> /etc/rc.common'
+      - '>/etc/rc.common'
+      - '> /etc/rc.d/rc.local'
+      - '>/etc/rc.d/rc.local'
+      - '> /etc/rc.local.d/'
+      - '>/etc/rc.local.d/'
+      - '> /etc/init.d/'
+      - '>/etc/init.d/'
+      - '> /etc/rc.d/init.d/'
+      - '>/etc/rc.d/init.d/'
+  condition: selection_rc_path and (selection_write_tool or selection_redirect_to_rc)
+falsepositives:
+  - "Package management. Installing, upgrading or removing any package that still ships a SysV init script makes the dpkg or rpm maintainer script run cp, install, ln or chmod against /etc/init.d/<name>, so a single patch window produces matching events on every host in the fleet. This is the rule's highest-volume source by a wide margin and is why the level is low rather than medium."
+  - "Configuration management reapplying startup files on every convergence run — a Puppet or Chef exec resource, a Salt cmd.run, or an Ansible shell or command task doing cp, sed -i or chmod against /etc/rc.local or an init script — which fires on schedule whether or not the file content actually changed."
+  - "Image build and provisioning steps: kickstart and preseed %post sections, cloud-init runcmd, Packer shell provisioners and Dockerfile RUN lines that append a startup command to /etc/rc.local or chmod +x an init script, producing a burst of matches for every image built."
+  - "An administrator legitimately adding a boot-time command by hand, opening /etc/rc.local in vi or nano or appending to it with tee -a. This remains a normal way to schedule work on appliances, embedded builds and hosts that predate systemd, and the event is indistinguishable from the malicious form apart from the account and the change record."
+level: low

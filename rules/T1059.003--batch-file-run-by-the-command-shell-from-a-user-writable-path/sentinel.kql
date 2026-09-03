@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\cmd.exe" and (ProcessCommandLine contains ".bat" or ProcessCommandLine contains ".cmd")) and (ProcessCommandLine contains "\\AppData\\Local\\Temp\\" or ProcessCommandLine contains "\\AppData\\Roaming\\" or ProcessCommandLine contains "\\Windows\\Temp\\" or ProcessCommandLine contains "\\Users\\Public\\" or ProcessCommandLine contains "\\Downloads\\" or ProcessCommandLine contains "\\ProgramData\\" or ProcessCommandLine contains "\\$Recycle.Bin\\"))

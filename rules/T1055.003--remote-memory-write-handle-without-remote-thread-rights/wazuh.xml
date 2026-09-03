@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_access,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="TargetImage" type="pcre2">(?i)(\\explorer\.exe$|\\svchost\.exe$|\\dllhost\.exe$|\\taskhostw\.exe$|\\winlogon\.exe$|\\spoolsv\.exe$)</field>
+    <field name="GrantedAccess" type="pcre2">(?i)(^0x1438$|^0x1428$|^0x438$|^0x428$|^0x38$|^0x28$)</field>
+    <description>Remote memory write handle without remote-thread rights</description>
+    <mitre>
+      <id>T1055.003</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\VBoxManage.exe" and (ProcessCommandLine contains "startvm" and ProcessCommandLine contains "headless")) or FolderPath endswith "\\VBoxHeadless.exe" or (FolderPath endswith "\\vmrun.exe" and ProcessCommandLine contains "nogui"))

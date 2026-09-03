@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(registry.path) LIKE "*\\\\currentcontrolset\\\\services\\\\*" AND (TO_LOWER(registry.path) LIKE "*\\\\imagepath" OR TO_LOWER(registry.path) LIKE "*\\\\failurecommand" OR TO_LOWER(registry.path) LIKE "*\\\\parameters\\\\servicedll"))

@@ -1,0 +1,75 @@
+title: Account disabled, deleted or reset from a command line
+id: be885340-a516-4e4e-a968-d5bcf0cba502
+status: experimental
+description: |
+  AN0334 asks for user account modification — reset, disable or deletion —
+  correlated with the process lineage that performed it, and this rule takes
+  the process-creation half of that pairing: the shipped tools that carry out
+  the change, each anchored on the flag or verb that makes it destructive
+  rather than a read. The `net.exe` legs require both ` user ` and either
+  `delete` or `active:no` on the same command line, `net1.exe` is listed
+  alongside because `net.exe` hands most subcommands to it, and the cmdlet legs
+  name the local-account and directory forms that disable, remove or reset an
+  account. Three limits worth stating. A cmdlet typed into a PowerShell session
+  that is already running creates no process and is invisible here; the brief's
+  other log source, Security 4723/4724/4740, records the account change itself
+  and would see it, but it is a different logsource and this rule does not use
+  it. The bare `net user <name> <password>` form has no flag to anchor on and
+  is not selected. And Sigma models no aggregation, so a single service-desk
+  reset and a sweep that resets every account in the domain — the LockerGoga
+  behaviour this technique is named for — produce identical single events here,
+  which is why the level sits at the bottom of the scale. MITRE's UserContext,
+  TimeWindow and ParentProcessName knobs all need a baseline or a time window
+  that Sigma cannot express, so none of them is encoded. The brief's
+  process-creation source for this analytic is Sysmon EventID 1; confirm
+  process creation is not filtered out of the running Sysmon config before
+  reading an empty result as quiet rather than blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0120, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1531
+  - https://attack.mitre.org/detectionstrategies/DET0120
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.impact
+  - attack.t1531
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_net_delete:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+    CommandLine|contains|all:
+      - ' user '
+      - 'delete'
+  selection_net_disable:
+    Image|endswith:
+      - '\net.exe'
+      - '\net1.exe'
+    CommandLine|contains|all:
+      - ' user '
+      - 'active:no'
+  selection_local_cmdlet:
+    CommandLine|contains:
+      - 'Remove-LocalUser'
+      - 'Disable-LocalUser'
+      - 'Set-LocalUser'
+  selection_directory_cmdlet:
+    CommandLine|contains:
+      - 'Remove-ADUser'
+      - 'Disable-ADAccount'
+      - 'Set-ADAccountPassword'
+  selection_wmi_disable:
+    Image|endswith: '\wmic.exe'
+    CommandLine|contains|all:
+      - 'useraccount'
+      - 'disabled='
+  condition: 1 of selection*
+falsepositives:
+  - "Service-desk password resets, which run as Set-ADAccountPassword or Set-LocalUser from an administrator's shell or a self-service reset portal's worker. On any estate with a help desk this is the highest-volume match by a wide margin, and it is why this rule is rated low rather than higher."
+  - "Scheduled joiner-mover-leaver automation that disables an account on the leave date and deletes it after a retention period, using Disable-ADAccount and Remove-ADUser under a known service account on a management server."
+  - "Build, imaging and provisioning scripts that remove the temporary install account at the end of a run with net user <name> /delete, which fires once per machine build."
+  - "Hardening baselines that disable the built-in guest or local administrator account with net user guest /active:no, firing on every host the baseline is first applied to."
+level: low

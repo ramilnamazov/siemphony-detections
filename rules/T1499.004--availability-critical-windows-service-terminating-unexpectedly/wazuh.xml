@@ -1,0 +1,13 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Provider_Name" type="pcre2">(?i)^Service Control Manager$</field>
+    <field name="EventID" type="pcre2">(?i)(^7031$|^7034$)</field>
+    <field name="param1" type="pcre2">(?i)(World Wide Web Publishing|IIS Admin|SQL Server|MySQL|PostgreSQL|Apache|Routing and Remote Access|Remote Desktop Services)</field>
+    <description>Availability-critical Windows service terminating unexpectedly</description>
+    <mitre>
+      <id>T1499.004</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,56 @@
+title: Port forwarding flags on ssh, plink or netsh portproxy
+id: 5ac12d13-ea6d-4845-b3bd-3e7bc4976ff8
+status: experimental
+description: |
+  AN1483 describes plink.exe, ssh.exe or netsh.exe carrying an encapsulated
+  protocol outbound, and this rule takes the process-creation leg of it: the
+  argv that sets a tunnel up is the one part of the analytic a single event can
+  hold. The SSH selection requires -L, -R or -D immediately followed by a port
+  number rather than matching the bare flag with contains: Sigma matching is
+  case-insensitive and this corpus renders every regex with (?i), so any form of
+  the flag also fires on the very common 'ssh -l username', and it is the
+  required digit — not the letter case — that separates a forward spec from a
+  login name. The cost is that ES|QL will not render a regex at all; validate
+  records that refusal and the other three backends carry the rule. The netsh
+  selection requires connectaddress, which only the portproxy add form carries,
+  so show and delete do not fire. The rule
+  is written in the Sysmon EventID 1 vocabulary (Image, CommandLine) that the
+  brief names; Sysmon is not present in a default install, and on an estate
+  feeding process_creation from Security 4688 instead, CommandLine is empty
+  unless Audit Process Creation and the separate Include command line in process
+  creation events policy are both enabled. Two limits worth knowing: a forward
+  written with a hostname bind address ('-L localhost:3389:...') has no digit
+  after the flag and is missed, and the brief's other two log sources are not
+  usable here — Sysmon EventID 3 names the process owning the socket, so a
+  netsh portproxy forward is performed by the IP Helper service inside
+  svchost.exe and an Image selector on netsh.exe there would never fire.
+  UNVERIFIED — derived from MITRE ATT&CK DET0538 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1572
+  - https://attack.mitre.org/detectionstrategies/DET0538
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1572
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_ssh_forward:
+    Image|endswith:
+      - '\ssh.exe'
+      - '\plink.exe'
+    CommandLine|re: ' -[LRD][ ]?[0-9]'
+  selection_netsh_portproxy:
+    Image|endswith: '\netsh.exe'
+    CommandLine|contains|all:
+      - 'portproxy'
+      - 'connectaddress'
+  condition: 1 of selection_*
+falsepositives:
+  - "Administrators and developers tunnelling to a database, web console or RDP host through a bastion with ssh.exe -L or plink.exe -L — on an engineering estate this is routine daily activity and is the highest-volume match this rule produces by a wide margin, which is why the level is set where it is."
+  - "Backup, monitoring and vendor remote-support agents that open a scheduled SSH tunnel to a support endpoint, re-invoking ssh.exe with -R or -L on every run."
+  - "Docker Desktop, WSL and some corporate VPN clients, which add netsh interface portproxy entries with connectaddress during installation or network setup to bridge a listener into the host stack."
+  - "SOCKS proxying set up deliberately for testing or for reaching a lab network, where ssh -D is the documented method in the team's own runbook."
+level: low

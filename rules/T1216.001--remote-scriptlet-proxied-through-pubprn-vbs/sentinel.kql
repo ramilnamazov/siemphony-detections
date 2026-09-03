@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\cscript.exe" or FolderPath endswith "\\wscript.exe") and ProcessCommandLine contains "pubprn" and (ProcessCommandLine contains "script:http" or ProcessCommandLine contains "script:ftp" or ProcessCommandLine contains "script:\\\\"))

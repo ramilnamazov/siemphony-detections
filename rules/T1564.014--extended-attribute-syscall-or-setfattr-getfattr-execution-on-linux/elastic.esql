@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "syscall" AND (TO_LOWER(syscall) == "setxattr" OR TO_LOWER(syscall) == "lsetxattr" OR TO_LOWER(syscall) == "fsetxattr" OR TO_LOWER(syscall) == "getxattr" OR TO_LOWER(syscall) == "lgetxattr" OR TO_LOWER(syscall) == "fgetxattr")) OR (TO_LOWER(type) == "execve" AND (TO_LOWER(a0) LIKE "*setfattr" OR TO_LOWER(a0) LIKE "*getfattr")))

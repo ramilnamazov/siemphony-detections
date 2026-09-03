@@ -1,0 +1,58 @@
+title: LSA Authentication Packages registry value modified
+id: 85ed0a5f-03c7-4ef5-893f-bc91260afe19
+status: experimental
+description: |
+  Matches the registry leg of AN0583: a write to the `Authentication Packages`
+  value under HKLM\SYSTEM\CurrentControlSet\Control\Lsa, which is the one place a
+  DLL name has to be added for LSA to load it into lsass.exe at the next boot,
+  and therefore the moment this persistence is established. The OSConfig copy of
+  the value is listed separately because that subkey sits between `Lsa` and the
+  value name, so a single contains on the shorter path does not reach it. Two
+  neighbouring values that MITRE's `RegistryPathScope` knob invites you to add
+  are deliberately left out: `Security Packages` is T1547.005, already published
+  in this corpus with its own rule, and `Notification Packages` is T1556.002 —
+  folding either in here would file another technique's observable behind this
+  tag. What the rule cannot do: `Authentication Packages` is a REG_MULTI_SZ, and
+  Sysmon EventID 13 renders anything that is not a string, DWORD or QWORD as the
+  literal `Binary Data`, so `Details` shows neither the new package list nor the
+  previous one. An inserted DLL therefore cannot be told from a rewrite that
+  stores the default `msv1_0` list unchanged, no gate on `Details` is attempted,
+  and the added name has to be read off the host during triage. The analytic's second half — lsass.exe
+  loading an unsigned or non-baseline DLL, Sysmon EventID 7 — is a separate event
+  MITRE's `TimeWindow` knob correlates across a reboot, which lib/sigma cannot
+  express, and its `ImageSignatureStatus` knob is a per-host allowlist a rule
+  cannot carry. Vocabulary matters for deployment: the brief maps Security
+  EventID 4657 onto the Sysmon-shaped `registry_set` category, and this rule is
+  written in the Sysmon EventID 13 vocabulary, where the key and the value name
+  are joined in a single `TargetObject`. A 4657 feed splits those into
+  `ObjectName` and `ObjectValueName`, so it needs a field mapping before this
+  rule can match at all — enabling Audit Registry and a SACL on the Lsa key alone
+  will not make it fire. On the Sysmon side, confirm the running configuration
+  actually includes this key: volume-trimmed configs commonly watch a short
+  allowlist of autostart locations, and one that omits Lsa leaves the rule silent
+  rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0207, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1547/002
+  - https://attack.mitre.org/detectionstrategies/DET0207
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1547.002
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains:
+      - '\Control\Lsa\Authentication Packages'
+      - '\Control\Lsa\OSConfig\Authentication Packages'
+  condition: selection
+falsepositives:
+  - "Windows servicing that rewrites the whole REG_MULTI_SZ value instead of editing it — in-place feature upgrades and repair installs — which emit a matching write even when the resulting package list is identical to the old one. This is a per-machine event at upgrade time rather than an estate-wide wave; an ordinary cumulative update does not touch this value, and neither does enabling Credential Guard, which writes LsaCfgFlags and RunAsPPL instead."
+  - "Installation or upgrade of third-party authentication software that legitimately registers its own authentication package: smart-card and biometric middleware, enterprise SSO clients and some MFA agents, one write per product per install from the vendor's installer process."
+  - "Golden-image build and re-imaging: MDT or SCCM task sequences, Packer runs and configuration-management policies that apply an LSA baseline, producing a burst of identical writes from every machine built that day."
+  - "Baseline remediation by a configuration-management engine that reapplies a stored package list through the registry API, rewriting the value with its own previous contents — an offline hive restore is not in scope here, because swapping a SYSTEM hive emits no per-value write event."
+level: high

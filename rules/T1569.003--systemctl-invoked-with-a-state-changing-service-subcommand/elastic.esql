@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(type) == "execve" AND TO_LOWER(a0) LIKE "*systemctl") AND (TO_LOWER(a1) == "start" OR TO_LOWER(a1) == "restart" OR TO_LOWER(a1) == "enable" OR TO_LOWER(a1) == "reenable" OR TO_LOWER(a1) == "link" OR TO_LOWER(a1) == "daemon-reload"))

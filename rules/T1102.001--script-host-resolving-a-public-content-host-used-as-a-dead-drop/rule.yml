@@ -1,0 +1,86 @@
+title: Script host resolving a public content host used as a dead drop
+id: a6a99a21-4b3a-4013-b12d-7bd8095ba9fd
+status: experimental
+description: |
+  Matches AN0158 on Sysmon EventID 22: a scripting engine, transfer utility or
+  signed-binary proxy — never a browser and never a mail client — resolving one
+  of the public paste, raw-file and profile-page services an implant reads to
+  learn where its real C2 lives. The analytic offers a network-connection leg as
+  well; `dns_query` is chosen because every one of these services sits behind
+  shared CDN address space, so the destination address in a Sysmon EventID 3
+  record identifies nothing, and because EventID 22 attributes the lookup to the
+  process that called the resolver while EventID 3 names whichever process owns
+  the socket. For the same reason bitsadmin.exe is absent from the image list:
+  BITS performs the transfer inside svchost.exe and resolves nothing under its
+  own name. The domain list is MITRE's `TargetDomain` knob populated here, and
+  it is deliberately the complement of the corpus's T1102.002 rule, which
+  excluded exactly these read-only endpoints on the grounds that a channel with
+  no return path is a different sub-technique — the two lists share no entry.
+  Two siblings do overlap, both on the identical logsource and fields. Three
+  names (pastebin.com, hastebin.com, paste.ee) appear in this corpus's T1567
+  rule, and the two GitHub raw hosts are subsumed by the broader
+  `githubusercontent.com` entry in its T1567.001 rule, so a lookup of any of
+  those five raises two rules at once; the difference is only which hypothesis
+  is being tested, exfiltration there and C2 resolution here. The coverage
+  genuinely new to this rule is therefore the paste and profile-page hosts
+  neither sibling carries — pastebin.pl, rentry.co, controlc.com, justpaste.it,
+  telegra.ph, t.me and steamcommunity.com — and those, not the GitHub hosts
+  that dominate the false positives below, are where its value sits.
+  What a name resolution cannot tell you is the whole of the technique's point:
+  the encoded address of the second-stage server lives in the response body,
+  which no log source in this brief carries, so a match says a script fetched
+  something from a content host and never that it read a resolver. MITRE's
+  `TimeWindow` knob, which would tie the fetch to the follow-on connection, is a
+  cross-event correlation lib/sigma has no timeframe or join to express.
+  Coverage is also blind to a name already in the host resolver cache, to
+  DNS-over-HTTPS, to a hard-coded IP, and to any service outside the list.
+  Prerequisite: Sysmon EventID 22 requires DNS query logging to be switched on
+  in the running configuration, which several widely used community configs
+  filter heavily or omit.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0058, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1102/001
+  - https://attack.mitre.org/detectionstrategies/DET0058
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.command-and-control
+  - attack.t1102.001
+logsource:
+  category: dns_query
+  product: windows
+detection:
+  selection_process:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\certutil.exe'
+      - '\curl.exe'
+      - '\python.exe'
+      - '\pythonw.exe'
+  selection_deaddrop:
+    QueryName|endswith:
+      - 'raw.githubusercontent.com'
+      - 'gist.githubusercontent.com'
+      - 'pastebin.com'
+      - 'pastebin.pl'
+      - 'paste.ee'
+      - 'hastebin.com'
+      - 'rentry.co'
+      - 'controlc.com'
+      - 'justpaste.it'
+      - 'telegra.ph'
+      - 't.me'
+      - 'steamcommunity.com'
+  condition: selection_process and selection_deaddrop
+falsepositives:
+  - "PowerShell and curl.exe fetching bootstrap and install scripts from raw.githubusercontent.com. The documented installation command for Chocolatey, scoop, nvm-windows, oh-my-posh and a very large number of vendor and internal tools is a download from that host piped straight into the interpreter, so on any estate with developers or build agents this is the highest-volume match by a wide margin, and it is what sets the level."
+  - "Build and packaging pipelines on CI runners, where a job fetches a pinned script, manifest or checksum file from raw.githubusercontent.com or gist.githubusercontent.com on every single run, producing a steady high-rate stream from a small number of hosts that looks nothing like a human pattern."
+  - "Python tooling on analyst, engineering and data workstations that reads its configuration, wordlists, signature sets or reference datasets from raw.githubusercontent.com and gist.githubusercontent.com, which is how a great deal of open-source tooling ships data files it does not want to vendor."
+  - "Staff sharing text through a paste service. Support and engineering teams routinely put logs and configuration into pastebin.com or rentry.co, and any helper script or PowerShell one-liner that posts or retrieves one resolves the same names from a process on this list."
+level: low

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\at.exe" or (ProcessCommandLine contains "Win32_ScheduledJob" or ProcessCommandLine contains " job call create"))

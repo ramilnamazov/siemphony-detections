@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.command_line) LIKE "*add-mailboxpermission*" OR TO_LOWER(process.command_line) LIKE "*add-recipientpermission*" OR TO_LOWER(process.command_line) LIKE "*add-mailboxfolderpermission*" OR TO_LOWER(process.command_line) LIKE "*set-mailboxfolderpermission*" OR TO_LOWER(process.command_line) LIKE "*add-adpermission*")

@@ -1,0 +1,12 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\mavinject\.exe$|\\mavinject32\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i)(-INJECTRUNNING|/INJECTRUNNING|–INJECTRUNNING|—INJECTRUNNING|―INJECTRUNNING|-HMODULE|/HMODULE|–HMODULE|—HMODULE|―HMODULE)</field>
+    <description>Mavinject started with a DLL or import-descriptor injection switch</description>
+    <mitre>
+      <id>T1218.013</id>
+    </mitre>
+  </rule>
+</group>

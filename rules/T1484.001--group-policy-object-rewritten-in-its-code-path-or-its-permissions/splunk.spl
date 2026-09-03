@@ -1,0 +1,1 @@
+index=* ((EventID="5136" AND ObjectClass="groupPolicyContainer") AND (AttributeLDAPDisplayName="gPCFileSysPath" OR AttributeLDAPDisplayName="gPCMachineExtensionNames" OR AttributeLDAPDisplayName="gPCUserExtensionNames" OR AttributeLDAPDisplayName="nTSecurityDescriptor"))

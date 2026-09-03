@@ -1,0 +1,2 @@
+SecurityEvent
+| where (((((EventID == 4656 or EventID == 4670) and ObjectType =~ "Key") and ObjectName contains "\\Microsoft\\Office\\") and (ObjectName contains "\\Word\\Security" or ObjectName contains "\\Excel\\Security")) and not (ObjectName contains "\\Policies\\Microsoft\\Office"))

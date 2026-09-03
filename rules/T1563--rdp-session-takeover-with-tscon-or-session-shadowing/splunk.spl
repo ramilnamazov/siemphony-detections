@@ -1,0 +1,1 @@
+index=* (Image="*\\tscon.exe" OR (Image="*\\mstsc.exe" AND (CommandLine="*-shadow:*" OR CommandLine="*/shadow:*" OR CommandLine="*–shadow:*" OR CommandLine="*—shadow:*" OR CommandLine="*―shadow:*")))

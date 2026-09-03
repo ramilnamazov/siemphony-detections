@@ -1,0 +1,48 @@
+title: PowerShell reading or writing an alternate data stream by name
+id: 621ab722-5c86-4d5c-bed4-2832be06d7f2
+status: experimental
+description: |
+  AN1206 names three concrete signals — colon syntax in a file path,
+  ZwSetEaFile/ZwQueryEaFile API calls, and "PowerShell/Windows utilities
+  interacting with -stream parameters" — and only the last is observable as a
+  literal token in a single event. The colon-syntax signal (file.ext:ads) is
+  not a usable Sigma filter on this brief's create_stream_hash source: Sysmon
+  EventID 15 fires only for named-stream creation, so TargetFilename already
+  contains a colon on every event in that category by definition, and the two
+  existing corpus rules against non-Zone.Identifier-stream siblings of this
+  technique (T1027.006, T1204.002) already cover the Zone.Identifier-specific
+  case. The EA API calls have no Sigma-visible logsource in this brief at
+  all. So this rule instead matches process_creation where powershell.exe or
+  pwsh.exe is invoked with the -Stream parameter, which every stream-aware
+  cmdlet — Get-Content, Set-Content, Add-Content, Get-Item, Remove-Item —
+  accepts identically to name the alternate stream it targets, whether
+  reading a hidden payload out or writing one in. It cannot tell a read from
+  a write, or a malicious stream name from a legitimate one, from the command
+  line alone. Sysmon EventID 1 must be enabled and capturing CommandLine,
+  which is the default when Sysmon is installed at all (unlike Security 4688,
+  this source needs no separate audit policy for command-line capture).
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0432, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/004
+  - https://attack.mitre.org/detectionstrategies/DET0432
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.defense-evasion
+  - attack.t1564.004
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_stream_flag:
+    CommandLine|contains|windash: '-stream'
+  condition: selection_tool and selection_stream_flag
+falsepositives:
+  - "Security and IT scripts that check or strip the Zone.Identifier MOTW tag using Get-Item -Stream Zone.Identifier or a hand-rolled Unblock-File equivalent built on Get-Content/Remove-Item -Stream — the single most common legitimate reason to type -Stream on a Windows host, and indistinguishable here from a malicious write."
+  - "Backup, forensic and file-integrity tools written in PowerShell that enumerate every alternate data stream on a fileset with Get-Item -Stream * as part of routine auditing, which is the same flag this rule watches for."
+  - "Document-management, compliance and file-tagging products that store custom metadata in a named alternate stream through a PowerShell wrapper around Set-Content or Add-Content -Stream — a legitimate, intentional use of the exact same parameter this rule watches for."
+level: medium

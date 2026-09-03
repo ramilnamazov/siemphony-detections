@@ -1,0 +1,47 @@
+title: Remote connection to an administrative share by a user account
+id: a1916bf9-a5ef-4599-99fc-631ce7376f7a
+status: experimental
+description: |
+  Covers the share-access leg of AN1468: a network connection to the hidden
+  ADMIN$ or C$ share, which is how an operator stages a binary or reaches the
+  service control and task scheduler paths on a remote host. The analytic's
+  ShareName knob has no corresponding field on 4624 or 4648, so the leg is taken
+  from EventID 5140 on the same Security channel, where the share name is
+  actually recorded; the second leg — remote service creation or process
+  execution within a TimeWindow of the access — is a cross-event join Sigma
+  cannot express and must be pivoted to by hand. Machine accounts are excluded
+  because software-deployment and management agents running as SYSTEM generate
+  nearly all benign ADMIN$ traffic, and that exclusion is a known bypass: an
+  NTLM relay or coercion chain arrives as a computer account and will not alert.
+  Both share-access events are off by default and must be turned on first — 5140
+  needs the *Audit File Share* subcategory, and 5145, which additionally records
+  the file within the share, needs *Audit Detailed File Share* and is far higher
+  volume. Neither is enabled by a clean install or by the Microsoft and CIS
+  baselines, so an empty result means blind rather than quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0530, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1021/002
+  - https://attack.mitre.org/detectionstrategies/DET0530
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1021.002
+logsource:
+  product: windows
+  service: security
+detection:
+  selection_share:
+    EventID: 5140
+    ShareName|endswith:
+      - '\ADMIN$'
+      - '\C$'
+  filter_machine_accounts:
+    SubjectUserName|endswith: '$'
+  condition: selection_share and not filter_machine_accounts
+falsepositives:
+  - "Software deployment and configuration management run under a named service account rather than SYSTEM. Client push installation, patching and remote script agents connect to ADMIN$ on every managed host, which is the largest benign source that the machine-account exclusion does not remove."
+  - "Backup, inventory and vulnerability scanning tools that mount C$ across the estate on a fixed schedule, producing a broad fan-out of accesses from one or two service identities."
+  - "Helpdesk and administrator activity that is genuinely remote file copy or remote registry work. Nothing in 5140 separates an operator staging a payload from an administrator fixing a machine, which is why MITRE's UserContext knob — rare or first-time access by a given account — carries most of the discrimination in practice."
+  - "Backup or imaging software that impersonates an interactive administrator, and clustered or replicated file services that reach C$ on their partners as part of normal operation."
+level: medium

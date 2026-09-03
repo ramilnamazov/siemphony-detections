@@ -1,0 +1,65 @@
+title: Container started with a persistent restart policy
+id: 980679e3-9a2f-4164-8339-42879b80211a
+status: experimental
+description: |
+  Matches an auditd execve of the docker, podman or nerdctl client whose
+  arguments set a container restart policy of always or unless-stopped, which is
+  the mechanism this technique uses to make a container — and whatever it runs
+  inside — come back on its own after every host reboot. The client list is
+  authored for this rule: MITRE's technique text names docker and podman, and
+  nerdctl is added here as the containerd client that accepts the same flag. The
+  policy strings are MITRE's restartPolicy knob, populated here with both
+  spellings the CLI accepts, equals-separated and space-separated, so a
+  space-separated invocation is not silently missed. A `docker update
+  --restart=always` against an already-running container matches the same
+  selection, which is intended — it is the same persistence with one step fewer.
+  Three limits are structural. The flag has to be on the command line: a
+  `restart:` key in a compose file, a Podman Quadlet `.container` unit or a
+  `podman generate systemd` wrapper sets exactly the same policy with no flag
+  for this rule to see, and `docker compose up` does not match the client
+  selection either, so declarative deployments are a blind spot. The Kubernetes
+  half of AN1304 — DaemonSets, and
+  pods pinned to a host with nodeSelector or nodeName — is invisible from here,
+  because those settings live in a manifest that `kubectl apply -f` never places
+  on the command line; catching them needs the Kubernetes audit log, which this
+  brief does not offer. And the analytic's correlation of a container launch
+  with a later privilege escalation inside MITRE's TimeWindow knob is a
+  cross-event join lib/sigma cannot express, so this rule sees only the
+  persistence half. The brief's second log source, systemd unit files, is not
+  attempted: it carries no standardised Sigma field names, and inventing them
+  would produce a rule that renders in four backends and matches nothing.
+  Prerequisite: auditd does not record execve in a default install, so this rule
+  returns zero rows until a rule such as `-a always,exit -F arch=b64 -S execve`
+  is loaded, and zero rows reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0473, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1543/005
+  - https://attack.mitre.org/detectionstrategies/DET0473
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1543.005
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_client:
+    Image|endswith:
+      - '/docker'
+      - '/podman'
+      - '/nerdctl'
+  selection_policy:
+    CommandLine|contains:
+      - '--restart=always'
+      - '--restart always'
+      - '--restart=unless-stopped'
+      - '--restart unless-stopped'
+  condition: selection_client and selection_policy
+falsepositives:
+  - "Ordinary production operation, which is the loudest match by a wide margin and the reason the level is low. Long-lived service containers — reverse proxies, databases, message brokers, monitoring and log-shipping agents — are routinely started with an always or unless-stopped policy because the runtime documentation recommends exactly that for anything expected to survive a reboot."
+  - "Provisioning and configuration management re-issuing the same command on every converge. Ansible shell tasks, cloud-init runcmd blocks, Terraform remote-exec provisioners and hand-rolled deployment scripts run the identical docker run line each time they execute, so a fleet-wide converge produces one match per host regardless of whether anything actually changed."
+  - "An operator repairing a container that failed to come back after maintenance by running docker update with a restart policy against the existing container, which is a documented remediation and matches the same selection as the initial creation."
+  - "Developer workstations and CI runners bringing up local stacks by hand, where the same command with a restart flag may be typed or scripted many times a day and where auditd, if enabled at all, is usually enabled fleet-wide."
+level: low

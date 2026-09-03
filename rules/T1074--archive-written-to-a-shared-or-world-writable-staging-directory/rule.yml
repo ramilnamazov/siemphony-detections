@@ -1,0 +1,61 @@
+title: Archive written to a shared or world-writable staging directory
+id: bb06ea25-58cd-49c6-a15e-2d03a5fcbcc1
+status: experimental
+description: |
+  Detects an archive file appearing in one of the directories an operator
+  reaches for when consolidating collected data before exfiltration. AN0040
+  describes two things — the compression step and the staging location — and
+  this rule takes the location, because that is what separates Data Staged from
+  ordinary archiving: the same 7-Zip invocation is unremarkable in a user's
+  documents folder and is the technique when the output lands somewhere every
+  account on the host can read. The path list is MITRE's StagingDirectoryList
+  knob populated here with the shared and machine-scope directories, and it
+  deliberately omits `\AppData\Local\Temp\`: every installer and browser
+  download extracts an archive there, and including it would bury the signal in
+  routine software activity rather than surface it. Because the match is on the
+  written file and not on the writing process, an archive produced by a
+  hand-rolled tool with no recognisable name still matches, while a staged
+  folder of loose uncompressed files does not. Note the audit prerequisite —
+  this category is fed either by Sysmon EventID 11, whose FileCreate rules in
+  the common shipped configurations filter these paths out, or by Security 4663,
+  which needs the *Audit File System* subcategory **and** a SACL on each of
+  these folders. Neither is on in a default install, and neither is in the
+  MS or CIS baselines, so an empty result here means nothing is being recorded.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0014, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1074
+  - https://attack.mitre.org/detectionstrategies/DET0014
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1074
+logsource:
+  category: file_event
+  product: windows
+detection:
+  selection_staging_path:
+    TargetFilename|contains:
+      - '\Users\Public\'
+      - '\ProgramData\'
+      - '\Windows\Temp\'
+      - '\PerfLogs\'
+      - '\$Recycle.Bin\'
+      - '\Windows\Tasks\'
+  selection_archive_extension:
+    TargetFilename|endswith:
+      - '.7z'
+      - '.rar'
+      - '.zip'
+      - '.cab'
+      - '.tar'
+      - '.gz'
+      - '.tgz'
+      - '.iso'
+  condition: selection_staging_path and selection_archive_extension
+falsepositives:
+  - "Software distribution, patching and endpoint agents, which stage compressed payloads under ProgramData and the Windows Temp folder on every managed host. This is the rule's top talker fleet-wide and it is the reason the level is not higher; suppress by the writing process or by the vendor's own subfolder rather than by removing ProgramData, which would take the technique's most-used location with it."
+  - "Windows servicing itself, which writes .cab files into the Windows Temp folder during update installation and component repair, producing bursts on patch day across the whole estate."
+  - "Backup, log-collection and vendor diagnostic collectors that archive a directory into a shared location before uploading it — the same write, the same extension and often the same tool an operator would use, separated only by the account and the schedule behind it."
+  - "Users treating the Public user folder as the intended file-sharing location on a shared workstation, which is what that folder is for. MITRE's TimeWindow knob is aimed at the batch shape of real staging, many files in quick succession, and that burst quality is the thing to key on rather than any single write."
+level: medium

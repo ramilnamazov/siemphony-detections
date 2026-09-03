@@ -1,0 +1,61 @@
+title: Detect a process opening a browser with injection access rights
+id: 8869740e-ce8e-454e-9605-f3e0568397c8
+status: experimental
+description: |
+  Matches a process handle opened against a browser with access rights that
+  permit writing to the target's memory or creating a thread in it — the
+  "locates a running browser process, opens it with write/inject rights" step
+  that precedes a browser pivot. The mask list is MITRE's AccessMaskSet knob
+  made concrete: full access plus the read/write/operation/create-thread
+  combinations an injector requests. Browsers opening one another are filtered
+  out, because a Chromium browser process opens its own renderer children with
+  full rights continuously and would otherwise be the only thing this rule
+  ever returns. The privilege gain, module load and intranet egress that MITRE
+  correlates around this event are separate log sources and a time window, so
+  they are not represented here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0507, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1185
+  - https://attack.mitre.org/detectionstrategies/DET0507
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.t1185
+logsource:
+  category: process_access
+  product: windows
+detection:
+  selection_browser:
+    TargetImage|endswith:
+      - '\chrome.exe'
+      - '\msedge.exe'
+      - '\firefox.exe'
+      - '\brave.exe'
+      - '\opera.exe'
+      - '\iexplore.exe'
+  selection_access:
+    GrantedAccess:
+      - '0x1FFFFF'
+      - '0x1F3FFF'
+      - '0x1F1FFF'
+      - '0x1F0FFF'
+      - '0x147A'
+      - '0x143A'
+      - '0x1438'
+      - '0x0C3A'
+  filter_browser_to_browser:
+    SourceImage|endswith:
+      - '\chrome.exe'
+      - '\msedge.exe'
+      - '\firefox.exe'
+      - '\brave.exe'
+      - '\opera.exe'
+      - '\iexplore.exe'
+  condition: selection_browser and selection_access and not filter_browser_to_browser
+falsepositives:
+  - "Endpoint security agents. EDR, anti-malware and DLP products open every process on the host, browsers included, with full access rights. They are the dominant source of this event and must be excluded by SourceImage before the rule is deployed — MITRE's SignerAllowList knob is the same idea applied to the module-load side of the strategy."
+  - "Browser automation and support tooling. Selenium and Playwright drivers, accessibility software, password managers with a native host, and crash-reporting helpers legitimately open browser processes with VM_READ and thread rights; MITRE's ParentAllowList knob names exactly this class of tool."
+  - "Debuggers and profilers attached to a browser during application testing, which request full access by design. Scope with the UserContext knob so the rule watches admin workstations and servers where nobody should be automating a browser, rather than developer endpoints."
+  - "Backup, forensics and memory-acquisition agents that enumerate and open all running processes on a schedule, producing a burst of matches at the same time each day."
+level: high

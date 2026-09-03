@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\mmc.exe" and ProcessCommandLine contains ".msc") and (ProcessCommandLine contains "\\Users\\" or ProcessCommandLine contains "\\AppData\\" or ProcessCommandLine contains "\\Downloads\\" or ProcessCommandLine contains "\\Desktop\\" or ProcessCommandLine contains "\\ProgramData\\" or ProcessCommandLine contains "\\Temp\\" or ProcessCommandLine contains "\\\\"))

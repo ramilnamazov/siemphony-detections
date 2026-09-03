@@ -1,0 +1,2 @@
+SecurityEvent
+| where ((EventID == 4728 or EventID == 4732 or EventID == 4756) and (TargetSid endswith "-512" or TargetSid endswith "-518" or TargetSid endswith "-519" or TargetSid endswith "-520" or TargetSid endswith "-544" or TargetSid endswith "-548" or TargetSid endswith "-549" or TargetSid endswith "-550" or TargetSid endswith "-551" or TargetSid endswith "-555" or TargetSid endswith "-580"))

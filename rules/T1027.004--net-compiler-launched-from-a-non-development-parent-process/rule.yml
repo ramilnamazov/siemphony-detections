@@ -1,0 +1,52 @@
+title: .NET compiler launched from a non-development parent process
+id: bbbfc949-e612-4be1-b8a7-d87fa534c597
+status: experimental
+description: |
+  Matches AN1381's "compilation activity using csc.exe, ilasm.exe... initiated
+  by user-space processes outside typical development environments" in the
+  single event Sigma can carry: the compiler as Image, gated on a
+  ParentImage that is a shell, scripting host or file-explorer process rather
+  than an IDE or build tool. MITRE's ParentProcessName knob is populated here
+  with cmd.exe, powershell.exe, pwsh.exe, wscript.exe, cscript.exe, mshta.exe,
+  rundll32.exe and explorer.exe — the brief names the knob, this list is
+  authored, not MITRE's. msbuild.exe is deliberately left out of both the
+  compiler and parent lists: it is already the subject of the published
+  T1127.001 rule, which matches msbuild.exe spawning a script interpreter —
+  the opposite direction from this rule's csc.exe/ilasm.exe-as-child pattern —
+  and folding it in here would blur the two into one indistinguishable
+  observable. The brief's OutputDirectoryPath and TimeWindow knobs (where the
+  compiled binary lands, and whether it runs or calls out shortly after) have
+  no equivalent in a single process-creation event.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0501, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1027/004
+  - https://attack.mitre.org/detectionstrategies/DET0501
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1027.004
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_compiler:
+    Image|endswith:
+      - '\csc.exe'
+      - '\ilasm.exe'
+  selection_parent:
+    ParentImage|endswith:
+      - '\cmd.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\explorer.exe'
+  condition: selection_compiler and selection_parent
+falsepositives:
+  - "PowerShell's Add-Type cmdlet, which compiles inline C# through csc.exe under a CSharpCodeProvider call whenever a script or module defines a helper type — a routine pattern in administrative tooling, DSC resources and defensive scripts alike, and the most likely dominant source of matches wherever such scripts run."
+  - "Build agents and CI runners that shell out to csc.exe directly from a cmd.exe or PowerShell wrapper batch/script instead of invoking msbuild.exe or devenv.exe, common on lightweight or self-hosted build machines."
+  - "A user double-clicking a self-contained .NET installer or first-run bootstrapper launched from explorer.exe that JIT-compiles a helper assembly with ilasm.exe during setup."
+level: low

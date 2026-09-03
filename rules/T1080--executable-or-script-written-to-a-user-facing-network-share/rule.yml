@@ -1,0 +1,88 @@
+title: Executable or script written to a user-facing network share
+id: 4c5896a5-c3e9-42e6-95e6-7813bc5ba90b
+status: experimental
+description: |
+  Matches the file-drop half of AN1298 on the server side: a detailed file-share
+  access check in which the requested access includes write or append and the
+  target file inside the share carries an executable, script or shortcut
+  extension. The rule is written in the native Security 5145 vocabulary
+  (`ShareName`, `RelativeTargetName`, `AccessList`), not the Sysmon-shaped
+  `file_event` vocabulary the brief also offers, because Sysmon EventID 11
+  records the path as the writing host sees it — a drive letter on the client,
+  a local path on the file server — so a share-path gate on `TargetFilename` is
+  unreliable in both places; using that feed instead would need a field mapping
+  first. Administrative, IPC and printer-driver shares are excluded so the rule
+  stays on shares users actually browse, and the logon-script shares are
+  excluded because tampering there is T1037. Two honest limits: 5145 records the
+  access the client *requested* at the share check, not a completed write, and
+  the extension list only sees whole files dropped in — a macro appended to an
+  existing .xlsm on the share produces the same 5145 record as any other write.
+  The access check is written twice over because collectors disagree on the
+  value: the raw event data carries the unresolved message-table codes
+  `%%4417`/`%%4418`, while any collector that resolves message strings writes
+  the same access as `WriteData (or AddFile)` / `AppendData (or AddSubdirectory)`
+  — matching only the codes would silently miss every estate on the resolved
+  form. Confirm which form your pipeline stores, and that it names the field
+  `AccessList` at all, before trusting the result.
+  The MITRE `SharedPathPrefix` knob is deliberately left unpopulated here so the
+  rule is not silently scoped to one site's share names; adding a positive
+  `ShareName` gate is the first tuning step. Security 5145 requires the *Audit
+  Detailed File Share* subcategory, which is off by default and absent from the
+  Microsoft and CIS baselines — with it off this rule returns zero rows, and
+  zero rows here means blind, not quiet.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0471, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1080
+  - https://attack.mitre.org/detectionstrategies/DET0471
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.lateral-movement
+  - attack.t1080
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 5145
+    AccessList|contains:
+      - '%%4417'
+      - '%%4418'
+      - 'WriteData'
+      - 'AppendData'
+    RelativeTargetName|endswith:
+      - '.lnk'
+      - '.url'
+      - '.exe'
+      - '.dll'
+      - '.scr'
+      - '.msi'
+      - '.bat'
+      - '.cmd'
+      - '.ps1'
+      - '.vbs'
+      - '.vbe'
+      - '.js'
+      - '.jse'
+      - '.wsf'
+      - '.hta'
+      - '.jar'
+      - '.chm'
+      - '.iso'
+  filter_infrastructure_shares:
+    ShareName|endswith:
+      - '\ADMIN$'
+      - '\IPC$'
+      - '\C$'
+      - '\D$'
+      - '\E$'
+      - '\print$'
+      - '\NETLOGON'
+      - '\SYSVOL'
+  condition: selection and not filter_infrastructure_shares
+falsepositives:
+  - "Software distribution shares, where packaging automation and desktop administrators copy .exe, .msi and .dll into the share on every application release. On any estate that deploys software from a file share this is the highest-volume match by a wide margin, and it is what MITRE's SharedPathPrefix knob exists to scope away."
+  - "Folder redirection and roaming profiles, which put every user's Start Menu, Desktop and Recent items on a share — so ordinary use of Windows writes .lnk files there continuously, with no user intent involved at all."
+  - "Build and release servers publishing compiled artefacts to a shared output directory, which produces bursts of .exe, .dll and .jar writes from a service account whenever a pipeline finishes."
+  - "Users saving a shortcut or a small helper script into a team share, for instance a .lnk pointing at a frequently used subfolder or a .bat that maps a drive — benign, common, and indistinguishable from the shortcut-planting variant of this technique at the file-write event alone."
+level: low

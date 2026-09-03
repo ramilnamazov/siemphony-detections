@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(registry.path) LIKE "*\\\\control\\\\print\\\\environments\\\\*" AND TO_LOWER(registry.path) LIKE "*\\\\print processors\\\\*") AND NOT (TO_LOWER(registry.data.strings) LIKE "*winprint.dll"))

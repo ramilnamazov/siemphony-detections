@@ -1,0 +1,77 @@
+title: Command line probes the host for hypervisor vendor artefacts
+id: 24957830-c758-406c-86b2-138170f7af63
+status: experimental
+description: |
+  AN0478 describes a rapid sequence of system checks — CPU count, RAM size,
+  registry keys, running processes — used to decide whether the host is a virtual
+  machine or a sandbox. The sequence itself is not expressible: the analytic's
+  TimeWindow knob asks for a burst of enumeration events inside X seconds, and
+  lib/sigma has no aggregation, no timeframe and no near, so this rule fires on a
+  single event and cannot tell one check from a run of ten. What it can do is
+  separate VM detection from ordinary inventory, which is the whole difficulty
+  with this technique: `Get-CimInstance Win32_ComputerSystem` and `wmic bios get
+  serialnumber` are what every asset agent runs, and nothing in them is evasive.
+  The discriminator used here is that the caller must *name a hypervisor vendor*
+  in the command line — it is already looking for VMware, VirtualBox or QEMU
+  rather than asking what the machine is — so the rule ANDs a list of enumeration
+  binaries against a list of virtualization artefact strings covering the guest
+  tools services, the vendor registry hives and the ACPI table names those tools
+  register. Two things this deliberately cannot see, which matter more here than
+  in most rules. Malware that performs the same checks in-process, through the
+  WMI COM API, a CPUID instruction, a registry API call or a
+  GetAdaptersInfo MAC-prefix comparison, creates no child process and produces
+  nothing on this log source at all — process creation catches only the
+  script-and-LOLBin form of the technique, which is the minority of it. And the
+  brief's other two Windows legs do not help: Sysmon EventID 7 image_load and
+  EventID 10 process_access carry no artefact name to match on for this
+  behaviour. MITRE's ProcessAncestry and UserContext knobs are where a site adds
+  a parent-process or session filter; the binary and artefact lists below were
+  assembled here, not taken from MITRE.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0168, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1497/001
+  - https://attack.mitre.org/detectionstrategies/DET0168
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.discovery
+  - attack.t1497.001
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    Image|endswith:
+      - '\wmic.exe'
+      - '\reg.exe'
+      - '\sc.exe'
+      - '\tasklist.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cscript.exe'
+      - '\wscript.exe'
+  selection_artefact:
+    CommandLine|contains:
+      - 'VMware'
+      - 'VirtualBox'
+      - 'VBOX'
+      - 'vboxservice'
+      - 'vboxtray'
+      - 'vmtoolsd'
+      - 'vmwaretray'
+      - 'vmwareuser'
+      - 'QEMU'
+      - 'Virtual Machine'
+      - 'HARDWARE\ACPI\DSDT'
+      - 'HARDWARE\ACPI\FADT'
+      - 'HARDWARE\ACPI\RSDT'
+      - 'SYSTEM\CurrentControlSet\Services\Disk\Enum'
+      - 'SOFTWARE\Oracle\VirtualBox'
+  condition: selection_tool and selection_artefact
+falsepositives:
+  - "Guest-tools installers and updaters. VMware Tools, the VirtualBox Guest Additions and the equivalent QEMU guest agent all probe for their own service and registry keys with sc query, reg query and WMI during install, upgrade and repair, and their names sit in the artefact list by construction. On a virtualized estate this is the single largest source of matches."
+  - "Software inventory and configuration management. Detection methods in Configuration Manager applications, Intune requirement scripts, and Ansible or Puppet facts that test for VMware Tools before applying a policy re-evaluate on a fixed schedule, so the same command line recurs on every managed guest at every cycle rather than once."
+  - "Monitoring and backup agents that check guest-tools health. Hypervisor-aware backup products and NOC checks query the VMTools service state to decide whether quiesced snapshots are possible, which matches sc.exe against the VMware term on every polling interval."
+  - "Virtualization administrators and support staff troubleshooting by hand. Confirming whether a machine is a guest, or why guest tools are not reporting, is done with exactly these commands, and on a helpdesk it happens often enough to outnumber anything malicious."
+level: medium

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE ((TO_LOWER(process.executable) LIKE "*\\\\rundll32.exe" AND TO_LOWER(process.command_line) LIKE "*javascript:*") AND TO_LOWER(process.command_line) LIKE "*runhtmlapplication*")

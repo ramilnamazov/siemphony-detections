@@ -1,0 +1,55 @@
+title: Operating system and hardware metadata queried from a process
+id: 19f8bd1e-bf11-425f-8868-9f33bd092ab3
+status: experimental
+description: |
+  MITRE's Windows analytic looks for a process retrieving OS version,
+  architecture, patch level or hardware characteristics, and its two tuning
+  knobs — a time window over several discovery commands, and user context —
+  are the parts that make it a detection rather than an inventory. Sigma can
+  express neither, so this rule captures the single-event precursor: one command
+  line that asks for system metadata, through the built-in utilities, through
+  the WMI, PowerShell and .NET equivalents that avoid them, or through the
+  registry values under `Windows NT\CurrentVersion` that hold the product name
+  and build. Matching on CommandLine survives a relocated binary and reaches the
+  scripted forms that never launch a named utility, but it is defeated by
+  renaming the utility — as `Image|endswith` would be too, since only
+  `OriginalFileName` survives a rename and it does not exist for the scripted
+  forms. A query issued in-process through the WMI COM interfaces, which is how
+  most agents and installers actually read this data, produces no command line
+  at all and is invisible here. The low level reflects that a single query is
+  expected behaviour on most hosts.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0525, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1082
+  - https://attack.mitre.org/detectionstrategies/DET0525
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.discovery
+  - attack.t1082
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - 'systeminfo'
+      - 'msinfo32'
+      - 'dxdiag'
+      - 'Get-ComputerInfo'
+      - 'Win32_OperatingSystem'
+      - 'Win32_ComputerSystem'
+      - 'Win32_Processor'
+      - 'Win32_BIOS'
+      - 'csproduct get'
+      - 'wmic os get'
+      - 'Environment]::OSVersion'
+      - '/v ProductName'
+      - 'Windows NT\CurrentVersion'
+  condition: selection
+falsepositives:
+  - "Cloud and hypervisor guest tooling that runs its inventory as a script rather than in-process — Azure Run Command and custom script extensions, AWS SSM documents, and the VMware Tools or Citrix VDA maintenance tasks — which call Get-ComputerInfo or wmic os get on every host at boot and on each heartbeat. On a virtualised or cloud estate this is the largest single source of hits by a wide margin, and because it runs as SYSTEM it defeats MITRE's UserContext knob rather than being separated by it."
+  - "Asset inventory, patch management and licence-compliance agents, which run exactly these queries against every host on a schedule. MITRE's UserContext knob is the intended separator — exclude the service accounts those agents run under rather than removing the terms."
+  - "Helpdesk diagnostics and support scripts, where an operator runs systeminfo or msinfo32 while a ticket is open. This is the single-command case MITRE's TimeWindow knob is meant to distinguish from a reconnaissance burst, and no threshold is encoded in this rule."
+  - "Installer bootstrappers and deployment scripts that shell out to check the OS edition and build before proceeding, typically reg query on Windows NT\\CurrentVersion /v ProductName or a wmic os get line in a wrapper .cmd or .ps1."
+level: low

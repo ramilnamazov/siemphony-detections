@@ -1,0 +1,1 @@
+index=* (ParentImage="*\\sqlservr.exe" AND NOT ((Image="*\\sqldumper.exe" OR Image="*\\fdlauncher.exe")))

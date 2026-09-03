@@ -1,0 +1,58 @@
+title: Registry queried for credential-related value names
+id: 21677283-afa1-4adb-b7f5-54982707040b
+status: experimental
+description: |
+  Matches a command line that both names a registry-read verb against a
+  local or current-user hive and carries a credential-related keyword, which
+  is AN0694's "command-line executions or API-based registry reads targeting
+  sensitive paths like HKLM or HKCU with keyword filters such as 'password',
+  'cred', or 'logon'" — the tool and hive gates come straight from the
+  brief's example commands (`reg query HKLM /f password /t REG_SZ /s`,
+  `reg query HKCU /f password /t REG_SZ /s`). MITRE's KeywordMatch knob is
+  populated here with password, passwd, pwd, credential, cred and logon; the
+  brief names the knob, this list is authored, not sourced from MITRE. This
+  is distinct from the published T1012 rule, which matches reg query and the
+  PowerShell registry cmdlets against host/software/security keys and
+  explicitly excludes any credential keyword — the two rules cannot overlap
+  because T1012's key list contains no password-related term. ParentProcessFilter
+  and TimeWindow are not encoded; this is a single process_creation event with
+  no ancestry gate and no correlation to subsequent credential use.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0250, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1552/002
+  - https://attack.mitre.org/detectionstrategies/DET0250
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1552.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_tool:
+    CommandLine|contains:
+      - 'reg query'
+      - 'reg.exe query'
+      - 'Get-ItemProperty'
+      - 'Get-ItemPropertyValue'
+  selection_hive:
+    CommandLine|contains:
+      - 'HKLM'
+      - 'HKCU'
+      - 'HKEY_LOCAL_MACHINE'
+      - 'HKEY_CURRENT_USER'
+  selection_keyword:
+    CommandLine|contains:
+      - 'password'
+      - 'passwd'
+      - 'pwd'
+      - 'credential'
+      - 'cred'
+      - 'logon'
+  condition: selection_tool and selection_hive and selection_keyword
+falsepositives:
+  - "Administrators or scheduled compliance scripts running the exact audit command the brief itself documents — `reg query HKLM /f password /t REG_SZ /s` — to hunt for insecurely stored credentials as a hardening check rather than an attack."
+  - "Helpdesk troubleshooting of AutoAdminLogon or RDP/VPN client saved-credential settings, where an operator queries Winlogon or a client's settings key and the value names DefaultPassword or SavedPassword satisfy the keyword gate."
+  - "PowerShell configuration or inventory modules that call Get-ItemProperty broadly across a policy or application settings tree, incidentally matching a value name such as PasswordExpiryWarning or PasswordLastSet with no credential-hunting intent."
+level: medium

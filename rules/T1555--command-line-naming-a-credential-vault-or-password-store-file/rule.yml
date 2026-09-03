@@ -1,0 +1,55 @@
+title: Command line naming a credential vault or password store file
+id: 9adc6b5e-9c60-483f-981f-17c443143227
+status: experimental
+description: |
+  Matches the command-line leg of MITRE's AN1198 — a process created with a
+  password-store location on its command line — and spans the stores rather than
+  picking one: the DPAPI master key directory that unlocks the rest, the
+  Credential Manager and Vault blob directories, the browser credential databases
+  and password-manager database files, plus the vaultcmd and dpapi module
+  keywords MITRE's KeywordPatterns knob points at, with the values themselves
+  authored here. Being the parent technique's rule it necessarily overlaps its
+  sub-techniques, because at this level of ATT&CK there is no observable that is
+  credential access from password stores in general rather than from one
+  particular store; breadth across several stores in one selection is the only
+  thing that makes it a parent rule at all, and browser session cookies are left
+  out on purpose because the published T1539 rule already matches those paths.
+  The brief also offers a file-access leg, but it maps Security EventID 4663 onto
+  the Sysmon-shaped file_event category, and 4663 carries ObjectName and
+  ProcessName rather than TargetFilename, so that feed needs a field mapping
+  before anything written against it can match — this rule uses the Sysmon
+  EventID 1 process_creation vocabulary and does not touch it. Only the
+  name-it-on-the-command-line variant is visible this way: a stealer that opens
+  the same files through the Win32 API, or that reads them out of a process it
+  already controls, produces no command line to match.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0430, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1555
+  - https://attack.mitre.org/detectionstrategies/DET0430
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1555
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    CommandLine|contains:
+      - '\Microsoft\Protect\'
+      - '\Microsoft\Credentials\'
+      - '\Microsoft\Vault\'
+      - '\Login Data'
+      - 'logins.json'
+      - 'key4.db'
+      - '.kdbx'
+      - 'vaultcmd'
+      - 'dpapi::'
+  condition: selection
+falsepositives:
+  - "A password manager opened by its own user, which puts the .kdbx database path on the command line every time the database is double-clicked or the client is relaunched from a shortcut. In any estate that deploys one this is the rule's highest-volume match by a long way, and it is why the level is medium rather than high."
+  - "Backup, endpoint-DLP and profile-migration agents that walk the user profile by absolute path and name the Protect or Credentials directory as an argument. The event is byte-for-byte what a harvester produces and only the parent process and the schedule separate them."
+  - "Administrators and helpdesk scripts running vaultcmd to inventory or clear a stale saved credential, and the logon and logoff scripts on VDI and roaming-profile estates that reset the credential store on a fixed schedule across every session."
+  - "Browser profile repair scripts and browser automation harnesses pointed at a seeded profile directory, both of which name Login Data or key4.db on the command line during ordinary support work and ordinary builds."
+level: medium

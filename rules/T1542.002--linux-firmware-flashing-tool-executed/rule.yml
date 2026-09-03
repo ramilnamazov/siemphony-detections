@@ -1,0 +1,67 @@
+title: Linux firmware flashing tool executed
+id: 76e797f2-b52e-4743-b47e-ae03b0bdbd45
+status: experimental
+description: |
+  AN0917 names three signals on Linux: raw ioctl/write syscalls that write
+  firmware or controller memory, "unexpected flashing tools execution", and
+  anomalous SMART/kernel-audit firmware checksums. This rule takes only the
+  middle one. The raw syscall leg cannot be scoped honestly with the fields
+  this corpus has established for {product: linux, service: auditd}: a
+  SYSCALL record for ioctl or write carries no file path (that lives on a
+  separate PATH record auditd does not always emit for ioctl, and Sigma
+  cannot join the two), so a bare `syscall: ioctl` or `syscall: write`
+  selector would match nearly every process on the host — the same
+  over-matching failure this corpus treats as equivalent to a selector that
+  never fires. The flashing-tools leg has no such problem: it is a
+  process-identity match with `type: SYSCALL`, `syscall: execve`, and `exe`,
+  the same auditd EXECVE vocabulary already used for T1547.006. `flashrom`,
+  `fwupdmgr` and `fwupdtool` are this rule's own addition, not MITRE's, chosen
+  because unlike diagnostic tools such as `nvme` or `ethtool` — which spend
+  most invocations on read-only inventory subcommands this ruleset has no
+  field to distinguish from a firmware-write subcommand, since raw auditd
+  EXECVE carries no argv this corpus has an established field for — a
+  `flashrom` or `fwupd*` invocation has no comparably common benign
+  read-only mode; running the binary at all is itself the observable MITRE's
+  analytic asks for. AN0916, the Windows leg, is not attempted: its only
+  logsource, {category: driver_load, product: windows}, carries just
+  `ImageLoaded`, `Signed` and `Hashes`, and both ways of using them are
+  already claimed by published siblings — `Signed: false` is T1014's rule
+  verbatim, and a named-driver list is T1068's — so nothing distinct from
+  either sibling remains on that logsource. AN0918, the macOS leg, is not
+  attempted either: its only logsource, {product: macos, service:
+  unifiedlog}, has no established Sigma field vocabulary anywhere in this
+  corpus, the same blocker already recorded against that exact source for
+  T1037.002, T1036.004, T1036.006, T1053.003 and others. The Linux
+  driver-load/syslog source in AN0917 ({product: linux, service: syslog}) is
+  also unattempted for the same reason. MITRE's `AlertThresholds` knob (SMART
+  error tolerance) has no field to bind to here at all; `FirmwareImageBaseline`
+  would require a checksum comparison lib/sigma cannot express.
+  Prerequisite: raw auditd does not record execve by default; this returns
+  nothing until a rule such as `-a always,exit -F arch=b64 -S execve -k exec`
+  is loaded, and zero rows reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0323, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1542/002
+  - https://attack.mitre.org/detectionstrategies/DET0323
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.t1542.002
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection:
+    type: 'SYSCALL'
+    syscall: 'execve'
+    exe|endswith:
+      - '/flashrom'
+      - '/fwupdmgr'
+      - '/fwupdtool'
+  condition: selection
+falsepositives:
+  - "Fleet firmware-management tooling: GNOME Software / KDE Discover and the systemd-managed fwupd background service invoke fwupdmgr or fwupdtool on a timer to check for and apply Linux Vendor Firmware Service updates, which is the routine, intended way most desktop distributions patch NIC, SSD, TPM and UEFI firmware."
+  - "IT staff or a configuration-management run (Ansible, Puppet, cloud-init) deliberately re-flashing BIOS, EC or peripheral-controller firmware with flashrom during a break-fix, hardware-refresh or coreboot/firmware-security hardening project — this is legitimate use of the identical binary this rule matches on."
+level: low

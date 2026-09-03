@@ -1,0 +1,1 @@
+index=* (Image="*\\msiexec.exe" AND ((CommandLine="*http://*" OR CommandLine="*https://*" OR CommandLine="*ftp://*" OR CommandLine="*\\\\*") OR (CommandLine="*-y *" OR CommandLine="*/y *" OR CommandLine="*–y *" OR CommandLine="*—y *" OR CommandLine="*―y *" OR CommandLine="*-z *" OR CommandLine="*/z *" OR CommandLine="*–z *" OR CommandLine="*—z *" OR CommandLine="*―z *")))

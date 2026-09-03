@@ -1,0 +1,66 @@
+title: PowerShell spawns a credential prompt from a script-launched parent
+id: 8a3dcd34-7897-42b5-a281-0b4f4467d806
+status: experimental
+description: |
+  AN1440 asks for PowerShell used to mimic a UAC-style credential dialog from
+  an unexpected parent. The rule matches PowerShell or pwsh invoking the two
+  built-in ways a script raises a native Windows credential prompt —
+  Get-Credential and the underlying PromptForCredential API — while the
+  process itself was spawned from cmd.exe, wscript.exe or cscript.exe rather
+  than a normal interactive shell, which is MITRE's ParentProcessName knob
+  aimed at exactly this kind of script-chain launch. Cmdlet-name matching was
+  chosen over MITRE's own CommandLine knob example (prompt text such as
+  "Enter your password" or "CredentialRequired") because an API/cmdlet name
+  is rarer in ordinary command lines than generic prompt wording; both of
+  MITRE's example strings are now included in selection_prompt as well, so
+  the rule covers its own chosen signal and MITRE's literal suggestion
+  together. This selector only fires when Get-Credential or
+  PromptForCredential (or one of MITRE's prompt-text strings) appears
+  literally in PowerShell's own CommandLine — the directly typed or
+  -Command-inlined invocation. It is blind to the same call delivered via
+  -File <script>.ps1, where the cmdlet lives inside the script body and never
+  appears in the parent process's CommandLine, or via -EncodedCommand, whose
+  base64 payload by construction cannot contain a plaintext match — the two
+  most common real-world PowerShell delivery mechanisms for scripted,
+  non-interactive tooling. Closing that gap needs PowerShell Script Block
+  Logging (EventID 4104), whose ScriptBlockText carries deobfuscated script
+  content regardless of delivery mechanism, but 4104 is a distinct logsource
+  without a ParentImage field, so folding it into this parent-scoped rule
+  would require a second, differently-shaped analytic rather than extending
+  this one. Script Block Logging is also off by default until Group Policy
+  enables it, a prerequisite this rule does not assume and has not been
+  built to use.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0521, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1056/002
+  - https://attack.mitre.org/detectionstrategies/DET0521
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.collection
+  - attack.credential-access
+  - attack.t1056.002
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_script:
+    Image|endswith:
+      - '\powershell.exe'
+      - '\pwsh.exe'
+  selection_prompt:
+    CommandLine|contains:
+      - 'PromptForCredential'
+      - 'Get-Credential'
+      - 'Enter your password'
+      - 'CredentialRequired'
+  selection_parent:
+    ParentImage|endswith:
+      - '\cmd.exe'
+      - '\wscript.exe'
+      - '\cscript.exe'
+  condition: selection_script and selection_prompt and selection_parent
+falsepositives:
+  - "Legacy deployment tooling (PDQ Deploy, SCCM task sequences, custom install wrappers) that launches a PowerShell Get-Credential prompt from a cmd.exe batch file for interactive software installs."
+  - "A Scheduled Task action of the form cmd.exe /c powershell.exe -Command \"Get-Credential\" ..., used by legacy deployment tooling to collect a service-account credential inline rather than from a saved .ps1 file, which keeps Get-Credential literally in PowerShell's CommandLine and matches this selector by design."
+level: medium

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(user_agent) LIKE "*compatible; msie *" OR TO_LOWER(user_agent) LIKE "*mozilla/4.0*")

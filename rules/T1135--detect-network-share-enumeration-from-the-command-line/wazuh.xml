@@ -1,0 +1,11 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(net view|net\.exe view|net1 view|net1\.exe view|net share|net\.exe share|net1 share|net1\.exe share|Get-SmbShare|Win32_Share|NetShareEnum)</field>
+    <description>Detect network share enumeration from the command line</description>
+    <mitre>
+      <id>T1135</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,44 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 4 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\net\.exe$|\\net1\.exe$)</field>
+    <field name="CommandLine" type="pcre2">(?i) user </field>
+    <field name="CommandLine" type="pcre2">(?i)(/active:yes|/expires:never|/passwordreq:no|/passwordchg:no|/logonpasswordchg:no|/times:all)</field>
+    <description>Existing account altered to weaken or extend its credentials (1/4)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(Set-ADAccountPassword|Set-ADAccountControl|Set-LocalUser|Enable-LocalUser|Enable-ADAccount)</field>
+    <description>Existing account altered to weaken or extend its credentials (2/4)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+  </rule>
+
+  <rule id="100002" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="CommandLine" type="pcre2">(?i)(PasswordNeverExpires|DoesNotRequirePreAuth|AllowReversiblePasswordEncryption)</field>
+    <field name="CommandLine" type="pcre2">(?i)(Set-ADUser|Set-ADAccountControl|Set-LocalUser)</field>
+    <description>Existing account altered to weaken or extend its credentials (3/4)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+  </rule>
+
+  <rule id="100003" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\setspn\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)( -a | -s )</field>
+    <description>Existing account altered to weaken or extend its credentials (4/4)</description>
+    <mitre>
+      <id>T1098</id>
+    </mitre>
+  </rule>
+</group>

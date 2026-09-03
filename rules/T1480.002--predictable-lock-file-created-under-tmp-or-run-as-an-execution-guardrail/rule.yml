@@ -1,0 +1,61 @@
+title: Predictable lock file created under tmp or run as an execution guardrail
+id: cb6a47f6-c944-4379-8747-7d1956b36e11
+status: experimental
+description: |
+  AN0373 describes malware acquiring a lock on a predictable path such as
+  /tmp/.lock123 and diverging behaviour on success or failure. This rule takes
+  the file-access leg: an auditd PATH record naming a hidden or lock-suffixed
+  path under /tmp, or a lock-suffixed path under /var/run, which is MITRE's
+  `lockfile_path_regex` knob populated with the two examples the analytic
+  itself gives. A fourth selection matches on the audit `key` field so that a
+  watch loaded with an explicit `-k` tag (for example `mutex_lock`) still
+  catches paths the two path patterns miss, the same defense-in-depth pattern
+  used elsewhere in this corpus for unpredictable path spellings.
+  AN0373's other half — correlating the lock attempt with a rapid `exit_group`
+  or specific exit code within a short window — is not implemented. lib/sigma
+  has no join across two auditd records and no timeframe, so this rule matches
+  the lock-file touch alone, without knowing whether the process that touched
+  it then exited early or ran on normally.
+  AN0372, the Windows leg of this analytic, is not attempted. It asks for
+  `CreateMutexW` and equivalent named-object creation, but the brief's own log
+  sources for it are Sysmon EventID 1 (process creation) and EventID 11 (file
+  creation) — neither of which is the shape of a mutex-creation event, and
+  Sysmon emits no event for named kernel object creation at all. Inventing a
+  mutex field on either source would produce a rule that renders and matches
+  nothing. AN0374, the macOS leg, is not attempted either: its unifiedlog
+  source has no standardised Sigma field names, and inventing them the way
+  AN0372 would have to is the same failure mode.
+  Prerequisite: neither /tmp nor /var/run/lock is audited by default. This
+  needs explicit watch rules — `-w /tmp -p wa -k mutex_lock` and
+  `-w /var/lock -p wa -k mutex_lock` (the conventional destination of the
+  /var/run/lock symlink) — loaded before this returns any rows; without them,
+  zero rows means the sensor is blind, not that the host is clean. `-p wa`
+  matters for noise: adding read permission makes every process that merely
+  checks whether a lock exists match as well.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0132, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1480/002
+  - https://attack.mitre.org/detectionstrategies/DET0132
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1480.002
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_hidden_tmp_lock:
+    type: 'PATH'
+    name|re: '/tmp/\.[^/]*lock[^/]*$'
+  selection_var_run_lock:
+    type: 'PATH'
+    name|re: '/var/(run|lock)/[^/]*lock[^/]*$'
+  selection_watch_key:
+    key: 'mutex_lock'
+  condition: 1 of selection*
+falsepositives:
+  - "Starting an X11 session. The X server itself creates /tmp/.X0-lock (and .X1-lock, .X2-lock, etc., one per display) at every login on any Linux desktop or GUI session, which matches the hidden-tmp-lock pattern exactly and is the single loudest source of matches on any workstation fleet."
+  - "Normal use of /var/lock (the conventional target of the /var/run/lock symlink), the standard Linux location for subsystem and serial-port lock files — init scripts, setserial, mail-spool locking and similar system tooling create and remove lock files there as part of everyday service start and stop."
+  - "Terminal multiplexers and session managers such as screen and tmux, which place their own session lock files under /tmp with a lock-suffixed name for every session started."
+level: low

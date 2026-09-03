@@ -1,0 +1,1 @@
+index=* ((type="PATH" AND name="/var/lib/sss/secrets/*") OR (type="PATH" AND (name="*secrets.ldb" OR name="*secrets.mkey")))

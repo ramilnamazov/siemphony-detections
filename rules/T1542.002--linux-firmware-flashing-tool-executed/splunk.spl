@@ -1,0 +1,1 @@
+index=* (type="SYSCALL" AND syscall="execve" AND (exe="*/flashrom" OR exe="*/fwupdmgr" OR exe="*/fwupdtool"))

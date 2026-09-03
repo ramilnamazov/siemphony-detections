@@ -1,0 +1,69 @@
+title: Input-state probing tool or shell/browser history read on Linux
+id: 5844d49c-4fc6-4555-a02e-36e8f46832b2
+status: experimental
+description: |
+  AN1183 names two ways a sandbox check confirms a real user is present:
+  running a tool that reads keyboard/mouse input state (xdotool, xinput, xev),
+  and reading artifacts a real session accumulates (shell history, browser
+  profile data). Both of the brief's log-source entries for this analytic
+  resolve to the same auditd Sigma logsource, so one rule can hold both legs:
+  an auditd SYSCALL record whose `exe` is one of the three input-probing
+  tools, or a PATH record naming .bash_history or the .mozilla profile
+  directory. The brief also lists reads of /dev/input directly; that path is
+  deliberately not included as a third selection, because /dev/input is what
+  the X server and every libinput-based input driver read continuously as
+  part of normal GUI operation on any desktop session — a selection on that
+  alone would be indistinguishable from the X server simply running.
+  AN1183's `ArtifactCountThreshold` knob (alert only after N distinct
+  artifacts are touched) is not implemented; lib/sigma has no counting or
+  aggregation, so this fires on the first matching read or execution, not a
+  threshold of them.
+  AN1182, the Windows leg of this strategy, is not attempted here. Its
+  observable is process execution correlated with a preceding 4800/4801
+  workstation lock/unlock event within a time window, which is a cross-event
+  join lib/sigma cannot express — a rule on the process-creation leg alone
+  would have to guess at which registry keys or commands count as "probing
+  user activity artifacts," a specificity MITRE's own analytic description
+  does not commit to. AN1184, the macOS leg, is not attempted either: its
+  unifiedlog source has no standardised Sigma field names for the CGEventState
+  APIs or plist reads it names, and inventing them would produce a rule that
+  renders in every backend and matches nothing.
+  Prerequisite: none of these paths or syscalls are audited by default. This
+  needs an execve-auditing rule to catch the tool launches (for example
+  `-a always,exit -F arch=b64 -S execve -k input_probe`) and explicit watches
+  for the artifact paths — auditd watches take no wildcards, so covering every
+  account means either per-user `-w /home/<user>/.bash_history -p r` and
+  `-w /home/<user>/.mozilla -p r` entries or a directory-prefix syscall rule
+  over /home. Without either, this returns zero rows, which here means the
+  sensor is blind rather than that no probing occurred.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0420, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1497/002
+  - https://attack.mitre.org/detectionstrategies/DET0420
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.discovery
+  - attack.t1497.002
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_tool_exec:
+    type: 'SYSCALL'
+    exe|endswith:
+      - '/xdotool'
+      - '/xinput'
+      - '/xev'
+  selection_artifact_read:
+    type: 'PATH'
+    name|contains:
+      - '.bash_history'
+      - '.mozilla'
+  condition: 1 of selection*
+falsepositives:
+  - "Launching Firefox itself, which reads and writes its own profile under ~/.mozilla on every start — on any host where Firefox is the installed browser this is the loudest source of matches by a wide margin and is why this rule is scored low rather than higher."
+  - "Tiling window manager and keybinding daemons (i3, bspwm, and similar setups that shell out to xdotool for window focus, move or resize actions) and GUI test-automation frameworks built on xdotool, both legitimate and routine on any Linux desktop that uses them."
+  - "Interactive shell use and dotfile/backup tooling reading .bash_history as a side effect — command-line history search plugins, shell-history sync utilities, and home-directory backup jobs (rsync, borg, restic) that walk the whole home directory including this file."
+level: low

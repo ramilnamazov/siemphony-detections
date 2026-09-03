@@ -1,0 +1,52 @@
+title: Process command line references a raw volume or device path
+id: ee6ff189-ea3d-466c-a3bb-96ed818737e7
+status: experimental
+description: |
+  AN1193's `TargetObjectPattern` knob asks for a match against
+  `\Device\HarddiskVolume` or `\.\PhysicalDrive*`, but the analytic's own
+  process_access log source (Sysmon EventID 10) cannot carry it: that event's
+  only path-shaped field is `TargetImage`, the process being accessed, which
+  is always an executable path and never a device path, so a selector built
+  on it would parse, render and never fire. Process creation is the one field
+  set left in the brief that can hold the pattern at all, and only where the
+  device path is spelled out on the command line rather than passed through
+  an API — the case the technique description gives directly: `esentutl`'s
+  `/vss` switch snapshotting a database for raw copy, and the `\Device\`,
+  `PhysicalDrive` and `GLOBALROOT` literals that show up when a tool like
+  NinjaCopy or a shadow-copy-based extractor is invoked with the target
+  spelled out. A script that opens the handle programmatically without ever
+  writing the device path to its own command line — the more common shape for
+  NinjaCopy specifically — leaves no trace here; that is a real gap, not a
+  false positive, and nothing in this brief's two log sources closes it. This
+  category maps to Security EventID 4688 in the brief, not Sysmon EventID 1,
+  so it returns nothing by default: it needs the *Audit Process Creation*
+  subcategory enabled, and separately the *Include command line in process
+  creation events* policy, or `CommandLine` is logged empty and every
+  selector above is silently blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0426, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1006
+  - https://attack.mitre.org/detectionstrategies/DET0426
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1006
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection_device_path:
+    CommandLine|contains:
+      - 'PhysicalDrive'
+      - 'HarddiskVolume'
+      - 'GLOBALROOT'
+  selection_esentutl_vss:
+    Image|endswith: '\esentutl.exe'
+    CommandLine|contains: '/vss'
+  condition: 1 of selection*
+falsepositives:
+  - "Backup, imaging and disk-cloning software (Windows Server Backup, Macrium, Acronis and similar) that opens \\. hysicalDriveN or \\Device\\HarddiskVolumeN by design for sector-level backup, and forensic/incident-response imaging tools (FTK Imager CLI, WinPmem) doing the same for a legitimate collection. On any host running scheduled backups this is the highest-volume match by a wide margin."
+  - "esentutl /vss run against Windows Search, WSUS or DHCP's own ESE databases as scheduled maintenance or repair, which is the documented, non-malicious use of the same switch cited in the technique description."
+  - "Volume Shadow Copy service consumers unrelated to credential theft — System Restore, third-party snapshot-based sync tools and some antivirus scanners reference GLOBALROOT shadow-copy device paths in their own command lines when restoring or scanning a snapshot."
+level: low

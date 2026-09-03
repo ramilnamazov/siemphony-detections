@@ -1,0 +1,13 @@
+<group name="sigma,linux,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(/docker$|/kubectl$|/crictl$|/podman$|/nerdctl$)</field>
+    <field name="CommandLine" type="pcre2">(?i) exec </field>
+    <field name="CommandLine" type="pcre2">(?i)((/bin/sh|/bin/bash|/bin/ash|/bin/zsh|/bin/dash| sh | bash | ash | zsh | dash | python)|( sh$| bash$| ash$| zsh$| dash$))</field>
+    <description>Container CLI used to run a shell inside a running container</description>
+    <mitre>
+      <id>T1059.013</id>
+    </mitre>
+  </rule>
+</group>

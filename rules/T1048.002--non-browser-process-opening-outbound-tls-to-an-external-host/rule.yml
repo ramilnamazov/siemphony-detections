@@ -1,0 +1,54 @@
+title: Non-browser process opening outbound TLS to an external host
+id: 9cdfb0b2-4715-45ae-b14b-c06069965b13
+status: experimental
+description: |
+  Flags outbound TLS/HTTPS connections initiated by transfer utilities, scripting
+  hosts and LOLBins rather than by a browser or mail client, which is the network
+  leg of MITRE's AN1413 chain. The analytic's real observable is a correlation —
+  a staging or compression event followed within TimeWindow by the encrypted
+  connection — and Sigma has no construct for that, so only the encrypted-egress
+  precursor is expressed here and the staging leg has to be added by the analyst.
+  `Initiated` pins the event to a connection this host made, and the destination
+  ports are the common TLS listeners, so the rule stays inside the fields Sysmon
+  EventID 3 actually carries instead of faking certificate context it does not have.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0512, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1048/002
+  - https://attack.mitre.org/detectionstrategies/DET0512
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.exfiltration
+  - attack.t1048.002
+logsource:
+  category: network_connection
+  product: windows
+detection:
+  selection_process:
+    Image|endswith:
+      - '\curl.exe'
+      - '\wget.exe'
+      - '\certutil.exe'
+      - '\powershell.exe'
+      - '\pwsh.exe'
+      - '\cscript.exe'
+      - '\wscript.exe'
+      - '\mshta.exe'
+      - '\rundll32.exe'
+      - '\regsvr32.exe'
+      - '\python.exe'
+      - '\pythonw.exe'
+      - '\winscp.exe'
+      - '\rclone.exe'
+  selection_tls:
+    Initiated: 'true'
+    DestinationPort:
+      - 443
+      - 8443
+      - 9443
+  condition: selection_process and selection_tls
+falsepositives:
+  - "Software updaters, telemetry agents and package managers that shell out to curl.exe, bitsadmin.exe or a bundled python.exe to fetch content over HTTPS. MITRE's BinaryAllowlist knob exists for exactly this — allowlist the updater by full image path rather than by file name, since the file name is what an adversary copies."
+  - "Administrative and CI automation written in PowerShell that calls Invoke-RestMethod or Invoke-WebRequest against a SaaS or internal API. These are indistinguishable from exfiltration at the Sysmon EventID 3 level; the ConnectionDestinationScope idea behind MITRE's tuning is to keep the rule to destinations outside your corporate ranges, which this rule cannot express."
+  - "Backup and sync tooling such as rclone or WinSCP running on a schedule against an approved cloud endpoint, which produces a steady stream of matches on exactly the ports and processes selected here."
+level: medium

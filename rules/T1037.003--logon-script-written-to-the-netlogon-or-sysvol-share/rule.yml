@@ -1,0 +1,81 @@
+title: Logon script written to the NETLOGON or SYSVOL share
+id: 3453e505-7ef5-4436-8376-d75e5f775ff6
+status: experimental
+description: |
+  AN1034 correlates a Group Policy change that configures a network logon script
+  with the script later executing at logon. Of the two halves, only the change is
+  worth alerting on: the execution half fires for every user at every logon in
+  any domain that uses logon scripts at all, while the domain-wide script files
+  themselves are written only when someone edits them. So this rule takes the
+  brief's Security EventID 5145 leg and matches a detailed file-share access in
+  which the requested access includes write or append, the share is NETLOGON or
+  SYSVOL, and the target file carries a script or executable extension — the act
+  of planting or tampering with the script, on the domain controller that serves
+  it. This is the surface two neighbouring published rules deliberately leave
+  open: T1037.001 suppresses command lines naming these two shares because the
+  ordinary domain logon script would otherwise match at every logon, and the
+  T1080 share-write rule excludes them because tampering there is this technique.
+  The access check is written twice over because collectors disagree on the
+  value: raw event data carries the unresolved message-table codes
+  `%%4417`/`%%4418`, while a collector that resolves message strings writes the
+  same access as `WriteData (or AddFile)` / `AppendData (or AddSubdirectory)`.
+  Confirm which form your pipeline stores before trusting the result. MITRE's
+  `TargetObject` knob — "path to network-based script execution" — is what the
+  share gate implements, populated here with the two default domain script
+  shares; its `ParentProcessName` and `UserContext` knobs belong to the process
+  leg and have no counterpart on 5145.
+  Three limits. 5145 records the access a client requested at the share check,
+  not a completed write. Anything done on the domain controller's own filesystem
+  rather than over the share — an interactive session on the DC, or a service
+  running locally — produces no 5145 at all. And the extension list only sees the
+  file; a payload appended to an existing logon script produces the same record
+  as any other write to it. This rule is written in the native Security 5145
+  vocabulary (`ShareName`, `RelativeTargetName`, `AccessList`). 5145 requires the
+  *Audit Detailed File Share* subcategory, which is off by default and absent
+  from the Microsoft and CIS baselines — with it off this rule returns zero rows,
+  and zero rows here means blind, not quiet. The brief's third log source, System
+  EventIDs 4016 and 5312, is not used: those are Group Policy processing records
+  emitted on every host at every policy refresh, and they name no script.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0367, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1037/003
+  - https://attack.mitre.org/detectionstrategies/DET0367
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-17
+tags:
+  - attack.persistence
+  - attack.privilege-escalation
+  - attack.t1037.003
+logsource:
+  product: windows
+  service: security
+detection:
+  selection:
+    EventID: 5145
+    ShareName|endswith:
+      - '\NETLOGON'
+      - '\SYSVOL'
+    AccessList|contains:
+      - '%%4417'
+      - '%%4418'
+      - 'WriteData'
+      - 'AppendData'
+    RelativeTargetName|endswith:
+      - '.bat'
+      - '.cmd'
+      - '.ps1'
+      - '.vbs'
+      - '.vbe'
+      - '.js'
+      - '.jse'
+      - '.wsf'
+      - '.hta'
+      - '.exe'
+      - '.dll'
+  condition: selection
+falsepositives:
+  - "Domain administrators and helpdesk staff editing the logon script itself over the NETLOGON share, which is the same event this rule is looking for — a Notepad save or an Explorer copy of logon.bat produces exactly this record, and in an estate that still maintains logon scripts by hand it is the loudest source by far. Pair every match with change control rather than expecting the event to distinguish them."
+  - "Group Policy tooling writing script policies into SYSVOL: creating or editing a logon, logoff, startup or shutdown script through the Group Policy Management Console or the GroupPolicy PowerShell module drops the script file into the GPO's Machine\\Scripts or User\\Scripts folder over the same share, with the same extensions."
+  - "Software deployment done out of NETLOGON, a long-standing habit in smaller estates, where packaging staff stage installers, drive-mapping scripts and helper executables in the share and produce a burst of matching writes on every application release."
+  - "Restoring SYSVOL or the scripts folder from backup over the share after a domain controller rebuild or a replication repair, which rewrites every script file in the tree from a remote host in a single pass."
+level: medium

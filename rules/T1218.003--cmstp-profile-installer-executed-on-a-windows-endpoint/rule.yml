@@ -1,0 +1,47 @@
+title: CMSTP profile installer executed on a Windows endpoint
+id: 870f8b57-380a-4235-a58e-f8d65c25bc00
+status: experimental
+description: |
+  Matches any process creation of `cmstp.exe`. The rule is deliberately shaped as
+  an allow-list problem rather than a deny-list one: cmstp.exe accepts an
+  installation information file from anywhere, so enumerating the suspicious
+  locations an INF might sit in — %TEMP%, %APPDATA%, a UNC share, an HTTP URL —
+  leaves C:\ProgramData\, C:\PerfLogs\, C:\Windows\Tasks\ and the profile root
+  wide open, and staging the INF one directory to the side defeats the whole
+  gate. Since cmstp.exe executes essentially never on an endpoint that is not
+  having a Connection Manager profile deployed to it, matching the binary and
+  then subtracting the estate's own rollout is both broader and quieter. That
+  subtraction is what MITRE's INFPathRegex knob is for; it is left empty here
+  because the known-good profile path and the installer parent are site-specific,
+  and no value could be supplied that is correct anywhere but the site that
+  wrote it. The expected baseline on a fleet that does not deploy Connection
+  Manager profiles is zero events per year, so treat any hit as worth a look
+  before reaching for tuning. Two limits. The COM path of this technique —
+  instantiating the auto-elevated CMSTPLUA or CMLUAUTIL objects to bypass UAC,
+  which the brief names in AN0932 and in its COMInterfaceGUIDs knob — never
+  creates a cmstp.exe process at all, so it has no process-creation observable
+  and a clean board here is not absence of CMSTP abuse. And the analytic's other
+  halves, the follow-on Sysmon EventID 3 connection and the profile registry
+  write, are a time-windowed correlation Sigma cannot express, so only the
+  single-event precursor is authored here.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0328, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1218/003
+  - https://attack.mitre.org/detectionstrategies/DET0328
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.defense-evasion
+  - attack.t1218.003
+logsource:
+  category: process_creation
+  product: windows
+detection:
+  selection:
+    Image|endswith: '\cmstp.exe'
+  condition: selection
+falsepositives:
+  - "Legitimate VPN and dial-up rollout, which is what CMSTP exists for. A helpdesk or software-distribution job installing the corporate profile fires once on every endpoint it touches, and on an estate that runs Connection Manager this is the only source that matters — pin the known-good INF path and the installer parent process through MITRE's INFPathRegex knob and suppress them."
+  - "A user installing a vendor-supplied connection profile they downloaded themselves, which is indistinguishable on the command line from a staged malicious one. Baseline by the INF's signing certificate or by its name before alerting."
+  - "Imaging and provisioning scripts that install a profile under SYSTEM during first boot. These are periodic and predictable, so carve them out by parent process and time of day."
+level: high

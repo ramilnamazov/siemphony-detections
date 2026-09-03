@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(process.executable) LIKE "*\\\\winvnc.exe" OR TO_LOWER(process.executable) LIKE "*\\\\winvnc4.exe" OR TO_LOWER(process.executable) LIKE "*\\\\vncserver.exe" OR TO_LOWER(process.executable) LIKE "*\\\\vncserverui.exe" OR TO_LOWER(process.executable) LIKE "*\\\\vncviewer.exe" OR TO_LOWER(process.executable) LIKE "*\\\\tvnserver.exe" OR TO_LOWER(process.executable) LIKE "*\\\\tvnviewer.exe" OR TO_LOWER(process.executable) LIKE "*\\\\uvnc_service.exe")

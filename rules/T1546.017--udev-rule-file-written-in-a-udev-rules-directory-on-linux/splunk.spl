@@ -1,0 +1,1 @@
+index=* ((type="PATH" AND (name="*/etc/udev/rules.d/*" OR name="*/run/udev/rules.d/*" OR name="*/usr/local/lib/udev/rules.d/*")) OR (type="PATH" AND name="*/usr/lib/udev/rules.d/*") OR (type="PATH" AND name="/lib/udev/rules.d/*"))

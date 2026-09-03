@@ -1,0 +1,1 @@
+index=* ((type="SYSCALL" AND (exe="*/insmod" OR exe="*/rmmod" OR exe="*/modprobe" OR exe="*/depmod" OR exe="*/kmod")) OR (type="PATH" AND (name="*.ko" OR name="*.ko.xz" OR name="*.ko.zst" OR name="*.ko.gz")) OR (type="PATH" AND name="*/lib/modules/*"))

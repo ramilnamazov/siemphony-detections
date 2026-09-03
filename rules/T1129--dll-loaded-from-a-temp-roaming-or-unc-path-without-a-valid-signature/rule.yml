@@ -1,0 +1,46 @@
+title: DLL loaded from a temp, roaming or UNC path without a valid signature
+id: 3f695c6a-38b9-4653-b059-74daf2242d98
+status: experimental
+description: |
+  MITRE's Windows analytic for Shared Modules describes a process loading a DLL
+  from a user-writable, temp or UNC location, or from an unsigned/invalid
+  signer, shortly before or after that DLL is written to disk and the loading
+  process beacons out. Only the module load itself is a single event, so this
+  rule matches Sysmon Module Load where `ImageLoaded` sits under one of the
+  paths named by MITRE's SuspiciousPathRegex knob (%TEMP%, %APPDATA%,
+  \\server\share) and the signature is anything other than Valid — the
+  UnsignedOnly knob turned into logic. The file-write and network legs of the
+  chain need a join across three log sources and a timer, which Sigma cannot
+  express, so they are deliberately absent rather than faked with invented
+  fields.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0018, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1129
+  - https://attack.mitre.org/detectionstrategies/DET0018
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1129
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection_path:
+    ImageLoaded|contains:
+      - '\AppData\Local\Temp\'
+      - '\AppData\Roaming\'
+      - '\Windows\Temp\'
+      - '\Users\Public\'
+      - '\ProgramData\'
+      # Two literal backslashes — the prefix of a UNC path such as \\host\share\x.dll
+      - '\\\\'
+  filter_valid_signature:
+    SignatureStatus: 'Valid'
+  condition: selection_path and not filter_valid_signature
+falsepositives:
+  - "Software installers and updaters that stage their payload DLLs in %TEMP% or %ProgramData% and load them before the signing catalogue is registered, so Sysmon reports SignatureStatus as Unavailable rather than Valid. MITRE's RareSignerThreshold knob is the intended place to record which publishers a given estate expects to see loading from those paths."
+  - "Line-of-business and in-house applications deployed to %APPDATA% or run from a file share, which load their own unsigned helper DLLs on every start. These generate a steady, per-host-identical stream rather than a one-off load."
+  - "Development and build machines, where compilers, test runners and package managers load freshly produced unsigned DLLs out of temp directories continuously."
+  - "Anti-malware, EDR and telemetry agents whose signature status is reported as Unavailable because the catalogue file is not readable at load time; the loading Image is a fixed agent binary and can be excluded by path."
+level: medium

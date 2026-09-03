@@ -1,0 +1,1 @@
+index=* (type="PATH" AND (name="*/etc/xdg/autostart/*" OR name="*/.config/autostart/*") AND name="*.desktop")

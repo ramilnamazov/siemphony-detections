@@ -1,0 +1,1 @@
+index=* ((Image="*\\regsvcs.exe" OR Image="*\\regasm.exe") AND (CommandLine="*\\AppData\\Local\\Temp\\*" OR CommandLine="*\\AppData\\Roaming\\*" OR CommandLine="*\\Downloads\\*" OR CommandLine="*\\Users\\Public\\*" OR CommandLine="*\\Windows\\Temp\\*" OR CommandLine="*\\ProgramData\\*" OR CommandLine="*\\\\*"))

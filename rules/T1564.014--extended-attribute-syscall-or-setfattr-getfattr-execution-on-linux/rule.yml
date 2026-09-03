@@ -1,0 +1,78 @@
+title: Extended attribute syscall or setfattr/getfattr execution on Linux
+id: 8dcc029a-0a2e-4ae4-9c8e-195081030fc2
+status: experimental
+description: |
+  Matches AN1135's Linux chain at the two points a single auditd record can
+  carry it: a SYSCALL record naming one of the six xattr syscalls (setxattr,
+  lsetxattr, fsetxattr and their get counterparts), or an EXECVE record whose
+  argv0 is setfattr or getfattr. Both are real, single-event observables --
+  writing or reading an extended attribute always goes through one of the six
+  syscalls, and the CLI tools always execve into a process named for
+  themselves. AN1135's full three-part chain -- a namespace-scoped setfattr,
+  a size or entropy anomaly in the value written, and a later process reading
+  that value back -- collapses to the first two steps here: a raw auditd
+  SYSCALL record carries no decoded attribute name or value, only numeric
+  syscall arguments (register contents, not parsed strings), so MITRE's
+  XattrNamespaces and PayloadSizeThreshold knobs cannot be applied to it, and
+  "a later process reads the value back" is a cross-event correlation within
+  MITRE's CorrelationWindow that lib/sigma has no join or timeframe construct
+  to express. The EXECVE selection is similarly left unscoped to a namespace:
+  setfattr's `-n user.foo` argument can land in any of several argv
+  positions depending on what else is on the command line, and pinning one
+  position would silently miss the others. AN1136, the macOS leg, is not
+  attempted: its logsource, {product: macos, service: unifiedlog}, has no
+  standardised Sigma field vocabulary anywhere in this corpus, the same
+  blocker already recorded against it for T1036.004, T1552.003, T1564.001
+  and others.
+  Prerequisite: raw auditd audits neither xattr syscalls nor process
+  execution by default. This rule returns zero rows until both an xattr
+  watch (`-a always,exit -F arch=b64 -S
+  setxattr,lsetxattr,fsetxattr,getxattr,lgetxattr,fgetxattr -k xattr`) and an
+  execve watch (`-a always,exit -F arch=b64 -S execve -k exec`) are loaded --
+  and zero rows here reads as quiet when it actually means blind.
+  Second prerequisite specific to `selection_xattr_syscall`'s `syscall` field:
+  raw, uninterpreted auditd output records `syscall=` as the
+  architecture-dependent kernel syscall number, not the name string this
+  selection matches against (`setxattr` is 188 on x86_64, for example, and
+  the numbering differs on arm64). Name resolution is not universal --
+  Elastic's Auditbeat resolves it by default, but a plain-text `audit.log`
+  tail, `ausearch` without `-i`, and Wazuh's default auditd field extraction
+  all pass the number through unresolved, so on those collectors this half of
+  the rule never fires until an interpreting layer (`ausearch -i`, `laurel`,
+  or an equivalent enrichment pipeline) sits in front of it.
+  `selection_xattr_cmd`'s `a0` is unaffected by this -- EXECVE always records
+  argv as text, never as a number, regardless of collector.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0406, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1564/014
+  - https://attack.mitre.org/detectionstrategies/DET0406
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.t1564.014
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_xattr_syscall:
+    type: 'SYSCALL'
+    syscall:
+      - 'setxattr'
+      - 'lsetxattr'
+      - 'fsetxattr'
+      - 'getxattr'
+      - 'lgetxattr'
+      - 'fgetxattr'
+  selection_xattr_cmd:
+    type: 'EXECVE'
+    a0|endswith:
+      - 'setfattr'
+      - 'getfattr'
+  condition: 1 of selection*
+falsepositives:
+  - "SELinux relabeling and policy tooling -- restorecon, setfiles and semanage -- calling get/setxattr against security.selinux on every file touched during a full relabel, an fixfiles run, or routine file creation on any enforcing SELinux host; this is the highest-volume match by a wide margin and is why this rule is low rather than medium."
+  - "Backup, archive and sync tooling that preserves extended attributes -- tar with --xattrs, rsync -X, bsdtar and cp --preserve=xattr -- each of which calls get/setxattr once per file it copies or archives, producing one burst of matches per scheduled job."
+  - "Administrators and provisioning scripts running getfattr or setfattr directly to inspect or set POSIX ACLs (system.posix_acl_access) or an SELinux context as routine filesystem administration, which is the exact command this rule's selection_xattr_cmd is built to match."
+  - "Container and package-management tooling -- dockerd/containerd extracting image layers, and rpm/dpkg installing packages that carry Linux file capabilities -- calling setxattr on security.capability for every capability-bearing binary during a pull, build or install."
+level: low

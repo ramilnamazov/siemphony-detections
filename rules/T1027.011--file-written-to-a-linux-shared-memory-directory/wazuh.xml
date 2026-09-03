@@ -1,0 +1,23 @@
+<group name="sigma,linux,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="type" type="pcre2">(?i)^PATH$</field>
+    <field name="name" type="pcre2">(?i)(/dev/shm/|/run/shm/)</field>
+    <description>File written to a Linux shared-memory directory (1/2)</description>
+    <mitre>
+      <id>T1027.011</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for linux so this only evaluates relevant events. -->
+    <field name="key" type="pcre2">(?i)^shm_write$</field>
+    <description>File written to a Linux shared-memory directory (2/2)</description>
+    <mitre>
+      <id>T1027.011</id>
+    </mitre>
+  </rule>
+</group>

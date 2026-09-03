@@ -1,0 +1,1 @@
+index=* (((ParentImage="*/sshd" OR ParentImage="*/sshd-session") AND (Image="*/bash" OR Image="*/sh" OR Image="*/dash" OR Image="*/zsh")) AND (CommandLine="*base64 -d*" OR CommandLine="*base64 --decode*" OR CommandLine="*/dev/tcp/*" OR CommandLine="*nc -e*" OR CommandLine="*ncat -e*" OR CommandLine="*socat exec*" OR CommandLine="*mkfifo*" OR CommandLine="*0>&1*"))

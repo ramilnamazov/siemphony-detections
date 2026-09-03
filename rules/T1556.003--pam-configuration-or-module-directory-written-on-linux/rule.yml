@@ -1,0 +1,71 @@
+title: PAM configuration or module directory written on Linux
+id: b583512e-1718-4d09-be15-439bd77bda6b
+status: experimental
+description: |
+  AN1250 asks for file modification under /etc/pam.d/ or /lib/security/
+  correlated with unusual authentication activity. lib/sigma has no
+  cross-event join or timeframe, so this rule takes only the file-write leg —
+  an auditd PATH record naming one of MITRE's own `MonitoredPaths`, populated
+  here with the two directories MITRE names plus the modern multiarch module
+  location (/lib/x86_64-linux-gnu/security/ and /usr/lib/x86_64-linux-gnu/
+  security/), which is this rule's own addition since most current
+  distributions moved pam_unix.so and friends there rather than the legacy
+  /lib/security/ path MITRE cites. This follows the same {product: linux,
+  service: auditd} PATH-record vocabulary already established for T1053.003,
+  T1543.002 and T1546.017 in this corpus. It shares the crontab rule's exact
+  limitation: auditd's `name=` field records the path exactly as handed to
+  the syscall, so an editor that writes a temporary file and renames it into
+  /etc/pam.d/ (vi, many config-management modules) is caught by the rename
+  target, but a relative write from inside the directory (`cd /etc/pam.d &&
+  cp evil sshd`) logs only `name="sshd"` with the directory on a separate,
+  unjoinable CWD record — no path selection here can catch that form. The
+  second AN1250 logsource, {category: process_creation, product: linux}
+  covering the execve leg, is not attempted: MITRE frames it as correlating
+  with the resulting login anomaly, which is the same cross-event join this
+  rule already cannot do, and a bare "some process ran" selector on that
+  category would add no observable beyond the file write already captured
+  here. The macOS leg, AN1251, is not attempted at all: both its logsources,
+  {product: macos, service: unifiedlog} and {product: macos, service:
+  osquery}, have no established Sigma field vocabulary anywhere in this
+  corpus — osquery has never been used as a rule's logsource in this corpus,
+  and unifiedlog carries the same blocker recorded against T1037.002,
+  T1036.004, T1036.006 and others. MITRE's `TimeWindow` and `BaselineAccounts`
+  knobs (correlating the write with anomalous login patterns) go entirely
+  unimplemented for the same cross-event-join reason.
+  Prerequisite: auditd does not watch these paths by default; this returns
+  nothing until watches such as `-w /etc/pam.d -p wa -k pam_tamper` and
+  `-w /lib/x86_64-linux-gnu/security -p wa -k pam_tamper` are loaded, and zero
+  rows reads as quiet when it actually means blind.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0454, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1556/003
+  - https://attack.mitre.org/detectionstrategies/DET0454
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.persistence
+  - attack.credential-access
+  - attack.t1556.003
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_pam_config:
+    type: 'PATH'
+    name|contains: '/etc/pam.d/'
+  selection_pam_modules_legacy:
+    type: 'PATH'
+    name|contains: '/lib/security/'
+  selection_pam_modules_multiarch:
+    type: 'PATH'
+    name|contains:
+      - '/lib/x86_64-linux-gnu/security/'
+      - '/usr/lib/x86_64-linux-gnu/security/'
+  condition: 1 of selection*
+falsepositives:
+  - "Package management: apt/dpkg or dnf/rpm installing or upgrading libpam-modules, libpam-runtime, pam_krb5, sssd or any other package that ships a .so under the security/ module directories or a fragment under /etc/pam.d/, on every affected host during routine patching."
+  - "PAM reconfiguration tooling run by administrators as intended — pam-auth-update on Debian/Ubuntu, authconfig or authselect on RHEL/Fedora, or an SSSD/LDAP/Kerberos-integration rollout — which rewrites files under /etc/pam.d/ as its normal, supported mechanism."
+  - "Configuration-management convergence (Ansible, Puppet, Chef, Salt) that manages /etc/pam.d/common-auth or similar files as code and rewrites them on every run whether or not the content changed, producing a match per managed host per convergence cycle."
+  - "System backup, restore or image-provisioning tooling (rsync-based restores, cloud-init file provisioning, golden-image bakes) that lays down a full /etc tree including /etc/pam.d/ while a host is being built or recovered."
+level: low

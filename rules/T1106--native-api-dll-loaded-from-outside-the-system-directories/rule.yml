@@ -1,0 +1,57 @@
+title: Native API DLL loaded from outside the system directories
+id: 983573b7-3b35-41e2-840e-c1f5a2595b85
+status: experimental
+description: |
+  T1106 is defined by invoking the native API directly, and a syscall stub
+  executing inside a process emits no record in any log source Sigma can address
+  — so this rule takes the precursor AN1465 actually names and nothing beyond it:
+  a module load of `ntdll.dll`, `kernel32.dll` or `kernelbase.dll` from a path
+  that is not one of the directories Windows serves these modules from. Note what
+  such an event is and is not: all three are KnownDLLs, already mapped into every
+  process before user code runs, so a LoadLibrary against a private copy resolves
+  by base name to the module already present and maps nothing. What produces this
+  event is an image-section map of an on-disk copy — NtCreateSection with
+  SEC_IMAGE plus NtMapViewOfSection, the pattern unhooking tooling uses to obtain
+  a clean export table — which does drive the image-load notify routine. An
+  implant that reads the file and maps the PE into RW memory itself remains
+  invisible here. The module list is MITRE's `DllName` knob populated with the
+  three low-level providers, and the path filter carries the entire signal, so it
+  is anchored with startswith rather than contains: a contains filter would be
+  satisfied by any attacker-created directory whose path merely embeds
+  `\Windows\System32\`. It assumes Windows on C:, and it requires Sysmon EID 7
+  with ImageLoad enabled and these three modules not filtered out — ImageLoad is
+  the most expensive Sysmon event class, and the widely copied configurations
+  ship an include list that does not name them, so a quiet result usually means
+  the events were never generated.
+  UNVERIFIED — derived from MITRE ATT&CK DET0529 and never executed against logs.
+references:
+  - https://attack.mitre.org/techniques/T1106
+  - https://attack.mitre.org/detectionstrategies/DET0529
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.execution
+  - attack.t1106
+logsource:
+  category: image_load
+  product: windows
+detection:
+  selection_module:
+    ImageLoaded|endswith:
+      - '\ntdll.dll'
+      - '\kernel32.dll'
+      - '\kernelbase.dll'
+  filter_system_paths:
+    ImageLoaded|startswith:
+      - 'C:\Windows\System32\'
+      - 'C:\Windows\SysWOW64\'
+      - 'C:\Windows\WinSxS\'
+      - 'C:\Windows\SyChpe32\'
+      - 'C:\Windows\SysArm32\'
+  condition: selection_module and not filter_system_paths
+falsepositives:
+  - "Endpoint security products that keep a pristine copy of ntdll.dll in their program directory and map it as an image on every integrity check to compare against the hooked in-memory copy. This is the same SEC_IMAGE mechanism the rule is looking for, so it is indistinguishable, and on an estate running such a product it is the highest-volume match by a wide margin — which is what the medium level reflects. Exclude that product's install directory and a residual hit means considerably more."
+  - "Feature updates and servicing, which stage a complete system image under C:\\$WINDOWS.~BT\\, C:\\$WinREAgent\\ or C:\\Windows\\servicing\\ and then run setup binaries that map the staged copies of these DLLs for the duration of the upgrade."
+  - "Build and test machines, where an instrumented or debug runtime and its dependent system modules are loaded from the build output directory rather than from System32."
+  - "Imaging and offline-servicing sessions, where the running OS lives under X:\\Windows\\System32\\ in WinPE or the target image is mounted at a path such as C:\\mount\\Windows\\System32\\, so every ordinary module load in that session falls outside a filter anchored on C:\\Windows."
+level: medium

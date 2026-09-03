@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "logicaldisk" or ProcessCommandLine contains "Win32_Volume" or ProcessCommandLine contains "Win32_DiskDrive" or ProcessCommandLine contains "Get-PSDrive" or ProcessCommandLine contains "Get-Volume" or ProcessCommandLine contains "fsutil fsinfo drives" or ProcessCommandLine contains "fsutil volume diskfree")

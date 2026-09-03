@@ -1,0 +1,56 @@
+title: Process reads a private key file under a user's SSH or GPG directory
+id: 30d6c544-2f2d-43cd-9887-1c8944af7260
+status: experimental
+description: |
+  Matches AN1517's Linux observable directly off MITRE's own CommandLineMatch
+  examples — `cat ~/.ssh/id_rsa`, `tar ~/.gnupg` — by requiring a file-handling
+  tool together with a path fragment naming a private-key file or directory on
+  the same command line. The tool list covers reading, copying and archiving
+  (cat, less, cp, scp, rsync, tar, gpg, base64) rather than every possible
+  binary, since an unbounded tool list would match almost any process that
+  happens to take a path argument. AN1517's second observable — the read
+  followed by unusual shell activity or a network connection — is a correlation
+  over MITRE's TimeWindow knob that this single process_creation event cannot
+  express, so a hit here is access to the file, not confirmed exfiltration.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0549, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1552/004
+  - https://attack.mitre.org/detectionstrategies/DET0549
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.credential-access
+  - attack.t1552.004
+logsource:
+  category: process_creation
+  product: linux
+detection:
+  selection_tool:
+    Image|endswith:
+      - '/cat'
+      - '/less'
+      - '/more'
+      - '/cp'
+      - '/scp'
+      - '/rsync'
+      - '/tar'
+      - '/gpg'
+      - '/gpg2'
+      - '/base64'
+  selection_keypath:
+    CommandLine|contains:
+      - '.ssh/id_rsa'
+      - '.ssh/id_dsa'
+      - '.ssh/id_ecdsa'
+      - '.ssh/id_ed25519'
+      - '.gnupg'
+      - '.pem'
+      - '.ppk'
+      - '.p12'
+      - '.pfx'
+  condition: selection_tool and selection_keypath
+falsepositives:
+  - "Users or scripts reading their own id_rsa.pub public key to copy it into a remote authorized_keys file — the public key's path contains the same 'id_rsa' substring as the private key, so this selector cannot tell the two apart, and this is the highest-volume match by a wide margin on any host where admins manage SSH access by hand."
+  - "Configuration-management and provisioning tooling (Ansible, Chef, Puppet) or backup jobs that use scp, rsync or tar to deploy or archive a user's ~/.ssh directory during account setup, host migration or routine backup — the exact tools and paths selected here are also the standard way to do this legitimately."
+  - "Certificate-renewal automation (certbot and similar) or config-management pushing a rotated .pem or .pfx certificate to a web server, read or copied by cp or tar as part of the normal renewal hook."
+level: low

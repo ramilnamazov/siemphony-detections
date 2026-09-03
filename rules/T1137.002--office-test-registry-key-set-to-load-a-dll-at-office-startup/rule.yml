@@ -1,0 +1,44 @@
+title: Office Test registry key set to load a DLL at Office startup
+id: 6c978adf-cfef-4a00-92a3-7ddce5aced53
+status: experimental
+description: |
+  Matches a registry value written anywhere beneath the Office Test key that
+  AN0880 describes, `...\Microsoft\Office test\Special\Perf`, whose contents
+  are loaded into every Office application at startup. No Office installer
+  creates this key, so the path itself is the entire signal and no second
+  condition is needed to make it specific. The match is a `contains` on
+  TargetObject rather than an `endswith` on the key path, because the DLL is
+  normally written to the *default* value of Perf and a Sysmon EventID 13
+  record appends the value name — `\Office test\Special\Perf\(Default)` — so
+  an endswith anchored on `Perf` would miss precisely the deployment form the
+  technique uses, and a trailing backslash would miss it for the same reason.
+  Nothing to the left of `\Office test` is anchored, which is deliberate: it
+  covers the HKCU and HKLM keys MITRE lists and the Wow6432Node redirection in
+  one term, and Sysmon writes HKCU as HKU followed by the account SID, so a
+  hive prefix could not be matched literally anyway. The DLL actually loading
+  into winword.exe or excel.exe is Sysmon EventID 7 in a different log source
+  and is not covered here. Registry monitoring in a Sysmon configuration is an
+  explicit allowlist of paths, so confirm `Office test` is inside yours before
+  reading an empty result as an absence of this technique.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0315, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1137/002
+  - https://attack.mitre.org/detectionstrategies/DET0315
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-16
+tags:
+  - attack.persistence
+  - attack.t1137.002
+logsource:
+  category: registry_set
+  product: windows
+detection:
+  selection:
+    TargetObject|contains: '\Office test\Special\Perf'
+  condition: selection
+falsepositives:
+  - "The key's documented purpose — an Office engineer or a Microsoft support engineer loading a performance or debugging DLL into Office while reproducing a fault. This is the only genuinely benign use of the key, it is rare outside developer and support workstations, and it is indistinguishable from abuse on the registry event alone; the Details field carries the DLL path, which is what separates a supplied diagnostic from an attacker-staged binary."
+  - "Add-in, telemetry and DLP products that use the same hook to get their own code into every Office process. The write happens once at install, usually under a service account during a maintenance window, and MITRE's DLLPath knob is where the approved paths belong."
+  - "Purple-team and detection-validation runs, including the Atomic Red Team test for this technique, which create the key and remove it again a few seconds later. These arrive as a matched pair on a known test host."
+  - "Profile migration, roaming-profile and backup-restore tooling replaying an HKCU hive that already contained the key, which reproduces the original write on a new host without any new adversary action having taken place."
+level: high

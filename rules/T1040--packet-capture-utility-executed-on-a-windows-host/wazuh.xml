@@ -1,0 +1,23 @@
+<group name="sigma,windows,process_creation,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <!-- 2 rules: the Sigma condition ORs across different fields,
+       which one rule cannot express. Any one matching is a hit. -->
+  <rule id="100000" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)(\\dumpcap\.exe$|\\tshark\.exe$|\\rawshark\.exe$|\\windump\.exe$|\\tcpdump\.exe$|\\rawcap\.exe$|\\netcap\.exe$|\\nmcap\.exe$|\\smsniff\.exe$|\\pktmon\.exe$)</field>
+    <description>Packet capture utility executed on a Windows host (1/2)</description>
+    <mitre>
+      <id>T1040</id>
+    </mitre>
+  </rule>
+
+  <rule id="100001" level="7">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="Image" type="pcre2">(?i)\\netsh\.exe$</field>
+    <field name="CommandLine" type="pcre2">(?i)(?=.*(?:trace start))(?=.*(?:capture=yes)).*</field>
+    <description>Packet capture utility executed on a Windows host (2/2)</description>
+    <mitre>
+      <id>T1040</id>
+    </mitre>
+  </rule>
+</group>

@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where ((FolderPath endswith "\\cmd.exe" and ProcessCommandLine contains "copy /b") or (FolderPath endswith "\\expand.exe" and (ProcessCommandLine contains "-f:" or ProcessCommandLine contains "/f:" or ProcessCommandLine contains "–f:" or ProcessCommandLine contains "—f:" or ProcessCommandLine contains "―f:")) or ((FolderPath endswith "\\7z.exe" or FolderPath endswith "\\7za.exe" or FolderPath endswith "\\rar.exe" or FolderPath endswith "\\unrar.exe" or FolderPath endswith "\\winrar.exe") and ProcessCommandLine contains " -p"))

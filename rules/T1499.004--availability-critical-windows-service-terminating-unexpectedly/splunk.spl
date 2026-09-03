@@ -1,0 +1,1 @@
+index=* (Provider_Name="Service Control Manager" AND (EventID="7031" OR EventID="7034") AND (param1="*World Wide Web Publishing*" OR param1="*IIS Admin*" OR param1="*SQL Server*" OR param1="*MySQL*" OR param1="*PostgreSQL*" OR param1="*Apache*" OR param1="*Routing and Remote Access*" OR param1="*Remote Desktop Services*"))

@@ -1,0 +1,2 @@
+FROM logs-*
+| WHERE (TO_LOWER(type) == "path" AND TO_LOWER(name) == "/proc/self/status")

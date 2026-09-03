@@ -1,0 +1,14 @@
+<group name="sigma,windows,">
+  <!-- Rule ids must be unique on your manager; 100000+ is the user range. -->
+  <rule id="100000" level="5">
+    <!-- Set <if_sid> to the decoder/base rule for windows so this only evaluates relevant events. -->
+    <field name="EventID" type="pcre2">(?i)^5145$</field>
+    <field name="AccessList" type="pcre2">(?i)(%%4417|%%4418|WriteData|AppendData)</field>
+    <field name="RelativeTargetName" type="pcre2">(?i)(\.lnk$|\.url$|\.exe$|\.dll$|\.scr$|\.msi$|\.bat$|\.cmd$|\.ps1$|\.vbs$|\.vbe$|\.js$|\.jse$|\.wsf$|\.hta$|\.jar$|\.chm$|\.iso$)</field>
+    <field name="ShareName" negate="yes" type="pcre2">(?i)(\\ADMIN\$$|\\IPC\$$|\\C\$$|\\D\$$|\\E\$$|\\print\$$|\\NETLOGON$|\\SYSVOL$)</field>
+    <description>Executable or script written to a user-facing network share</description>
+    <mitre>
+      <id>T1080</id>
+    </mitre>
+  </rule>
+</group>

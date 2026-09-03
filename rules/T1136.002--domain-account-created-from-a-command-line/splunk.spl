@@ -1,0 +1,1 @@
+index=* ((((((Image="*\\net.exe" OR Image="*\\net1.exe") AND CommandLine="* user *") AND (CommandLine="* /add*" OR CommandLine="* -add*")) AND (CommandLine="* /do*" OR CommandLine="* -do*")) OR CommandLine="*New-ADUser*") OR (Image="*\\dsadd.exe" AND CommandLine="* user*"))

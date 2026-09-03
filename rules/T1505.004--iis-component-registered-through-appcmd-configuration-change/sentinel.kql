@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (FolderPath endswith "\\appcmd.exe" and (ProcessCommandLine contains "isapiFilters" or ProcessCommandLine contains "globalModules" or ProcessCommandLine contains "system.webServer/modules" or ProcessCommandLine contains "add module"))

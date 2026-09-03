@@ -1,0 +1,75 @@
+title: Shared object written into a non-standard directory Linux dynamic linker would trust
+id: 8e6ca8ba-9a5b-4840-bc01-37e0fa589c09
+status: experimental
+description: |
+  AN1209 offers three log sources and only one of them survives scrutiny.
+  Its first, `auditd:SYSCALL::execve with LD_PRELOAD ... set`, is mapped in
+  the brief to `process_creation`/linux — Image/CommandLine fields that
+  mirror a process's own argv. `LD_PRELOAD` is an environment variable, not
+  an argument: `export LD_PRELOAD=/tmp/x.so` followed by a plain command, or
+  the value set persistently in a shell-init file, never appears in that
+  child's argv at all, so a `CommandLine|contains: 'LD_PRELOAD'` selector
+  would only ever catch the narrow case of the assignment typed inline in
+  the same invocation (`env LD_PRELOAD=/tmp/x.so cmd`) and would silently
+  miss the far more common shell-export and profile-persistence forms while
+  looking like it covers the technique. Its third, `linux:osquery`, has no
+  standardised Sigma field vocabulary anywhere in this corpus — the same
+  blocker already recorded against that log source for T1011 and T1499.003.
+  What remains, and what this rule is built on, is the second: an auditd
+  `PATH` record naming a `.so` file — matched with a regex tolerant of the
+  versioned suffixes real shared objects and LD_PRELOAD payloads that mimic
+  them actually carry (`libfoo.so.1`, `libfoo.so.6.1`), since a plain
+  `endswith('.so')` misses every one of those and this is exactly the
+  version-suffix trap that defeats naive extension checks elsewhere in this
+  corpus — written into a directory the dynamic linker has no special trust
+  in but a user process can freely write to —
+  `/tmp`, `/var/tmp`, `/dev/shm` and any path under `/home`. That is
+  MITRE's own MonitoredDirectories knob, populated here with those four; a
+  library staged in one of them is the physical artefact `LD_PRELOAD` (or a
+  written `/etc/ld.so.preload` line) has to point at, regardless of which
+  mechanism set the variable or whether this rule's own execve leg saw it.
+  MITRE's CorrelationWindow knob — correlating this write with the later
+  process that actually loads the library — is not attempted: lib/sigma has
+  no aggregation or cross-event correlation, so this rule is a location-based
+  content match on one write event, nothing more. The macOS leg AN1210
+  (`DYLD_INSERT_LIBRARIES`/`DYLD_LIBRARY_PATH`) is not attempted either: its
+  log source is `macos:unifiedlog`, unstandardised in this corpus for the
+  same reason as the third leg above. A PATH record like this one is only
+  emitted for a syscall auditd is already watching, and a static `-w` watch
+  cannot cover `/tmp`/`/dev/shm`/`/home` by inode the way it can a fixed
+  file — this needs a broad `-S openat` (or `open`) audit rule with
+  `-F success=1`, which is far higher-volume than a path watch and is not
+  present in any mainstream default configuration; without it, this rule
+  returns zero rows because nothing is being recorded, not because nothing
+  was written.
+  UNVERIFIED AS AUTHORED — derived from MITRE ATT&CK DET0435, not hand-written and not tested by its author. Any lab result is on this rule's own page.
+references:
+  - https://attack.mitre.org/techniques/T1574/006
+  - https://attack.mitre.org/detectionstrategies/DET0435
+author: Siemphony pipeline (machine-derived from MITRE ATT&CK v19.2)
+date: 2026-08-18
+tags:
+  - attack.defense-evasion
+  - attack.execution
+  - attack.t1574.006
+logsource:
+  product: linux
+  service: auditd
+detection:
+  selection_path_record:
+    type: 'PATH'
+  selection_object:
+    name|re: '\.so(\.[0-9]+)*$'
+  selection_nonstandard_dir:
+    name|contains:
+      - '/tmp/'
+      - '/var/tmp/'
+      - '/dev/shm/'
+      - '/home/'
+  condition: selection_path_record and selection_object and selection_nonstandard_dir
+falsepositives:
+  - "Python virtual environments and pip installs of packages with compiled C extensions, which write new .so files under a user's home directory — inside a venv's site-packages or pip's build cache — on essentially every install of a native-extension package, the dominant benign source on any developer or data-science host."
+  - "Build and CI pipelines that compile a shared object as an intermediate artefact into /tmp or /var/tmp before installing it to its final location — autoconf/make, node-gyp native addons and R package compilation on a build agent all do this routinely."
+  - "Container image builds staging a .so file in /tmp inside an intermediate layer before COPY-ing it into the final image, which fires once per affected build on every CI run."
+  - "Desktop and session software that memory-maps or caches shared libraries under /dev/shm — some audio, graphics and IPC frameworks use it as a working area for shared library data as part of normal operation, not file staging."
+level: low

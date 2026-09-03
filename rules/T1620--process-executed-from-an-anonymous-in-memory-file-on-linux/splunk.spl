@@ -1,0 +1,1 @@
+index=* (Image="*memfd:*" AND NOT (Image="*runc_cloned:/proc/self/exe*"))

@@ -1,0 +1,1 @@
+index=* ((EventID="4768" AND PreAuthType="0" AND Status="0x0") AND NOT (TargetUserName="*$"))

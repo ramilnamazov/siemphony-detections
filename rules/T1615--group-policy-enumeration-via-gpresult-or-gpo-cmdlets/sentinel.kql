@@ -1,0 +1,2 @@
+DeviceProcessEvents
+| where (ProcessCommandLine contains "gpresult" or ProcessCommandLine contains "Get-GPO" or ProcessCommandLine contains "Get-GPResultantSetOfPolicy" or ProcessCommandLine contains "Get-DomainGPO" or ProcessCommandLine contains "Get-NetGPO")
