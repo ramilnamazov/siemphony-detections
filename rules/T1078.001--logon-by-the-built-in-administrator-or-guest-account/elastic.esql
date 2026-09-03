@@ -1,2 +1,2 @@
 FROM logs-*
-| WHERE (((event.code == 4624 AND (LogonType == 2 OR LogonType == 3 OR LogonType == 10)) OR event.code == 4648) AND (TO_LOWER(TargetUserName) == "administrator" OR TO_LOWER(TargetUserName) == "guest"))
+| WHERE (((event.code == 4624 AND (winlog.event_data.LogonType == 2 OR winlog.event_data.LogonType == 3 OR winlog.event_data.LogonType == 10)) OR event.code == 4648) AND (TO_LOWER(winlog.event_data.TargetUserName) == "administrator" OR TO_LOWER(winlog.event_data.TargetUserName) == "guest"))

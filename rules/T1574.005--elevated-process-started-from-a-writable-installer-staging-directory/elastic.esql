@@ -1,2 +1,2 @@
 FROM logs-*
-| WHERE ((TO_LOWER(IntegrityLevel) == "high" OR TO_LOWER(IntegrityLevel) == "system") AND (TO_LOWER(process.executable) LIKE "*\\\\appdata\\\\local\\\\temp\\\\*" OR TO_LOWER(process.executable) LIKE "*:\\\\windows\\\\temp\\\\*"))
+| WHERE ((TO_LOWER(winlog.event_data.IntegrityLevel) == "high" OR TO_LOWER(winlog.event_data.IntegrityLevel) == "system") AND (TO_LOWER(process.executable) LIKE "*\\\\appdata\\\\local\\\\temp\\\\*" OR TO_LOWER(process.executable) LIKE "*:\\\\windows\\\\temp\\\\*"))

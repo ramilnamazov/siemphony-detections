@@ -1,2 +1,2 @@
 FROM logs-*
-| WHERE ((event.code == 4769 AND TO_LOWER(TicketEncryptionType) == "0x17" AND TO_LOWER(Status) == "0x0") AND NOT ((TO_LOWER(service.name) LIKE "*$" OR TO_LOWER(service.name) LIKE "*krbtgt")))
+| WHERE ((event.code == 4769 AND TO_LOWER(winlog.event_data.TicketEncryptionType) == "0x17" AND TO_LOWER(winlog.event_data.Status) == "0x0") AND NOT ((TO_LOWER(service.name) LIKE "*$" OR TO_LOWER(service.name) LIKE "*krbtgt")))

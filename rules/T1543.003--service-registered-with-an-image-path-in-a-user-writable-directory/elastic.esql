@@ -1,2 +1,2 @@
 FROM logs-*
-| WHERE (event.code == 4697 AND (TO_LOWER(ServiceFileName) LIKE "*\\\\users\\\\*" OR TO_LOWER(ServiceFileName) LIKE "*\\\\temp\\\\*" OR TO_LOWER(ServiceFileName) LIKE "*\\\\programdata\\\\*" OR TO_LOWER(ServiceFileName) LIKE "*\\\\$recycle.bin\\\\*"))
+| WHERE (event.code == 4697 AND (TO_LOWER(winlog.event_data.ServiceFileName) LIKE "*\\\\users\\\\*" OR TO_LOWER(winlog.event_data.ServiceFileName) LIKE "*\\\\temp\\\\*" OR TO_LOWER(winlog.event_data.ServiceFileName) LIKE "*\\\\programdata\\\\*" OR TO_LOWER(winlog.event_data.ServiceFileName) LIKE "*\\\\$recycle.bin\\\\*"))

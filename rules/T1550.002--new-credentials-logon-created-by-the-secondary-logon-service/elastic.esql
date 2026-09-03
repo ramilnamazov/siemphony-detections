@@ -1,2 +1,2 @@
 FROM logs-*
-| WHERE (event.code == 4624 AND LogonType == 9 AND TO_LOWER(LogonProcessName) == "seclogo" AND TO_LOWER(AuthenticationPackageName) == "negotiate")
+| WHERE (event.code == 4624 AND winlog.event_data.LogonType == 9 AND TO_LOWER(winlog.event_data.LogonProcessName) == "seclogo" AND TO_LOWER(winlog.event_data.AuthenticationPackageName) == "negotiate")

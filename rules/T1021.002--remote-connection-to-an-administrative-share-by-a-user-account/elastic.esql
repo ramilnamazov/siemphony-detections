@@ -1,2 +1,2 @@
 FROM logs-*
-| WHERE ((event.code == 5140 AND (TO_LOWER(ShareName) LIKE "*\\\\admin$" OR TO_LOWER(ShareName) LIKE "*\\\\c$")) AND NOT (TO_LOWER(user.name) LIKE "*$"))
+| WHERE ((event.code == 5140 AND (TO_LOWER(winlog.event_data.ShareName) LIKE "*\\\\admin$" OR TO_LOWER(winlog.event_data.ShareName) LIKE "*\\\\c$")) AND NOT (TO_LOWER(user.name) LIKE "*$"))

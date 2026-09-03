@@ -1,2 +1,2 @@
 FROM logs-*
-| WHERE ((event.code == 4928 OR event.code == 4929) OR ((event.code == 4662 AND TO_LOWER(AccessMask) == "0x100" AND (TO_LOWER(Properties) LIKE "*1131f6ac-9c07-11d1-f79f-00c04fc2dcd2*" OR TO_LOWER(Properties) LIKE "*1131f6ab-9c07-11d1-f79f-00c04fc2dcd2*")) AND NOT (TO_LOWER(user.name) LIKE "*$")))
+| WHERE ((event.code == 4928 OR event.code == 4929) OR ((event.code == 4662 AND TO_LOWER(winlog.event_data.AccessMask) == "0x100" AND (TO_LOWER(winlog.event_data.Properties) LIKE "*1131f6ac-9c07-11d1-f79f-00c04fc2dcd2*" OR TO_LOWER(winlog.event_data.Properties) LIKE "*1131f6ab-9c07-11d1-f79f-00c04fc2dcd2*")) AND NOT (TO_LOWER(user.name) LIKE "*$")))
